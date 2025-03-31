@@ -1,31 +1,43 @@
 package edu.ptit.ttcs.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "attachment")
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
+@Getter
+@Setter
 public class Attachment {
+
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
-    
-    private String type;
-    
-    @Column(columnDefinition = "text")
+
+    @Column(name = "file_name", nullable = false)
+    private String fileName;
+
+    @Column(name = "content_type")
+    private String contentType;
+
+    @Column(name = "file_size")
+    private Long fileSize;
+
+    @Column
     private String url;
-    
+
     @Column(name = "is_delete")
     private Boolean isDelete;
-    
+
+    @ManyToOne
+    @JoinColumn(name = "issue_id")
+    private Issue issue;
+
     @ManyToOne
     @JoinColumn(name = "created_by")
-    private User createdBy;
-    
+    private User creator;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
-} 
+}

@@ -10,6 +10,8 @@ import java.util.List;
 @Repository
 public interface ProjectRepository extends JpaRepository<Project, Integer> {
     List<Project> findByOwner(User owner);
-    List<Project> findByIsPublic(Boolean isPublic);
-    List<Project> findByIsDeleted(Boolean isDeleted);
-} 
+
+    List<Project> findByIsDeletedFalse();
+
+    List<Project> findByIsPublicTrueAndIsDeletedFalse();
+}

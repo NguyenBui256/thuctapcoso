@@ -9,14 +9,14 @@ import java.util.List;
 
 @Data
 @Entity
-@Table(name = "sprints")
-public class Sprint {
+@Table(name = "epics")
+public class Epic {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false)
-    private String name;
+    private String subject;
 
     @Column(columnDefinition = "TEXT")
     private String description;
@@ -24,15 +24,6 @@ public class Sprint {
     @ManyToOne
     @JoinColumn(name = "project_id")
     private Project project;
-
-    @Column(nullable = false)
-    private LocalDateTime startDate;
-
-    @Column(nullable = false)
-    private LocalDateTime endDate;
-
-    @Column(nullable = false)
-    private String status;
 
     @ManyToOne
     @JoinColumn(name = "created_by_id")
@@ -47,6 +38,6 @@ public class Sprint {
 
     private LocalDateTime updatedDate;
 
-    @OneToMany(mappedBy = "sprint", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "epic", cascade = CascadeType.ALL)
     private List<Issue> issues = new ArrayList<>();
 }

@@ -1,38 +1,62 @@
 package edu.ptit.ttcs.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.util.HashSet;
 import java.util.Set;
 
 @Entity
-@Table(name = "user")
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class User {
+@Table(name = "users")
+@Getter
+@Setter
+public class User extends BaseEntity {
+
     @Id
-    private Integer id;
-    
-    @Column(nullable = false, unique = true)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
     private String username;
-    
-    @Column(nullable = false, unique = true)
-    private String email;
-    
-    @Column(nullable = false, columnDefinition = "text")
-    private String fullname;
-    
-    @Column(columnDefinition = "text")
-    private String bio;
-    
-    @Column(columnDefinition = "text")
-    private String avatar;
-    
-    @Column(nullable = false, columnDefinition = "text")
+
+    @Column(nullable = false)
     private String password;
-    
-    @ManyToOne
+
+    @Column(name = "full_name")
+    private String fullName;
+
+    @Column
+    private String email;
+
+    @Column
+    private String avatar;
+
+    @OneToOne
     @JoinColumn(name = "role_id")
-    private Roles role;
-} 
+    private Role role;
+
+    @OneToMany(mappedBy = "user")
+    private Set<ProjectMember> projectMembers = new HashSet<>();
+
+    @OneToMany(mappedBy = "user")
+    private Set<Activity> activities = new HashSet<>();
+
+    @OneToMany(mappedBy = "user")
+    private Set<Comment> comments = new HashSet<>();
+
+    @OneToMany(mappedBy = "user")
+    private Set<Task> tasks = new HashSet<>();
+
+    @OneToMany(mappedBy = "creator")
+    private Set<Attachment> attachments = new HashSet<>();
+
+    @OneToMany(mappedBy = "createdBy")
+    private Set<ProjectWikiPage> createdWikiPages = new HashSet<>();
+
+    @OneToMany(mappedBy = "updatedBy")
+    private Set<ProjectWikiPage> updatedWikiPages = new HashSet<>();
+
+    @OneToOne(mappedBy = "user")
+    private UserSetting userSetting;
+}

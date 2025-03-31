@@ -9,7 +9,9 @@ import java.util.List;
 
 @Repository
 public interface SprintRepository extends JpaRepository<Sprint, Integer> {
-    List<Sprint> findByStartDateBefore(LocalDateTime date);
-    List<Sprint> findByEndDateAfter(LocalDateTime date);
-    List<Sprint> findByStartDateLessThanEqualAndEndDateGreaterThanEqual(LocalDateTime date, LocalDateTime sameDate);
-} 
+    List<Sprint> findByStartDateBeforeAndEndDateAfter(LocalDateTime now, LocalDateTime now2);
+
+    List<Sprint> findByEndDateBefore(LocalDateTime now);
+
+    List<Sprint> findByStartDateAfter(LocalDateTime now);
+}

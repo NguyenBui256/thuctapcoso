@@ -1,80 +1,94 @@
 package edu.ptit.ttcs.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
-import java.time.LocalDate;
-import java.util.Set;
+import lombok.Data;
 
-@Entity
-@Table(name = "issue")
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
+@Entity
+@Table(name = "issues")
 public class Issue {
     @Id
-    @Column(name = "issue_id")
-    private Integer issueId;
-    
-    private Integer id;
-    
-    @Column(nullable = false, columnDefinition = "text")
-    private String name;
-    
-    @Column(columnDefinition = "text")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private String subject;
+
+    @Column(columnDefinition = "TEXT")
     private String description;
-    
-    @Column(name = "due_date")
-    private LocalDate dueDate;
-    
+
     @ManyToOne
     @JoinColumn(name = "status_id")
-    private PjsettingStatus status;
-    
+    private IssueStatus status;
+
     @ManyToOne
-    @JoinColumn(name = "type_id")
-    private PjsettingType type;
-    
+    @JoinColumn(name = "project_id")
+    private Project project;
+
+    @Enumerated(EnumType.STRING)
+    private IssueType type;
+
     @ManyToOne
-    @JoinColumn(name = "severity_id")
-    private PjsettingSeverity severity;
-    
+    @JoinColumn(name = "parent_id")
+    private Issue parent;
+
+    @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL)
+    private List<Issue> tasks = new ArrayList<>();
+
     @ManyToOne
-    @JoinColumn(name = "priority_id")
-    private PjsettingPriority priority;
-    
+    @JoinColumn(name = "epic_id")
+    private Epic epic;
+
+    @ManyToOne
+    @JoinColumn(name = "sprint_id")
+    private Sprint sprint;
+
+    @ManyToOne
+    @JoinColumn(name = "assignee_id")
+    private User assignee;
+
+    @ManyToOne
+    @JoinColumn(name = "created_by_id")
+    private User createdBy;
+
+    @Column(nullable = false)
+    private LocalDateTime createdDate;
+
+    @ManyToOne
+    @JoinColumn(name = "updated_by_id")
+    private User updatedBy;
+
+    private LocalDateTime updatedDate;
+
+    private Integer position;
+
+    private Integer storyPoints;
+
+    private Integer uxPoints;
+
+    private Integer designPoints;
+
+    private Integer frontPoints;
+
+    private Integer backPoints;
+
     @ManyToMany
-    @JoinTable(
-        name = "issue_tag",
-        joinColumns = @JoinColumn(name = "issue_id"),
-        inverseJoinColumns = @JoinColumn(name = "tag_id")
-    )
-    private Set<PjsettingTag> tags;
-    
-    @ManyToMany
-    @JoinTable(
-        name = "issue_user",
-        joinColumns = @JoinColumn(name = "issue_id"),
-        inverseJoinColumns = @JoinColumn(name = "id")
-    )
-    private Set<User> assignedUsers;
-    
-    @ManyToMany
-    @JoinTable(
-        name = "issue_watcher",
-        joinColumns = @JoinColumn(name = "issue_id"),
-        inverseJoinColumns = @JoinColumn(name = "id")
-    )
-    private Set<User> watchers;
-    
-    @ManyToMany
-    @JoinTable(
-        name = "issue_attachment",
-        joinColumns = @JoinColumn(name = "issue_id"),
-        inverseJoinColumns = @JoinColumn(name = "attachment_id")
-    )
-    private Set<Attachment> attachments;
-    
-    @OneToMany(mappedBy = "issue")
-    private Set<Comment> comments;
+    @JoinTable(name = "issue_tags", joinColumns = @JoinColumn(name = "issue_id"), inverseJoinColumns = @JoinColumn(name = "tag_id"))
+    private List<ProjectSettingTag> tags = new ArrayList<>();
+
+    @OneToMany(mappedBy = "issue", cascade = CascadeType.ALL)
+    private List<Attachment> attachments = new ArrayList<>();
+
+    @OneToMany(mappedBy = "issue", cascade = CascadeType.ALL)
+    private List<Comment> comments = new ArrayList<>();
+
+    @OneToMany(mappedBy = "issue", cascade = CascadeType.ALL)
+    private List<Activity> activities = new ArrayList<>();
+
+    @OneToMany(mappedBy = "issue", cascade = CascadeType.ALL)
+    private List<Watcher> watchers = new ArrayList<>();
 }
