@@ -1,26 +1,28 @@
 package edu.ptit.ttcs.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
 @Table(name = "pjsetting_point")
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class PjsettingPoint {
+@Getter
+@Setter
+public class ProjectSettingPoint extends BaseEntity {
+
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
-    
+
     @ManyToOne
     @JoinColumn(name = "project_id")
     private Project project;
-    
-    @Column(name = "prior_order")
-    private Integer priorOrder;
-    
+
+    @Column(name = "`order`")
+    private Integer order;
+
+    @Column(length = 100)
     private String name;
-    
+
     private Float point;
-} 
+}

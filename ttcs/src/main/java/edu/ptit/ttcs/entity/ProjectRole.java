@@ -1,41 +1,33 @@
 package edu.ptit.ttcs.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
-import java.time.LocalDateTime;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.util.HashSet;
 import java.util.Set;
 
 @Entity
 @Table(name = "project_role")
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class ProjectRole {
+@Getter
+@Setter
+public class ProjectRole extends BaseEntity {
+
     @Id
-    private Integer id;
-    
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
     @ManyToOne
     @JoinColumn(name = "project_id")
     private Project project;
-    
+
     @Column(name = "role_name")
     private String roleName;
-    
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-    
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-    
-    @ManyToMany
-    @JoinTable(
-        name = "permission_role",
-        joinColumns = @JoinColumn(name = "role_id"),
-        inverseJoinColumns = @JoinColumn(name = "permission_id")
-    )
-    private Set<Permissions> permissions;
-    
+
     @OneToMany(mappedBy = "projectRole")
-    private Set<ProjectMember> members;
-} 
+    private Set<ProjectMember> projectMembers = new HashSet<>();
+
+    @ManyToMany
+    @JoinTable(name = "project_role_permission", joinColumns = @JoinColumn(name = "project_role_id"), inverseJoinColumns = @JoinColumn(name = "permission_id"))
+    private Set<Permission> permissions = new HashSet<>();
+}

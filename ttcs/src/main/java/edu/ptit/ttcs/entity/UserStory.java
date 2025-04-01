@@ -1,71 +1,67 @@
 package edu.ptit.ttcs.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.Set;
 
 @Entity
 @Table(name = "user_story")
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class UserStory {
+@Getter
+@Setter
+public class UserStory extends BaseEntity {
+
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
-    
+
     @ManyToOne
     @JoinColumn(name = "sprint_id")
     private Sprint sprint;
-    
-    @Column(nullable = false, columnDefinition = "text")
+
+    @Column(nullable = false)
     private String name;
-    
-    @Column(columnDefinition = "text")
+
+    @Column(columnDefinition = "TEXT")
     private String description;
-    
+
     @Column(name = "due_date")
     private LocalDate dueDate;
-    
+
     @ManyToOne
     @JoinColumn(name = "status_id")
-    private PjsettingStatus status;
-    
+    private ProjectSettingStatus status;
+
     @Column(name = "is_block")
     private Boolean isBlock;
-    
+
     @Column(name = "ux_points")
     private Integer uxPoints;
-    
+
     @Column(name = "back_points")
     private Integer backPoints;
-    
+
     @Column(name = "front_points")
     private Integer frontPoints;
-    
+
     @Column(name = "design_points")
     private Integer designPoints;
-    
+
     @OneToMany(mappedBy = "userStory")
-    private Set<Task> tasks;
-    
-    @ManyToMany(mappedBy = "userStories")
-    private Set<PjsettingTag> tags;
-    
+    private Set<Task> tasks = new HashSet<>();
+
     @ManyToMany
-    @JoinTable(
-        name = "user_story_user",
-        joinColumns = @JoinColumn(name = "user_story_id"),
-        inverseJoinColumns = @JoinColumn(name = "user_id")
-    )
-    private Set<User> assignedUsers;
-    
+    @JoinTable(name = "user_story_tag", joinColumns = @JoinColumn(name = "id"), inverseJoinColumns = @JoinColumn(name = "tag_id"))
+    private Set<ProjectSettingTag> tags = new HashSet<>();
+
     @ManyToMany
-    @JoinTable(
-        name = "user_story_watcher",
-        joinColumns = @JoinColumn(name = "user_story_id"),
-        inverseJoinColumns = @JoinColumn(name = "user_id")
-    )
-    private Set<User> watchers;
-} 
+    @JoinTable(name = "user_story_user", joinColumns = @JoinColumn(name = "user_story_id"), inverseJoinColumns = @JoinColumn(name = "user_id"))
+    private Set<User> assignedUsers = new HashSet<>();
+
+    @ManyToMany
+    @JoinTable(name = "user_story_watcher", joinColumns = @JoinColumn(name = "user_story_id"), inverseJoinColumns = @JoinColumn(name = "user_id"))
+    private Set<User> watchers = new HashSet<>();
+}
