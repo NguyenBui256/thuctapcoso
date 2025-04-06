@@ -7,13 +7,15 @@ import edu.ptit.ttcs.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
-public interface CommentRepository extends JpaRepository<Comment, Integer> {
+public interface CommentRepository extends JpaRepository<Comment, Long> {
     List<Comment> findByUser(User user);
+
     List<Comment> findByTask(Task task);
+
     List<Comment> findByIssue(Issue issue);
-    List<Comment> findByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
-} 
+
+    List<Comment> findByIssueOrderByCreatedAtDesc(Issue issue);
+}

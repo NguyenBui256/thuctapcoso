@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "user")
+@Table(name = "users")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -14,7 +14,7 @@ public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
-    
+
     @Column(name = "username", nullable = false, unique = true)
     private String username;
     
@@ -23,10 +23,10 @@ public class User {
     
     @Column(name = "fullname", nullable = false, columnDefinition = "text")
     private String fullName;
-    
+
     @Column(name = "bio", columnDefinition = "text")
     private String bio;
-    
+
     @Column(name = "avatar", columnDefinition = "text")
     private String avatar;
     
