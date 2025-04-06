@@ -1,7 +1,7 @@
 use ttcs;
 create table module
 (
-    id          int                          not null
+    id          int  auto_increment not null
         primary key,
     name        varchar(100) charset utf8mb3 null,
     description longtext                     null
@@ -32,7 +32,7 @@ create table roles
 
 create table sprint
 (
-    id         int      not null
+    id         int auto_increment     not null
         primary key,
     name       text     not null,
     start_date datetime null,
@@ -41,7 +41,7 @@ create table sprint
 
 create table user
 (
-    id       int          not null
+    id       int   auto_increment       not null
         primary key,
     username varchar(255) not null,
     email    varchar(255) not null,
@@ -60,7 +60,7 @@ create table user
 
 create table attachment
 (
-    id         int          not null
+    id         int   auto_increment  not null
         primary key,
     type       varchar(255) null,
     url        text         null,
@@ -87,7 +87,7 @@ create index attachment_id
 
 create table notification
 (
-    id          int                         not null
+    id          int   auto_increment not null
         primary key,
     receiver_id int                         null,
     description text                        not null,
@@ -103,7 +103,7 @@ create index receiver_id
 
 create table project
 (
-    id          int                          not null
+    id          int  auto_increment not null
         primary key,
     name        varchar(100) charset utf8mb3 null,
     description longtext                     null,
@@ -117,7 +117,7 @@ create table project
 
 create table activity
 (
-    id           int                         not null
+    id           int auto_increment not null
         primary key,
     project_id   int                         null,
     user_id      int                         null,
@@ -139,7 +139,7 @@ create index user_id
 
 create table kanban_swimlane
 (
-    id         int                          not null
+    id         int auto_increment not null
         primary key,
     project_id int                          null,
     prior_order    int                          null,
@@ -153,7 +153,7 @@ create index project_id
 
 create table pjsetting_point
 (
-    id         int                          not null
+    id         int auto_increment not null
         primary key,
     project_id int                          null,
     prior_order    int                          null,
@@ -168,7 +168,7 @@ create index project_id
 
 create table pjsetting_priority
 (
-    id         int                          not null
+    id         int auto_increment not null
         primary key,
     project_id int                          null,
     prior_order    int                          null,
@@ -183,7 +183,7 @@ create index project_id
 
 create table pjsetting_severity
 (
-    id         int                          not null
+    id         int auto_increment not null
         primary key,
     project_id int                          null,
     prior_order    int                          null,
@@ -198,7 +198,7 @@ create index project_id
 
 create table pjsetting_status
 (
-    id         int                          not null
+    id         int  auto_increment not null
         primary key,
     project_id int                          null,
     prior_order    int                          null,
@@ -217,7 +217,7 @@ create index project_id
 
 create table pjsetting_tag
 (
-    id         int                          not null
+    id         int auto_increment  not null
         primary key,
     project_id int                          null,
     prior_order    int                          null,
@@ -232,7 +232,7 @@ create index project_id
 
 create table pjsetting_type
 (
-    id         int                          not null
+    id         int  auto_increment   not null
         primary key,
     project_id int                          null,
     prior_order    int                          null,
@@ -244,7 +244,7 @@ create table pjsetting_type
 
 create table issue
 (
-    issue_id    int  not null
+    issue_id    int auto_increment not null
         primary key,
     id          int  null,
     name        text not null,
@@ -347,7 +347,7 @@ create index project_id
 
 create table project_role
 (
-    id         int          not null
+    id         int auto_increment not null
         primary key,
     project_id int          null,
     role_name  varchar(255) null,
@@ -399,7 +399,7 @@ create index project_id
 
 create table project_wiki_page
 (
-    id         int          not null
+    id         int auto_increment not null
         primary key,
     project_id int          null,
     title      varchar(255) null,
@@ -428,7 +428,7 @@ create index updated_by
     on project_wiki_page (updated_by);
 
 CREATE TABLE sprint_issue (
-    id        INT NOT NULL PRIMARY KEY,
+    id        INT NOT NULL PRIMARY KEY auto_increment,
     sprint_id INT NULL,
     issue_id  INT NULL,
     CONSTRAINT sprint_issue_ibfk_1
@@ -456,7 +456,7 @@ create index attachment_id
 
 create table user_setting
 (
-    id                int                  not null
+    id                int auto_increment not null
         primary key,
     user_id           int                  null,
     email_noti_enable tinyint(1) default 1 null,
@@ -469,7 +469,7 @@ create index user_id
 
 create table user_story
 (
-    id            int                  not null
+    id            int auto_increment  not null
         primary key,
     sprint_id     int                  null,
     name          text                 not null,
@@ -490,7 +490,7 @@ create table user_story
 
 create table task
 (
-    id            int  not null
+    id            int auto_increment not null
         primary key,
     user_id       int  null,
     user_story_id int  null,
@@ -509,7 +509,7 @@ create table task
 
 create table comment
 (
-    id         int      not null
+    id         int  auto_increment    not null
         primary key,
     user_id    int      null,
     task_id    int      null,
@@ -523,6 +523,19 @@ create table comment
     constraint comment_ibfk_3
         foreign key (issue_id) references issue (issue_id)
 );
+
+create table forgot_password_tokens
+(
+    id         int auto_increment
+        primary key,
+    token      varchar(15) charset utf8mb3 not null,
+    user_id    int                         not null,
+    created_at datetime                    not null,
+    expired_at datetime                    not null,
+    constraint forgot_password_tokens_user_id_fk
+        foreign key (user_id) references user (id)
+);
+
 
 create index issue_id
     on comment (issue_id);
