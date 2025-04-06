@@ -19,7 +19,4 @@ public class Role {
 
     @Column
     private String description;
-
-    @OneToMany(mappedBy = "role", cascade = CascadeType.ALL)
-    private List<User> users = new ArrayList<>();
 }
