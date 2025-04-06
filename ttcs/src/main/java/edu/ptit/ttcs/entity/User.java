@@ -13,14 +13,14 @@ public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int id;
+    private long id;
 
     @Column(name = "username", nullable = false, unique = true)
     private String username;
-    
+
     @Column(name = "email", nullable = false, unique = true)
     private String email;
-    
+
     @Column(name = "fullname", nullable = false, columnDefinition = "text")
     private String fullName;
 
@@ -29,12 +29,12 @@ public class User {
 
     @Column(name = "avatar", columnDefinition = "text")
     private String avatar;
-    
+
     @Column(name = "password", nullable = false, columnDefinition = "text")
     private String password;
-    
+
     @ManyToOne
     @JoinColumn(name = "role_id")
     private Role role;
 
-} 
+}

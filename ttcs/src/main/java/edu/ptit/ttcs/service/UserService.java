@@ -17,32 +17,37 @@ public class UserService {
 
     private final UserRepository userRepository;
 
+    public User findById(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
+    }
+
     private final RoleRepository roleRepository;
 
-    public User saveUser(User user){
+    public User saveUser(User user) {
         user.setEmail(user.getEmail().toLowerCase());
         return userRepository.save(user);
     }
 
-    public User getUserByLogin(String login){
+    public User getUserByLogin(String login) {
         return userRepository.findByUsernameOrEmail(login).orElse(null);
     }
 
-    public User getUserByLogin(String username, String email){
+    public User getUserByLogin(String username, String email) {
         email = email.toLowerCase();
         return userRepository.findByUsernameOrEmail(username, email).orElse(null);
     }
 
-    public boolean existByEmail(String email){
+    public boolean existByEmail(String email) {
         email = email.toLowerCase();
         return userRepository.existsByEmail(email);
     }
 
-    public List<User> getAllUsersHasUsernameStartWith(String prefix){
+    public List<User> getAllUsersHasUsernameStartWith(String prefix) {
         return userRepository.findAllByUsernameStartsWith(prefix);
     }
 
-    public boolean isUserExist(String username, String email){
+    public boolean isUserExist(String username, String email) {
         return userRepository.existsByUsernameOrEmail(username, email);
     }
 
@@ -50,11 +55,11 @@ public class UserService {
         return userRepository.findByEmail(email);
     }
 
-    public Role getRoleByName(RoleName name){
+    public Role getRoleByName(RoleName name) {
         return roleRepository.findByName(name.toString()).orElse(null);
     }
 
-    public String getRandomUserDefaultAvatar(){
+    public String getRandomUserDefaultAvatar() {
         Random random = new Random();
         int x = random.nextInt(5) + 1;
         int r, g, b;
