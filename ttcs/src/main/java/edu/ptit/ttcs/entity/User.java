@@ -2,7 +2,6 @@ package edu.ptit.ttcs.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import java.util.Set;
 
 @Entity
 @Table(name = "user")
@@ -11,28 +10,31 @@ import java.util.Set;
 @AllArgsConstructor
 @Builder
 public class User {
+
     @Id
-    private Integer id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
     
-    @Column(nullable = false, unique = true)
+    @Column(name = "username", nullable = false, unique = true)
     private String username;
     
-    @Column(nullable = false, unique = true)
+    @Column(name = "email", nullable = false, unique = true)
     private String email;
     
-    @Column(nullable = false, columnDefinition = "text")
-    private String fullname;
+    @Column(name = "fullname", nullable = false, columnDefinition = "text")
+    private String fullName;
     
-    @Column(columnDefinition = "text")
+    @Column(name = "bio", columnDefinition = "text")
     private String bio;
     
-    @Column(columnDefinition = "text")
+    @Column(name = "avatar", columnDefinition = "text")
     private String avatar;
     
-    @Column(nullable = false, columnDefinition = "text")
+    @Column(name = "password", nullable = false, columnDefinition = "text")
     private String password;
     
     @ManyToOne
     @JoinColumn(name = "role_id")
-    private Roles role;
+    private Role role;
+
 } 
