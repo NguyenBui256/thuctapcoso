@@ -46,6 +46,10 @@ public class UserService {
         return userRepository.existsByUsernameOrEmail(username, email);
     }
 
+    public User getUserByEmail(String email) {
+        return userRepository.findByEmail(email);
+    }
+
     public Role getRoleByName(RoleName name){
         return roleRepository.findByName(name.toString()).orElse(null);
     }

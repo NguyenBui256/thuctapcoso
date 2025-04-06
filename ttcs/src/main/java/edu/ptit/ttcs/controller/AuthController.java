@@ -40,7 +40,7 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody @Valid LoginDTO dto) {
-        AuthResponse res = authService.login(dto);
+        AuthResponse res = authService.login(dto, false);
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, getRefreshTokenCookie(res.getRefreshToken()).toString())
                 .body(Map.of(

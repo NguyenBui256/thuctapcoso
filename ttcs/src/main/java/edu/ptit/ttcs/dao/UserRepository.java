@@ -27,4 +27,7 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     boolean existsByEmail(String email);
 
     List<User> findAllByUsernameStartsWith(String username);
+
+    @Query("SELECT u from User u WHERE u.email=lower(?1)")
+    User findByEmail(String email);
 }

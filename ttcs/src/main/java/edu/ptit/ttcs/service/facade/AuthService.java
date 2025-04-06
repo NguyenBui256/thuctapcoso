@@ -94,12 +94,13 @@ public class AuthService {
         );
     }
 
-    public AuthResponse login(LoginDTO dto){
+    public AuthResponse login(LoginDTO dto, boolean oauth){
         User user = userService.getUserByLogin(dto.getLogin());
         if(user == null){
             throw new RequestException("Thông tin đăng nhập không tồn tại");
         }
-        if(!passwordEncoder.matches(dto.getPassword(), user.getPassword())){
+        if((!oauth && !passwordEncoder.matches(dto.getPassword(), user.getPassword()))
+            || (oauth && !dto.getPassword().equals(user.getPassword()))){
             throw new RequestException("Mật khẩu không chính xác");
         }
         String refreshToken = jwtService.generateRefreshToken(user, new HashMap<>());
@@ -114,12 +115,12 @@ public class AuthService {
     public AuthResponse oauthLogin(String provider, String code) {
         OauthProvider prov = OauthProvider.fromString(provider);
         Oauth2UserInfo userInfo = oauth2Service.getUserInfo(prov, code);
-        boolean existed = userService.existByEmail(userInfo.getEmail());
-        if(existed){
+        User user = userService.getUserByEmail(userInfo.getEmail());
+        if(user != null){
             return login(LoginDTO.builder()
                     .login(userInfo.getEmail())
-                    .password("")
-                    .build());
+                    .password(user.getPassword())
+                    .build(), true);
         }
         else{
             return register(RegistrationDTO.builder()
