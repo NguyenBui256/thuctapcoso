@@ -1,4 +1,4 @@
-package edu.ptit.ttcs.entity.dto;
+package edu.ptit.ttcs.dto;
 
 import lombok.Data;
 
@@ -9,4 +9,5 @@ public class CreateProjectDTO {
     private Boolean isPublic;
     private String logoUrl;
     private String projectType; // "SCRUM" or "KANBAN"
+    private Long ownerId;
 }

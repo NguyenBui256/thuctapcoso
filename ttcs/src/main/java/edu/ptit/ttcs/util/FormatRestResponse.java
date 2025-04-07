@@ -9,7 +9,7 @@ import org.springframework.http.server.ServletServerHttpResponse;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
 
-import com.example.cosmeticsshop.domain.response.RestResponse;
+import edu.ptit.ttcs.dto.RestResponse;
 import com.example.cosmeticsshop.util.annotation.ApiMessage;
 
 import jakarta.servlet.http.HttpServletResponse;
