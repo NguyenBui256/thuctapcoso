@@ -1,10 +1,9 @@
 import axios from 'axios';
-
-const API_URL = 'http://localhost:8080/api/projects';
+import { BASE_API_URL } from '../common/constants';
 
 // Create axios instance with default config
 const api = axios.create({
-    baseURL: 'http://localhost:8080',
+    baseURL: BASE_API_URL,
     withCredentials: true,
     headers: {
         'Content-Type': 'application/json',
@@ -12,70 +11,173 @@ const api = axios.create({
     }
 });
 
+// Add request interceptor to add auth token
+api.interceptors.request.use(
+    (config) => {
+        const token = localStorage.getItem('access_token');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => {
+        console.error('Request interceptor error:', error);
+        return Promise.reject(error);
+    }
+);
+
+// Add response interceptor to handle 401 errors
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        console.error('Response interceptor error:', error.response?.data || error.message);
+        if (error.response?.status === 401) {
+            window.location.href = '/login';
+        }
+        return Promise.reject(error);
+    }
+);
+
 export const projectService = {
     // Get all projects with pagination
     getAllProjects: async (page = 0, size = 10) => {
-        const response = await api.get(`/api/projects?page=${page}&size=${size}`);
-        return response.data;
+        try {
+            const response = await api.get('/v1/projects', {
+                params: { page, size }
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching projects:', error.response?.data || error.message);
+            throw error;
+        }
     },
 
     // Get project by ID
     getProjectById: async (id) => {
-        const response = await api.get(`/api/projects/${id}`);
-        return response.data;
+        try {
+            const response = await api.get(`/v1/projects/${id}`);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching project by ID:', error.response?.data || error.message);
+            throw error;
+        }
     },
 
     // Get projects by user ID
     getProjectsByUser: async (userId) => {
-        const response = await api.get(`/api/projects/user/${userId}`);
-        return response.data;
+        try {
+            const response = await api.get(`/v1/projects/user/${userId}`);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching user projects:', error.response?.data || error.message);
+            throw error;
+        }
     },
 
     // Create new project
-    createProject: async (project) => {
-        const response = await api.post('/api/projects', project);
-        return response.data;
+    createProject: async (projectData) => {
+        try {
+            console.log('Creating project with data:', projectData);
+            const response = await api.post('/v1/projects', projectData);
+            console.log('Project created successfully:', response.data);
+            return response.data;
+        } catch (error) {
+            console.error('Error creating project:', {
+                status: error.response?.status,
+                data: error.response?.data,
+                message: error.message
+            });
+            throw error;
+        }
     },
 
     // Update project
     updateProject: async (id, projectData) => {
-        const response = await api.put(`/api/projects/${id}`, projectData);
-        return response.data;
+        try {
+            const response = await api.put(`/v1/projects/${id}`, projectData);
+            return response.data;
+        } catch (error) {
+            console.error('Error updating project:', error.response?.data || error.message);
+            throw error;
+        }
     },
 
     // Delete project
     deleteProject: async (id) => {
-        await api.delete(`/api/projects/${id}`);
+        try {
+            await api.delete(`/v1/projects/${id}`);
+        } catch (error) {
+            console.error('Error deleting project:', error.response?.data || error.message);
+            throw error;
+        }
     },
 
     // Get public projects with pagination
     getPublicProjects: async (page = 0, size = 10) => {
-        const response = await api.get(`/api/projects/public?page=${page}&size=${size}`);
-        return response.data;
+        try {
+            const response = await api.get(`/v1/projects/public`, {
+                params: { page, size }
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching public projects:', error.response?.data || error.message);
+            throw error;
+        }
     },
 
-    // Get projects for duplication
+    // Get projects that can be duplicated
     getProjectsForDuplication: async () => {
-        const response = await api.get('/api/projects/duplicate');
-        return response.data;
+        try {
+            const response = await api.get('/v1/projects', {
+                params: { page: 0, size: 100 } // Get all projects
+            });
+            console.log('Projects API Response:', response.data);
+
+            // Check if response has data and content
+            if (response.data && response.data.data && response.data.data.content) {
+                return response.data.data.content;
+            }
+
+            // If none of the above, return empty array
+            console.warn('Unexpected API response format:', response.data);
+            return [];
+        } catch (error) {
+            console.error('Error fetching projects for duplication:', error.response?.data || error.message);
+            throw error;
+        }
     },
 
     // Duplicate project
     duplicateProject: async (projectId, formData) => {
-        const response = await api.post(`/api/projects/${projectId}/duplicate`, formData);
-        return response.data;
+        try {
+            const response = await api.post(`/v1/projects/${projectId}/duplicate`, formData);
+            return response.data;
+        } catch (error) {
+            console.error('Error duplicating project:', error.response?.data || error.message);
+            throw error;
+        }
     },
 
     getProjectNotificationSetting: async (projectId) => {
-        const response = await api.get(`/api/notifications/settings/project/${projectId}`);
-        return response.data;
+        try {
+            const response = await api.get(`/v1/notifications/settings/project/${projectId}`);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching notification settings:', error.response?.data || error.message);
+            throw error;
+        }
     },
 
     updateNotificationSetting: async (projectId, setting) => {
-        const response = await api.put('/api/notifications/settings', {
-            projectId,
-            notificationType: setting
-        });
-        return response.data;
+        try {
+            const response = await api.put('/v1/notifications/settings', {
+                projectId,
+                notificationType: setting
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error updating notification settings:', error.response?.data || error.message);
+            throw error;
+        }
     }
 }; 

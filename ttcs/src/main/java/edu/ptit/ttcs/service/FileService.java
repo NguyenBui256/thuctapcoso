@@ -1,4 +1,4 @@
-package com.example.cosmeticsshop.service;
+package edu.ptit.ttcs.service;
 
 import java.io.File;
 import java.io.FileInputStream;

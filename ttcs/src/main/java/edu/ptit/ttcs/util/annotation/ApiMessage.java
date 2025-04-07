@@ -1,4 +1,4 @@
-package com.example.cosmeticsshop.util.annotation;
+package edu.ptit.ttcs.util.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

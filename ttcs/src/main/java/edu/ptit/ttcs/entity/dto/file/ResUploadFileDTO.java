@@ -1,4 +1,4 @@
-package com.example.cosmeticsshop.domain.file;
+package edu.ptit.ttcs.entity.dto.file;
 
 import java.time.Instant;
 

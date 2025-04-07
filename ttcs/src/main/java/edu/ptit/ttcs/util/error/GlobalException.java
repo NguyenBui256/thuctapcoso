@@ -1,4 +1,4 @@
-package com.example.cosmeticsshop.util.error;
+package edu.ptit.ttcs.util.error;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
-import com.example.cosmeticsshop.domain.response.RestResponse;
+import edu.ptit.ttcs.entity.dto.RestResponse;
 
 @RestControllerAdvice
 public class GlobalException {

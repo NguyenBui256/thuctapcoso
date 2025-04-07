@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -80,14 +79,12 @@ button:focus-visible {
   }
 }
  */
-=======
-@import "tailwindcss";
 
 @layer base {
+
   input[type="number"]::-webkit-inner-spin-button,
   input[type="number"]::-webkit-outer-spin-button {
     -webkit-appearance: none;
     margin: 0;
   }
 }
->>>>>>> 326cfeaee077330fcdfa96be99c6affd41233ff3

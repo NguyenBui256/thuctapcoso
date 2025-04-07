@@ -30,6 +30,7 @@ public class ProjectService {
     private final ProjectRepository projectRepository;
     private final ModuleRepository moduleRepository;
     private final ProjectMapper projectMapper;
+    private final SecurityUtils securityUtils;
 
     @Transactional
     public Project save(Project project) {
@@ -96,7 +97,7 @@ public class ProjectService {
     @Transactional
     public Project createProject(CreateProjectDTO createProjectDTO) {
         Project project = projectMapper.toEntity(createProjectDTO);
-        project.setCreatedBy(SecurityUtils.getCurrentUser());
+        project.setCreatedBy(securityUtils.getCurrentUser());
         return projectRepository.save(project);
     }
 
@@ -110,7 +111,7 @@ public class ProjectService {
         newProject.setDescription(projectDTO.getDescription());
         newProject.setIsPublic(projectDTO.getIsPublic());
         newProject.setLogoUrl(sourceProject.getLogoUrl());
-        newProject.setCreatedBy(SecurityUtils.getCurrentUser());
+        newProject.setCreatedBy(securityUtils.getCurrentUser());
         newProject.setModules(new HashSet<>(sourceProject.getModules()));
         newProject.setCreatedAt(LocalDateTime.now());
         newProject.setUpdatedAt(LocalDateTime.now());

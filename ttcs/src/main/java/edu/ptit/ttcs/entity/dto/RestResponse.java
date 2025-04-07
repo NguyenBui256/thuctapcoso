@@ -1,4 +1,4 @@
-package com.example.cosmeticsshop.domain.response;
+package edu.ptit.ttcs.entity.dto;
 
 public class RestResponse<T> {
     private int statusCode;

@@ -1,4 +1,4 @@
-package com.example.cosmeticsshop.util.error;
+package edu.ptit.ttcs.util.error;
 
 public class StorageException extends Exception {
     // Constructor that accepts a message
