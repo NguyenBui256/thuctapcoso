@@ -16,11 +16,12 @@ public class Role {
     @Column(nullable = false)
     private boolean active = true;
 
+    @Column
     private String description;
 
     @Column(nullable = false)
     private String name;
-    
+
     @OneToMany(mappedBy = "role")
     private Set<User> users;
 }

@@ -1,27 +1,26 @@
 package edu.ptit.ttcs.service;
 
+import edu.ptit.ttcs.dao.ModuleRepository;
 import edu.ptit.ttcs.dao.ProjectRepository;
+import edu.ptit.ttcs.entity.Module;
 import edu.ptit.ttcs.entity.Project;
 import edu.ptit.ttcs.entity.User;
-import edu.ptit.ttcs.entity.Module;
+import edu.ptit.ttcs.entity.dto.CreateProjectDTO;
 import edu.ptit.ttcs.entity.dto.PageResponse;
 import edu.ptit.ttcs.entity.dto.ProjectDTO;
-import edu.ptit.ttcs.entity.dto.CreateProjectDTO;
 import edu.ptit.ttcs.mapper.ProjectMapper;
+import edu.ptit.ttcs.util.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import edu.ptit.ttcs.dao.ModuleRepository;
-import edu.ptit.ttcs.util.SecurityUtils;
 
-import java.util.List;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.stream.Collectors;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -140,5 +139,25 @@ public class ProjectService {
                 .orElseThrow(() -> new RuntimeException("Project not found"));
         project.setIsDeleted(true);
         projectRepository.save(project);
+    }
+
+    public ProjectDTO getProjectById(Long id) {
+        // Implementation needed
+        throw new UnsupportedOperationException("Method not implemented");
+    }
+
+    public PageResponse<ProjectDTO> getProjects(int page, int size) {
+        // Implementation needed
+        throw new UnsupportedOperationException("Method not implemented");
+    }
+
+    public boolean isUserProjectAdmin(Long projectId, Long userId) {
+        // Implementation needed
+        throw new UnsupportedOperationException("Method not implemented");
+    }
+
+    public boolean isUserProjectMember(Long projectId, Long userId) {
+        // Implementation needed
+        throw new UnsupportedOperationException("Method not implemented");
     }
 }

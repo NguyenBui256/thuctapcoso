@@ -1,4 +1,8 @@
+<<<<<<< HEAD:ttcs/src/main/java/edu/ptit/ttcs/entity/dto/RestResponse.java
 package edu.ptit.ttcs.entity.dto;
+=======
+package edu.ptit.ttcs.dto;
+>>>>>>> 51de1c8176c5cdc6608661d9f16261f45cbde4e8:ttcs/src/main/java/edu/ptit/ttcs/dto/RestResponse.java
 
 public class RestResponse<T> {
     private int statusCode;

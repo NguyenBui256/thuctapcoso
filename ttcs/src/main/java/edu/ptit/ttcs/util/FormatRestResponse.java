@@ -9,8 +9,13 @@ import org.springframework.http.server.ServletServerHttpResponse;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
 
+<<<<<<< HEAD
 import edu.ptit.ttcs.entity.dto.RestResponse;
 import edu.ptit.ttcs.util.annotation.ApiMessage;
+=======
+import edu.ptit.ttcs.dto.RestResponse;
+import com.example.cosmeticsshop.util.annotation.ApiMessage;
+>>>>>>> 51de1c8176c5cdc6608661d9f16261f45cbde4e8
 
 import jakarta.servlet.http.HttpServletResponse;
 

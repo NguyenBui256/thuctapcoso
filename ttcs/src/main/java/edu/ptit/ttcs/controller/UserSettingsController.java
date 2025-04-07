@@ -1,9 +1,9 @@
 package edu.ptit.ttcs.controller;
 
-import edu.ptit.ttcs.entity.dto.ChangePasswordDTO;
-import edu.ptit.ttcs.entity.dto.EmailNotificationDTO;
-import edu.ptit.ttcs.entity.dto.UpdateUserDTO;
-import edu.ptit.ttcs.entity.dto.UserSettingsResponseDTO;
+import edu.ptit.ttcs.dto.ChangePasswordDTO;
+import edu.ptit.ttcs.dto.EmailNotificationDTO;
+import edu.ptit.ttcs.dto.UpdateUserDTO;
+import edu.ptit.ttcs.dto.UserSettingsResponseDTO;
 import edu.ptit.ttcs.service.UserSettingsService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

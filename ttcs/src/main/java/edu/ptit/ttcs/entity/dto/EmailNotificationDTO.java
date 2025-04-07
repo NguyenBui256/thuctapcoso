@@ -1,4 +1,4 @@
-package edu.ptit.ttcs.entity.dto;
+package edu.ptit.ttcs.dto;
 
 public class EmailNotificationDTO {
     private boolean projectUpdates;

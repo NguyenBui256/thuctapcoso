@@ -1,6 +1,5 @@
 package edu.ptit.ttcs.controller;
 
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -21,7 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import edu.ptit.ttcs.entity.dto.file.ResUploadFileDTO;
+import edu.ptit.ttcs.dto.file.ResUploadFileDTO;
 import edu.ptit.ttcs.service.FileService;
 import edu.ptit.ttcs.util.annotation.ApiMessage;
 import edu.ptit.ttcs.util.error.StorageException;
