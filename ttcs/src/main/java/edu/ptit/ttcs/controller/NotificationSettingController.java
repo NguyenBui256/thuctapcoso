@@ -1,7 +1,7 @@
 package edu.ptit.ttcs.controller;
 
-import edu.ptit.ttcs.dto.NotificationSettingDTO;
-import edu.ptit.ttcs.dto.NotificationSettingResponseDTO;
+import edu.ptit.ttcs.entity.dto.NotificationSettingDTO;
+import edu.ptit.ttcs.entity.dto.NotificationSettingResponseDTO;
 import edu.ptit.ttcs.service.NotificationSettingService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;

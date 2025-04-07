@@ -1,4 +1,4 @@
-package edu.ptit.ttcs.dto.request;
+package edu.ptit.ttcs.entity.dto.request;
 
 import edu.ptit.ttcs.validation.StrongPassword;
 import lombok.Getter;

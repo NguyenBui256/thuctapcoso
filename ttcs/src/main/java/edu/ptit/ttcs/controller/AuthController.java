@@ -1,11 +1,11 @@
 package edu.ptit.ttcs.controller;
 
 import edu.ptit.ttcs.common.Constant;
-import edu.ptit.ttcs.dto.request.ForgotPasswordDTO;
-import edu.ptit.ttcs.dto.request.LoginDTO;
-import edu.ptit.ttcs.dto.request.RegistrationDTO;
-import edu.ptit.ttcs.dto.request.ResetPasswordDTO;
-import edu.ptit.ttcs.dto.response.AuthResponse;
+import edu.ptit.ttcs.entity.dto.request.ForgotPasswordDTO;
+import edu.ptit.ttcs.entity.dto.request.LoginDTO;
+import edu.ptit.ttcs.entity.dto.request.RegistrationDTO;
+import edu.ptit.ttcs.entity.dto.request.ResetPasswordDTO;
+import edu.ptit.ttcs.entity.dto.response.AuthResponse;
 import edu.ptit.ttcs.service.facade.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;

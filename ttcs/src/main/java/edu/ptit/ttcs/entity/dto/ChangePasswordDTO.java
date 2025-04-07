@@ -1,4 +1,4 @@
-package edu.ptit.ttcs.dto;
+package edu.ptit.ttcs.entity.dto;
 
 public class ChangePasswordDTO {
     private String currentPassword;

@@ -1,4 +1,4 @@
-package edu.ptit.ttcs.dto;
+package edu.ptit.ttcs.entity.dto;
 
 import java.time.LocalDateTime;
 import lombok.Data;
@@ -28,4 +28,4 @@ public class ActivityDTO {
             throw new IllegalArgumentException("Timestamp cannot be null");
         }
     }
-} 
+}

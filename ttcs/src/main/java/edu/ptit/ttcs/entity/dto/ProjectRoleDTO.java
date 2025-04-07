@@ -1,4 +1,4 @@
-package edu.ptit.ttcs.dto;
+package edu.ptit.ttcs.entity.dto;
 
 import java.util.List;
 import lombok.Data;
@@ -19,4 +19,4 @@ public class ProjectRoleDTO {
             throw new IllegalArgumentException("Role name cannot be null or blank");
         }
     }
-} 
+}
