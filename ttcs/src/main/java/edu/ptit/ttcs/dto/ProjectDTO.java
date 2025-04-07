@@ -18,6 +18,8 @@ public class ProjectDTO {
     private String logoUrl;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private String ownerUsername;
+    private Long moduleId;
 
     public void validate() {
         if (name == null || name.isBlank()) {

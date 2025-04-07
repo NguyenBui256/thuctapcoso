@@ -1,34 +1,40 @@
 package edu.ptit.ttcs.entity;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
-
-import java.util.HashSet;
-import java.util.Set;
+import lombok.*;
 
 @Entity
 @Table(name = "users")
-@Getter
-@Setter
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class User extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(name = "username", nullable = false, unique = true)
     private String username;
 
-    @Column(nullable = false)
-    private String password;
-
-    @Column(name = "full_name")
-    private String fullName;
-
-    @Column
+    @Column(name = "email", nullable = false, unique = true)
     private String email;
 
-    @Column
+    @Column(name = "fullname", nullable = false, columnDefinition = "text")
+    private String fullName;
+
+    @Column(name = "bio", columnDefinition = "text")
+    private String bio;
+
+    @Column(name = "avatar", columnDefinition = "text")
     private String avatar;
+
+    @Column(name = "password", nullable = false, columnDefinition = "text")
+    private String password;
+
+    @ManyToOne
+    @JoinColumn(name = "role_id")
+    private Role role;
+
 }

@@ -1,112 +1,92 @@
 package edu.ptit.ttcs.controller;
 
-import edu.ptit.ttcs.dto.ProjectCreateDTO;
+import edu.ptit.ttcs.entity.Project;
+import edu.ptit.ttcs.entity.User;
+import edu.ptit.ttcs.dto.CreateProjectDTO;
+
 import edu.ptit.ttcs.dto.ProjectDTO;
+import edu.ptit.ttcs.dto.PageResponse;
+import edu.ptit.ttcs.mapper.ProjectMapper;
 import edu.ptit.ttcs.service.ProjectService;
+import edu.ptit.ttcs.service.UserService;
 import edu.ptit.ttcs.util.ApiResponse;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/projects")
+@RequiredArgsConstructor
+@CrossOrigin(origins = "http://localhost:3000")
 public class ProjectController {
 
-    @Autowired
-    private ProjectService projectService;
+    private final ProjectService projectService;
+    private final UserService userService;
+    private final ProjectMapper projectMapper;
 
     @PostMapping
-    public ResponseEntity<ApiResponse<ProjectDTO>> createProject(
-            @RequestBody ProjectCreateDTO projectDTO,
-            @RequestHeader("User-Id") Long userId) {
-        try {
-            ProjectDTO createdProject = projectService.createProject(projectDTO, userId);
-            return ResponseEntity.ok(new ApiResponse<>("success", "Project created successfully", createdProject));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
-        }
+    public ResponseEntity<ProjectDTO> createProject(@RequestBody CreateProjectDTO createProjectDTO) {
+        Project project = projectService.createProject(createProjectDTO);
+        return ResponseEntity.ok(projectMapper.toDTO(project));
     }
 
-    @GetMapping("/{projectId}")
-    public ResponseEntity<ApiResponse<ProjectDTO>> getProject(
+    @PostMapping("/{projectId}/modules/{moduleId}")
+    public ResponseEntity<ProjectDTO> addModuleToProject(
             @PathVariable Long projectId,
-            @RequestHeader("User-Id") Long userId) {
-        try {
-            ProjectDTO project = projectService.getProjectById(projectId, userId);
-            return ResponseEntity.ok(new ApiResponse<>("success", "Project retrieved successfully", project));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
-        }
+            @PathVariable Long moduleId) {
+        Project updatedProject = projectService.addModuleToProject(projectId, moduleId);
+        return ResponseEntity.ok(projectMapper.toDTO(updatedProject));
     }
 
-    @GetMapping("/user")
-    public ResponseEntity<ApiResponse<List<ProjectDTO>>> getUserProjects(
-            @RequestHeader("User-Id") Long userId) {
-        try {
-            List<ProjectDTO> projects = projectService.getProjectsByUser(userId);
-            return ResponseEntity.ok(new ApiResponse<>("success", "User projects retrieved successfully", projects));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
-        }
+    @GetMapping("/{id}")
+    public ResponseEntity<ProjectDTO> getProjectById(@PathVariable Long id) {
+        Project project = projectService.findById(id);
+        return ResponseEntity.ok(projectMapper.toDTO(project));
     }
 
-    @GetMapping
-    public ResponseEntity<ApiResponse<List<ProjectDTO>>> getAllActiveProjects() {
-        try {
-            List<ProjectDTO> projects = projectService.getAllActiveProjects();
-            return ResponseEntity.ok(new ApiResponse<>("success", "All active projects retrieved successfully", projects));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
-        }
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<ProjectDTO>> getProjectsByUser(@PathVariable Long userId) {
+        User user = userService.findById(userId);
+        List<ProjectDTO> projects = projectService.findByOwner(user).stream()
+                .map(projectMapper::toDTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(projects);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ProjectDTO> updateProject(
+            @PathVariable Long id,
+            @RequestBody CreateProjectDTO updateProjectDTO) {
+        Project project = projectService.updateProject(id, updateProjectDTO);
+        return ResponseEntity.ok(projectMapper.toDTO(project));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteProject(@PathVariable Long id) {
+        projectService.deleteProject(id);
+        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/public")
-    public ResponseEntity<ApiResponse<List<ProjectDTO>>> getAllPublicProjects() {
-        try {
-            List<ProjectDTO> projects = projectService.getAllPublicProjects();
-            return ResponseEntity.ok(new ApiResponse<>("success", "All public projects retrieved successfully", projects));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
-        }
+    public ResponseEntity<PageResponse<ProjectDTO>> getPublicProjects(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(projectService.findPublicProjects(page, size));
     }
 
-    @PutMapping("/{projectId}")
-    public ResponseEntity<ApiResponse<ProjectDTO>> updateProject(
-            @PathVariable Long projectId,
-            @RequestBody ProjectCreateDTO projectDTO,
-            @RequestHeader("User-Id") Long userId) {
-        try {
-            ProjectDTO updatedProject = projectService.updateProject(projectId, projectDTO, userId);
-            return ResponseEntity.ok(new ApiResponse<>("success", "Project updated successfully", updatedProject));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
-        }
+    @GetMapping("/duplicate")
+    public ResponseEntity<List<ProjectDTO>> getProjectsForDuplication() {
+        return ResponseEntity.ok(projectService.findProjectsForDuplication());
     }
 
-    @DeleteMapping("/{projectId}")
-    public ResponseEntity<ApiResponse<Void>> deleteProject(
-            @PathVariable Long projectId,
-            @RequestHeader("User-Id") Long userId) {
-        try {
-            projectService.deleteProject(projectId, userId);
-            return ResponseEntity.ok(new ApiResponse<>("success", "Project deleted successfully", null));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
-        }
+    @PostMapping("/{id}/duplicate")
+    public ResponseEntity<ProjectDTO> duplicateProject(
+            @PathVariable Long id,
+            @RequestBody CreateProjectDTO projectDTO) {
+        Project project = projectService.duplicateProject(id, projectDTO);
+        return ResponseEntity.ok(projectMapper.toDTO(project));
     }
-
-    @PostMapping("/{projectId}/restore")
-    public ResponseEntity<ApiResponse<Void>> restoreProject(
-            @PathVariable Long projectId,
-            @RequestHeader("User-Id") Long userId) {
-        try {
-            projectService.restoreProject(projectId, userId);
-            return ResponseEntity.ok(new ApiResponse<>("success", "Project restored successfully", null));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
-        }
-    }
-} 
+}
