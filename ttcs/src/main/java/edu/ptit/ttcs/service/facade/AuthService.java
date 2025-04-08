@@ -2,14 +2,14 @@ package edu.ptit.ttcs.service.facade;
 
 import edu.ptit.ttcs.common.Constant;
 import edu.ptit.ttcs.dao.ForgotPasswordTokenDAO;
-import edu.ptit.ttcs.dto.request.ResetPasswordDTO;
 import edu.ptit.ttcs.entity.ForgotPasswordToken;
 import edu.ptit.ttcs.entity.oauth2.Oauth2UserInfo;
-import edu.ptit.ttcs.dto.request.LoginDTO;
-import edu.ptit.ttcs.dto.request.RegistrationDTO;
-import edu.ptit.ttcs.dto.response.AuthResponse;
 import edu.ptit.ttcs.entity.Role;
 import edu.ptit.ttcs.entity.User;
+import edu.ptit.ttcs.entity.dto.request.LoginDTO;
+import edu.ptit.ttcs.entity.dto.request.RegistrationDTO;
+import edu.ptit.ttcs.entity.dto.request.ResetPasswordDTO;
+import edu.ptit.ttcs.entity.dto.response.AuthResponse;
 import edu.ptit.ttcs.entity.enums.OauthProvider;
 import edu.ptit.ttcs.entity.enums.RoleName;
 import edu.ptit.ttcs.exception.RequestException;
@@ -51,25 +51,24 @@ public class AuthService {
 
     private final Constant constant;
 
-    public AuthResponse register(RegistrationDTO dto, boolean oauth){
-        if(!oauth){
+    public AuthResponse register(RegistrationDTO dto, boolean oauth) {
+        if (!oauth) {
             User existedUser = userService.getUserByLogin(dto.getUsername(), dto.getEmail());
-            if(existedUser != null){
-                if(existedUser.getUsername().equals(dto.getUsername())){
+            if (existedUser != null) {
+                if (existedUser.getUsername().equals(dto.getUsername())) {
                     throw new RequestException("Username đã tồn tại");
-                }
-                else throw new RequestException("Email đã tồn tại");
+                } else
+                    throw new RequestException("Email đã tồn tại");
             }
-        }
-        else{
+        } else {
             List<User> prefUsers = userService.getAllUsersHasUsernameStartWith(dto.getUsername());
             boolean existedUsername = true;
             int count = -1;
-            while(existedUsername){
+            while (existedUsername) {
                 count++;
                 existedUsername = false;
-                String tmp = dto.getUsername()  + (count > 0 ? "-" + count : "");
-                for(User user : prefUsers){
+                String tmp = dto.getUsername() + (count > 0 ? "-" + count : "");
+                for (User user : prefUsers) {
                     if (user.getUsername().equals(tmp)) {
                         existedUsername = true;
                         break;
@@ -83,46 +82,44 @@ public class AuthService {
         User user = ModelMapper.getInstance().map(dto, User.class);
         user.setRole(userRole);
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
-        if(dto.getAvatar() != null) user.setAvatar(dto.getAvatar());
-        else user.setAvatar(userService.getRandomUserDefaultAvatar());
+        if (dto.getAvatar() != null)
+            user.setAvatar(dto.getAvatar());
+        else
+            user.setAvatar(userService.getRandomUserDefaultAvatar());
         user = userService.saveUser(user);
         String refreshToken = jwtService.generateRefreshToken(user, new HashMap<>());
         jwtRedisService.setNewRefreshToken(user.getUsername(), refreshToken);
         return new AuthResponse(
                 jwtService.generateAccessToken(user, new HashMap<>()),
-                refreshToken
-        );
+                refreshToken);
     }
 
-    public AuthResponse login(LoginDTO dto, boolean oauth){
+    public AuthResponse login(LoginDTO dto, boolean oauth) {
         User user = userService.getUserByLogin(dto.getLogin());
-        if(user == null){
+        if (user == null) {
             throw new RequestException("Thông tin đăng nhập không tồn tại");
         }
-        if((!oauth && !passwordEncoder.matches(dto.getPassword(), user.getPassword()))
-            || (oauth && !dto.getPassword().equals(user.getPassword()))){
+        if ((!oauth && !passwordEncoder.matches(dto.getPassword(), user.getPassword()))
+                || (oauth && !dto.getPassword().equals(user.getPassword()))) {
             throw new RequestException("Mật khẩu không chính xác");
         }
         String refreshToken = jwtService.generateRefreshToken(user, new HashMap<>());
         jwtRedisService.setNewRefreshToken(user.getUsername(), refreshToken);
         return new AuthResponse(
                 jwtService.generateAccessToken(user, new HashMap<>()),
-                refreshToken
-        );
+                refreshToken);
     }
-
 
     public AuthResponse oauthLogin(String provider, String code) {
         OauthProvider prov = OauthProvider.fromString(provider);
         Oauth2UserInfo userInfo = oauth2Service.getUserInfo(prov, code);
         User user = userService.getUserByEmail(userInfo.getEmail());
-        if(user != null){
+        if (user != null) {
             return login(LoginDTO.builder()
                     .login(userInfo.getEmail())
                     .password(user.getPassword())
                     .build(), true);
-        }
-        else{
+        } else {
             return register(RegistrationDTO.builder()
                     .username(userInfo.getUsername())
                     .email(userInfo.getEmail())
@@ -141,8 +138,7 @@ public class AuthService {
     public AuthResponse refresh(String refreshToken) {
         if (refreshToken == null || refreshToken.isEmpty()
                 || !jwtService.isTokenValid(refreshToken)
-                || !jwtRedisService.isRefreshTokenValid(jwtService.extractUsername(refreshToken), refreshToken)
-        )
+                || !jwtRedisService.isRefreshTokenValid(jwtService.extractUsername(refreshToken), refreshToken))
             throw new RequestException("Refresh token không hợp lệ/quá hạn");
         String username = jwtService.extractUsername(refreshToken);
         User user = userService.getUserByLogin(username);
@@ -151,16 +147,15 @@ public class AuthService {
                 new HashMap<>());
         String newRefreshToken = jwtService.generateRefreshToken(
                 user,
-                new HashMap<>()
-        );
+                new HashMap<>());
         jwtRedisService.setNewRefreshToken(username, newRefreshToken);
         return new AuthResponse(accessToken, newRefreshToken);
     }
 
     public void passwordRecovery(@NotBlank String login,
-                                 HttpServletRequest request) {
+            HttpServletRequest request) {
         User user = userService.getUserByLogin(login);
-        if(user == null){
+        if (user == null) {
             throw new RequestException("Username/Email không tồn tại");
         }
         String email = user.getEmail();
@@ -175,17 +170,17 @@ public class AuthService {
         mailService.sendEmail(email, "[Tagai] Yêu cầu đặt lại mật khẩu",
                 String.format("""
                         Hãy truy cập vào link sau để đặt lại mật khẩu: \
-                        
+
                         %s \
-                        
+
                         Link sẽ hết hạn trong 10 phút""", recoveryUrl));
     }
 
     public void resetPassword(ResetPasswordDTO dto) {
         ForgotPasswordToken token = forgotPasswordTokenDAO.findByToken(dto.getToken());
-        if(token == null)
+        if (token == null)
             throw new RequestException("Yêu cầu không hợp lệ");
-        if(token.getExpiredAt().before(new Date()))
+        if (token.getExpiredAt().before(new Date()))
             throw new RequestException("Yêu cầu đã hết hạn, vui lòng tạo yêu cầu mới");
         User user = token.getUser();
         String hashPwd = passwordEncoder.encode(dto.getNewPassword());

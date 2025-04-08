@@ -1,14 +1,17 @@
 package edu.ptit.ttcs.service;
 
 import edu.ptit.ttcs.dao.ModuleRepository;
+import edu.ptit.ttcs.dao.ModuleRepository;
 import edu.ptit.ttcs.dao.ProjectRepository;
+import edu.ptit.ttcs.entity.Module;
 import edu.ptit.ttcs.entity.Module;
 import edu.ptit.ttcs.entity.Project;
 import edu.ptit.ttcs.entity.User;
-import edu.ptit.ttcs.dto.CreateProjectDTO;
-import edu.ptit.ttcs.dto.PageResponse;
-import edu.ptit.ttcs.dto.ProjectDTO;
+import edu.ptit.ttcs.entity.dto.CreateProjectDTO;
+import edu.ptit.ttcs.entity.dto.PageResponse;
+import edu.ptit.ttcs.entity.dto.ProjectDTO;
 import edu.ptit.ttcs.mapper.ProjectMapper;
+import edu.ptit.ttcs.util.SecurityUtils;
 import edu.ptit.ttcs.util.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -18,7 +21,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.LocalDateTime;
 import java.util.HashSet;
+import java.util.List;
 import java.util.List;
 import java.util.Set;
 
@@ -29,6 +34,7 @@ public class ProjectService {
     private final ProjectRepository projectRepository;
     private final ModuleRepository moduleRepository;
     private final ProjectMapper projectMapper;
+    private final SecurityUtils securityUtils;
 
     @Transactional
     public Project save(Project project) {
@@ -95,7 +101,7 @@ public class ProjectService {
     @Transactional
     public Project createProject(CreateProjectDTO createProjectDTO) {
         Project project = projectMapper.toEntity(createProjectDTO);
-        project.setCreatedBy(SecurityUtils.getCurrentUser());
+        project.setCreatedBy(securityUtils.getCurrentUser());
         return projectRepository.save(project);
     }
 
@@ -109,7 +115,7 @@ public class ProjectService {
         newProject.setDescription(projectDTO.getDescription());
         newProject.setIsPublic(projectDTO.getIsPublic());
         newProject.setLogoUrl(sourceProject.getLogoUrl());
-        newProject.setCreatedBy(SecurityUtils.getCurrentUser());
+        newProject.setCreatedBy(securityUtils.getCurrentUser());
         newProject.setModules(new HashSet<>(sourceProject.getModules()));
         newProject.setCreatedAt(LocalDateTime.now());
         newProject.setUpdatedAt(LocalDateTime.now());
@@ -138,5 +144,25 @@ public class ProjectService {
                 .orElseThrow(() -> new RuntimeException("Project not found"));
         project.setIsDeleted(true);
         projectRepository.save(project);
+    }
+
+    public ProjectDTO getProjectById(Long id) {
+        // Implementation needed
+        throw new UnsupportedOperationException("Method not implemented");
+    }
+
+    public PageResponse<ProjectDTO> getProjects(int page, int size) {
+        // Implementation needed
+        throw new UnsupportedOperationException("Method not implemented");
+    }
+
+    public boolean isUserProjectAdmin(Long projectId, Long userId) {
+        // Implementation needed
+        throw new UnsupportedOperationException("Method not implemented");
+    }
+
+    public boolean isUserProjectMember(Long projectId, Long userId) {
+        // Implementation needed
+        throw new UnsupportedOperationException("Method not implemented");
     }
 }

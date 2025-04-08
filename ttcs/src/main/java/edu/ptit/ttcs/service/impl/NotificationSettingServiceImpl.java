@@ -5,8 +5,8 @@ import edu.ptit.ttcs.dao.ProjectRepository;
 import edu.ptit.ttcs.entity.NotificationSetting;
 import edu.ptit.ttcs.entity.Project;
 import edu.ptit.ttcs.entity.User;
-import edu.ptit.ttcs.dto.NotificationSettingDTO;
-import edu.ptit.ttcs.dto.NotificationSettingResponseDTO;
+import edu.ptit.ttcs.entity.dto.NotificationSettingDTO;
+import edu.ptit.ttcs.entity.dto.NotificationSettingResponseDTO;
 import edu.ptit.ttcs.service.NotificationSettingService;
 import edu.ptit.ttcs.util.SecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,10 +25,13 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
     @Autowired
     private ProjectRepository projectRepository;
 
+    @Autowired
+    private SecurityUtils securityUtils;
+
     @Override
     @Transactional
     public NotificationSettingResponseDTO updateNotificationSetting(NotificationSettingDTO settingDTO) {
-        User currentUser = SecurityUtils.getCurrentUser();
+        User currentUser = securityUtils.getCurrentUser();
         Project project = projectRepository.findById(settingDTO.getProjectId())
                 .orElseThrow(() -> new IllegalArgumentException("Project not found"));
 
@@ -48,7 +51,7 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
 
     @Override
     public List<NotificationSettingResponseDTO> getUserNotificationSettings() {
-        User currentUser = SecurityUtils.getCurrentUser();
+        User currentUser = securityUtils.getCurrentUser();
         return notificationSettingRepository.findByUser(currentUser)
                 .stream()
                 .map(this::convertToDTO)
@@ -57,7 +60,7 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
 
     @Override
     public NotificationSettingResponseDTO getProjectNotificationSetting(Long projectId) {
-        User currentUser = SecurityUtils.getCurrentUser();
+        User currentUser = securityUtils.getCurrentUser();
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found"));
 

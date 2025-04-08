@@ -14,9 +14,9 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import edu.ptit.ttcs.dto.PointsUpdateRequestDTO;
-import edu.ptit.ttcs.dto.ProjectMemberDTO;
-import edu.ptit.ttcs.dto.ProjectMemberRequestDTO;
+import edu.ptit.ttcs.entity.dto.PointsUpdateRequestDTO;
+import edu.ptit.ttcs.entity.dto.ProjectMemberDTO;
+import edu.ptit.ttcs.entity.dto.ProjectMemberRequestDTO;
 import edu.ptit.ttcs.service.ProjectMemberService;
 import edu.ptit.ttcs.util.ApiResponse;
 
@@ -35,12 +35,11 @@ public class ProjectMemberController {
         try {
             request.validate();
             ProjectMemberDTO member = projectMemberService.addMemberToProject(
-                projectId, 
-                request.getUserId(), 
-                request.getRoleId(), 
-                request.getIsAdmin(), 
-                userId
-            );
+                    projectId,
+                    request.getUserId(),
+                    request.getRoleId(),
+                    request.getIsAdmin(),
+                    userId);
             return ResponseEntity.ok(new ApiResponse<>("success", "Member added successfully", member));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
@@ -68,12 +67,11 @@ public class ProjectMemberController {
         try {
             request.validate();
             ProjectMemberDTO member = projectMemberService.updateProjectMember(
-                projectId, 
-                memberId, 
-                request.getRoleId(), 
-                request.getIsAdmin(), 
-                userId
-            );
+                    projectId,
+                    memberId,
+                    request.getRoleId(),
+                    request.getIsAdmin(),
+                    userId);
             return ResponseEntity.ok(new ApiResponse<>("success", "Member updated successfully", member));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
@@ -102,14 +100,13 @@ public class ProjectMemberController {
         try {
             request.validate();
             projectMemberService.updateMemberPoints(
-                projectId, 
-                memberId, 
-                request.getPoints(), 
-                userId
-            );
+                    projectId,
+                    memberId,
+                    request.getPoints(),
+                    userId);
             return ResponseEntity.ok(new ApiResponse<>("success", "Member points updated successfully", null));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
         }
     }
-} 
+}

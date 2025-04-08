@@ -14,15 +14,15 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import edu.ptit.ttcs.dto.ProjectRoleDTO;
-import edu.ptit.ttcs.dto.ProjectRoleRequestDTO;
+import edu.ptit.ttcs.entity.dto.ProjectRoleDTO;
+import edu.ptit.ttcs.entity.dto.ProjectRoleRequestDTO;
 import edu.ptit.ttcs.service.ProjectRoleService;
 import edu.ptit.ttcs.util.ApiResponse;
 
 @RestController
 @RequestMapping("/api/projects/{projectId}/roles")
 public class ProjectRoleController {
-    
+
     @Autowired
     private ProjectRoleService projectRoleService;
 
@@ -33,13 +33,12 @@ public class ProjectRoleController {
             @RequestHeader("User-Id") Long userId) {
         try {
             request.validate();
-            
+
             ProjectRoleDTO role = projectRoleService.createProjectRole(
-                projectId, 
-                request.getRoleName(), 
-                request.getPermissionIds(), 
-                userId
-            );
+                    projectId,
+                    request.getRoleName(),
+                    request.getPermissionIds(),
+                    userId);
             return ResponseEntity.ok(new ApiResponse<>("success", "Role created successfully", role));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
@@ -79,13 +78,12 @@ public class ProjectRoleController {
             @RequestHeader("User-Id") Long userId) {
         try {
             request.validate();
-            
+
             ProjectRoleDTO role = projectRoleService.updateProjectRole(
-                roleId, 
-                request.getRoleName(), 
-                request.getPermissionIds(), 
-                userId
-            );
+                    roleId,
+                    request.getRoleName(),
+                    request.getPermissionIds(),
+                    userId);
             return ResponseEntity.ok(new ApiResponse<>("success", "Role updated successfully", role));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
@@ -104,4 +102,4 @@ public class ProjectRoleController {
             return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
         }
     }
-} 
+}

@@ -1,4 +1,4 @@
-package com.example.cosmeticsshop.util;
+package edu.ptit.ttcs.util;
 
 import org.springframework.core.MethodParameter;
 import org.springframework.core.io.Resource;
@@ -9,8 +9,8 @@ import org.springframework.http.server.ServletServerHttpResponse;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
 
-import edu.ptit.ttcs.dto.RestResponse;
-import com.example.cosmeticsshop.util.annotation.ApiMessage;
+import edu.ptit.ttcs.entity.dto.RestResponse;
+import edu.ptit.ttcs.util.annotation.ApiMessage;
 
 import jakarta.servlet.http.HttpServletResponse;
 

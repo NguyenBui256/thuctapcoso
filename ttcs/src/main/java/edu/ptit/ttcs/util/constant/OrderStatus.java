@@ -1,4 +1,4 @@
-package com.example.cosmeticsshop.util.constant;
+package edu.ptit.ttcs.util.constant;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;

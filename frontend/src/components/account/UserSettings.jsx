@@ -24,9 +24,9 @@ const UserSettings = () => {
             setLoading(true);
             const data = await userSettingsService.getUserSettings();
             setFormData({
-                ...data,
-                id: 1 // Ensure we always show ID 1 for testing
+                ...data.data,
             });
+            console.log(data);
         } catch (err) {
             setError('Failed to load user settings');
             console.error('Error loading user settings:', err);

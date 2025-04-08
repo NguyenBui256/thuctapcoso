@@ -1,4 +1,4 @@
-package edu.ptit.ttcs.dto;
+package edu.ptit.ttcs.entity.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -9,10 +9,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class PointsUpdateRequestDTO {
     private Integer points;
-    
+
     public void validate() {
         if (points == null) {
             throw new IllegalArgumentException("Points cannot be null");
         }
     }
-} 
+}

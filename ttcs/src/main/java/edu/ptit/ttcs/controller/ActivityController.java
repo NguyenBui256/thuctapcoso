@@ -1,6 +1,6 @@
 package edu.ptit.ttcs.controller;
 
-import edu.ptit.ttcs.dto.ActivityDTO;
+import edu.ptit.ttcs.entity.dto.ActivityDTO;
 import edu.ptit.ttcs.service.ActivityService;
 import edu.ptit.ttcs.util.ApiResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,7 +22,8 @@ public class ActivityController {
             @RequestHeader("User-Id") Long userId) {
         try {
             List<ActivityDTO> activities = activityService.getProjectActivities(projectId, userId);
-            return ResponseEntity.ok(new ApiResponse<>("success", "Project activities retrieved successfully", activities));
+            return ResponseEntity
+                    .ok(new ApiResponse<>("success", "Project activities retrieved successfully", activities));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
         }
@@ -34,7 +35,8 @@ public class ActivityController {
             @RequestHeader("User-Id") Long userId) {
         try {
             List<ActivityDTO> activities = activityService.getIssueActivities(issueId, userId);
-            return ResponseEntity.ok(new ApiResponse<>("success", "Issue activities retrieved successfully", activities));
+            return ResponseEntity
+                    .ok(new ApiResponse<>("success", "Issue activities retrieved successfully", activities));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
         }

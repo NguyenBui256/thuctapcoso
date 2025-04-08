@@ -4,14 +4,17 @@ import edu.ptit.ttcs.dao.UserRepository;
 import edu.ptit.ttcs.dao.UserSettingsRepository;
 import edu.ptit.ttcs.entity.User;
 import edu.ptit.ttcs.entity.UserSettings;
-import edu.ptit.ttcs.dto.EmailNotificationDTO;
-import edu.ptit.ttcs.dto.UpdateUserDTO;
-import edu.ptit.ttcs.dto.UserSettingsResponseDTO;
+import edu.ptit.ttcs.entity.dto.EmailNotificationDTO;
+import edu.ptit.ttcs.entity.dto.UpdateUserDTO;
+import edu.ptit.ttcs.entity.dto.UserSettingsResponseDTO;
 import edu.ptit.ttcs.service.UserSettingsService;
+import edu.ptit.ttcs.util.SecurityUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 public class UserSettingsServiceImpl implements UserSettingsService {
 
@@ -21,15 +24,19 @@ public class UserSettingsServiceImpl implements UserSettingsService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private SecurityUtils securityUtils;
+
     @Override
     @Transactional
     public UserSettingsResponseDTO getUserSettings() {
-        // For testing, use user ID 1
-        User user = userRepository.findById(1L)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        log.info("Getting user settings for current user");
+        User user = securityUtils.getCurrentUser();
+        log.info("Current user: {}", user.getUsername());
 
         UserSettings settings = userSettingsRepository.findByUser(user)
                 .orElseGet(() -> {
+                    log.info("Creating default settings for user: {}", user.getUsername());
                     UserSettings defaultSettings = new UserSettings();
                     defaultSettings.setUser(user);
                     defaultSettings.setLanguage("en");
@@ -44,8 +51,7 @@ public class UserSettingsServiceImpl implements UserSettingsService {
     @Transactional
     public UserSettingsResponseDTO updateUserSettings(UpdateUserDTO updateUserDTO) {
         // For testing, use user ID 1
-        User user = userRepository.findById(1L)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User user = securityUtils.getCurrentUser();
 
         UserSettings settings = userSettingsRepository.findByUser(user)
                 .orElseGet(() -> {
@@ -84,8 +90,7 @@ public class UserSettingsServiceImpl implements UserSettingsService {
     @Transactional
     public void changePassword(String currentPassword, String newPassword) {
         // For testing, use user ID 1
-        User user = userRepository.findById(1L)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User user = securityUtils.getCurrentUser();
 
         // In a real application, you would verify the current password here
         // For testing purposes, we'll skip password verification
@@ -98,8 +103,7 @@ public class UserSettingsServiceImpl implements UserSettingsService {
     @Transactional
     public EmailNotificationDTO getEmailNotifications() {
         // For testing, use user ID 1
-        User user = userRepository.findById(1L)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User user = securityUtils.getCurrentUser();
 
         UserSettings settings = userSettingsRepository.findByUser(user)
                 .orElseGet(() -> {
@@ -121,8 +125,7 @@ public class UserSettingsServiceImpl implements UserSettingsService {
     @Transactional
     public EmailNotificationDTO updateEmailNotifications(EmailNotificationDTO emailNotificationDTO) {
         // For testing, use user ID 1
-        User user = userRepository.findById(1L)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User user = securityUtils.getCurrentUser();
 
         UserSettings settings = userSettingsRepository.findByUser(user)
                 .orElseGet(() -> {
@@ -145,7 +148,6 @@ public class UserSettingsServiceImpl implements UserSettingsService {
     private UserSettingsResponseDTO convertToDTO(UserSettings settings) {
         UserSettingsResponseDTO dto = new UserSettingsResponseDTO();
         dto.setId(settings.getId());
-        dto.setUserId(settings.getUser().getId());
         dto.setUsername(settings.getUser().getUsername());
         dto.setEmail(settings.getUser().getEmail());
         dto.setFullName(settings.getUser().getFullName());

@@ -1,4 +1,4 @@
-package edu.ptit.ttcs.dto;
+package edu.ptit.ttcs.entity.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -11,10 +11,10 @@ public class ProjectMemberRequestDTO {
     private Long userId;
     private Long roleId;
     private Boolean isAdmin = false;
-    
+
     public void validate() {
         if (userId == null) {
             throw new IllegalArgumentException("User ID cannot be null");
         }
     }
-} 
+}
