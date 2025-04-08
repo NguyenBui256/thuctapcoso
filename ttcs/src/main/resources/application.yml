@@ -24,42 +24,24 @@ spring:
     resources:
       static-locations: classpath:/static/
   security:
-    # Comment out OAuth2 configuration until you have client IDs
     oauth2:
       client:
         registration:
           google:
-            client-id: ${GOOGLE_CLIENT_ID}
-            client-secret: ${GOOGLE_CLIENT_SECRET}
-            scope:
-              - email
-              - profile
-            redirect-uri: http://localhost:8080/login/oauth2/code/google
-            authorization-grant-type: authorization_code
+            client-id: ${GOOGLE-CLIENT-ID}
+            client-secret: ${GOOGLE-CLIENT-SECRET}
+            redirect-uri: ${fe_base_url}/oauth/redirect?provider=google
           github:
-            client-id: ${GITHUB_CLIENT_ID:Ov23lifwOzS3jPyu1D6W}
-            client-secret: ${GITHUB_CLIENT_SECRET:c8a22fc8c7afe7e00874b1ff999ef508d8fef319}
-            redirect-uri: ${FE_BASE_URL:http://localhost:5173}/oauth/redirect?provider=github
+            client-id: ${GITHUB-CLIENT-ID}
+            client-secret: ${GITHUB-CLIENT-SECRET}
+            redirect-uri: ${fe_base_url}/oauth/redirect?provider=github
             scope:
               - user:email
-        provider:
-          google:
-            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
-            token-uri: https://oauth2.googleapis.com/token
-            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
-            user-name-attribute: sub
-          github:
-            authorization-uri: https://github.com/login/oauth/authorize
-            token-uri: https://github.com/login/oauth/access_token
-            user-info-uri: https://api.github.com/user
-            user-name-attribute: id
-    filter:
-      order: 10
   mail:
     host: smtp.gmail.com
     port: 587
-    username: ${MAIL_USERNAME:thanhtobot159}
-    password: ${MAIL_PASSWORD:kava jfjd ddmh snep}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
     properties:
       mail:
         smtp:

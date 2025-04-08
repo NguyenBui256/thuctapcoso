@@ -6,6 +6,7 @@ import edu.ptit.ttcs.entity.Issue;
 import edu.ptit.ttcs.entity.Project;
 import edu.ptit.ttcs.entity.User;
 import edu.ptit.ttcs.entity.dto.ActivityDTO;
+import edu.ptit.ttcs.entity.dto.ActivityDTO;
 import edu.ptit.ttcs.service.ActivityService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
