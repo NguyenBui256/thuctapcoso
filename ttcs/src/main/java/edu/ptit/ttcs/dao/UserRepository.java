@@ -10,12 +10,8 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-<<<<<<< HEAD
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByUsername(String username);
-=======
-public interface UserRepository extends JpaRepository<User, Integer> {
->>>>>>> 326cfeaee077330fcdfa96be99c6affd41233ff3
 
     @Query("SELECT u FROM User u WHERE u.username=?1 OR lower(u.email)=lower(?1)")
     Optional<User> findByUsernameOrEmail(String login);

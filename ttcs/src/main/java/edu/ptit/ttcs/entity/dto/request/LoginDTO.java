@@ -1,4 +1,4 @@
-package edu.ptit.ttcs.dto.request;
+package edu.ptit.ttcs.entity.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Builder;

@@ -1,22 +1,20 @@
-export function renderAvatar(avatar, isRounded = false) {
-    const roundClass = isRounded ? 'rounded-full' : 'rounded-none'
+export const renderAvatar = (userData) => {
+    if (!userData) return null;
 
-    if (avatar.startsWith('http')) {
+    const avatarUrl = userData.avatarUrl;
+    if (!avatarUrl) {
         return (
-            <img
-                src={avatar}
-                className={`w-full h-full object-cover ${roundClass}`}
-            />
-        )
-    } else {
-        const [avatarId, colorCode] = avatar.split('.')
-        return (
-            <div className={`flex items-center justify-center w-full h-full bg-[#${colorCode.toLowerCase()}] ${roundClass}`}>
-                <img
-                    src={`/user_avatar/user-avatar-${avatarId}.png`}
-                    className={`w-full h-full object-cover ${roundClass}`}
-                />
+            <div className="h-8 w-8 rounded-full bg-purple-500 flex items-center justify-center text-white">
+                {userData.username?.charAt(0)?.toUpperCase() || 'U'}
             </div>
-        )
+        );
     }
-}
+
+    return (
+        <img
+            src={avatarUrl}
+            alt="User avatar"
+            className="h-8 w-8 rounded-full"
+        />
+    );
+};

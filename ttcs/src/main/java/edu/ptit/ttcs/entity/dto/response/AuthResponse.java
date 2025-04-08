@@ -1,4 +1,4 @@
-package edu.ptit.ttcs.dto.response;
+package edu.ptit.ttcs.entity.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

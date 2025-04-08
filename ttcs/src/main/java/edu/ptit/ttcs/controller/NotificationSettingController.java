@@ -1,6 +1,5 @@
 package edu.ptit.ttcs.controller;
 
-import edu.ptit.ttcs.entity.NotificationSetting;
 import edu.ptit.ttcs.entity.dto.NotificationSettingDTO;
 import edu.ptit.ttcs.entity.dto.NotificationSettingResponseDTO;
 import edu.ptit.ttcs.service.NotificationSettingService;
@@ -11,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/notifications/settings")
+@RequestMapping("/api/v1/notifications/settings")
 public class NotificationSettingController {
 
     @Autowired

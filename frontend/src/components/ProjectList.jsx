@@ -21,8 +21,22 @@ const ProjectList = () => {
         try {
             setLoading(true);
             const response = await projectService.getAllProjects(currentPage, pageSize);
-            setProjects(response.content);
-            setTotalPages(response.totalPages);
+            console.log('API Response:', response); // Debug log
+
+            // Check if response is valid
+            if (response && response.data) {
+                const projectsData = response.data.content || [];
+                const totalPagesData = response.data.totalPages || 0;
+
+                console.log('Projects data:', projectsData); // Debug log
+                console.log('Total pages:', totalPagesData); // Debug log
+
+                setProjects(projectsData);
+                setTotalPages(totalPagesData);
+            } else {
+                console.error('Invalid response format:', response);
+                setError('Invalid response format from server');
+            }
         } catch (err) {
             setError('Failed to fetch projects');
             console.error('Error fetching projects:', err);
@@ -53,6 +67,8 @@ const ProjectList = () => {
 
     if (error) return <div className="text-red-500 text-center">{error}</div>;
 
+    console.log('Current projects state:', projects); // Debug log
+
     return (
         <div className="min-h-screen bg-gray-100">
             <div className="max-w-6xl mx-auto px-4 py-8">
@@ -68,7 +84,7 @@ const ProjectList = () => {
 
                 <div className="flex flex-col md:flex-row">
                     <div className="w-full md:w-3/4 pr-0 md:pr-8">
-                        {projects.length === 0 ? (
+                        {!projects || projects.length === 0 ? (
                             <div className="bg-white rounded-lg shadow p-6 text-center">
                                 <p className="text-gray-500">No projects found. Create your first project!</p>
                             </div>

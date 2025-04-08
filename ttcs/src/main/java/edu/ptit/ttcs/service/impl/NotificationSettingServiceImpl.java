@@ -25,10 +25,13 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
     @Autowired
     private ProjectRepository projectRepository;
 
+    @Autowired
+    private SecurityUtils securityUtils;
+
     @Override
     @Transactional
     public NotificationSettingResponseDTO updateNotificationSetting(NotificationSettingDTO settingDTO) {
-        User currentUser = SecurityUtils.getCurrentUser();
+        User currentUser = securityUtils.getCurrentUser();
         Project project = projectRepository.findById(settingDTO.getProjectId())
                 .orElseThrow(() -> new IllegalArgumentException("Project not found"));
 
@@ -48,7 +51,7 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
 
     @Override
     public List<NotificationSettingResponseDTO> getUserNotificationSettings() {
-        User currentUser = SecurityUtils.getCurrentUser();
+        User currentUser = securityUtils.getCurrentUser();
         return notificationSettingRepository.findByUser(currentUser)
                 .stream()
                 .map(this::convertToDTO)
@@ -57,7 +60,7 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
 
     @Override
     public NotificationSettingResponseDTO getProjectNotificationSetting(Long projectId) {
-        User currentUser = SecurityUtils.getCurrentUser();
+        User currentUser = securityUtils.getCurrentUser();
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found"));
 

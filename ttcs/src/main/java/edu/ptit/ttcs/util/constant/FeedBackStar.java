@@ -1,4 +1,4 @@
-package com.example.cosmeticsshop.util.constant;
+package edu.ptit.ttcs.util.constant;
 
 public enum FeedBackStar {
     ONE(1), TWO(2), THREE(3), FOUR(4), FIVE(5);

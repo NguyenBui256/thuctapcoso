@@ -16,13 +16,29 @@ const EmailNotifications = () => {
     const fetchProjects = async (page) => {
         try {
             setLoading(true);
-            const data = await projectService.getAllProjects(page, pageSize);
-            const projectsWithSettings = await Promise.all(data.content.map(async project => {
+            const response = await projectService.getAllProjects(page, pageSize);
+            console.log('API Response:', response); // Debug log
+
+            // Check if response is valid and has the expected structure
+            if (!response || !response.data) {
+                throw new Error('Invalid response format from server');
+            }
+
+            const { content, totalPages: total } = response.data;
+
+            if (!Array.isArray(content)) {
+                throw new Error('Projects data is not an array');
+            }
+
+            // Fetch notification settings for each project
+            const projectsWithSettings = await Promise.all(content.map(async project => {
                 try {
                     const setting = await projectService.getProjectNotificationSetting(project.id);
+                    console.log(setting);
                     return {
                         ...project,
-                        notification: setting.notificationType
+                        projectName: setting.data.projectName,
+                        notification: setting.data.notificationType
                     };
                 } catch (err) {
                     console.error(`Error fetching notification setting for project ${project.id}:`, err);
@@ -32,11 +48,14 @@ const EmailNotifications = () => {
                     };
                 }
             }));
+
             setProjects(projectsWithSettings);
-            setTotalPages(data.totalPages);
+            console.log(projectsWithSettings);
+            setTotalPages(total);
         } catch (err) {
             setError('Failed to load projects');
             console.error('Error loading projects:', err);
+            setProjects([]);
         } finally {
             setLoading(false);
         }
@@ -107,7 +126,7 @@ const EmailNotifications = () => {
                         <tbody>
                             {projects.map(project => (
                                 <tr key={project.id} className="border-b">
-                                    <td className="py-3 pl-2">{project.name}</td>
+                                    <td className="py-3 pl-2">{`${project.projectName}`}</td>
                                     <td className="text-center">
                                         <button
                                             onClick={() => handleNotificationChange(project.id, 'all')}

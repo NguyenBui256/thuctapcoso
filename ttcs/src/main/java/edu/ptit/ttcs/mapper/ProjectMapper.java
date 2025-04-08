@@ -2,7 +2,6 @@ package edu.ptit.ttcs.mapper;
 
 import edu.ptit.ttcs.entity.Module;
 import edu.ptit.ttcs.entity.Project;
-import edu.ptit.ttcs.entity.User;
 import edu.ptit.ttcs.entity.dto.CreateProjectDTO;
 import edu.ptit.ttcs.entity.dto.ProjectDTO;
 import edu.ptit.ttcs.dao.ModuleRepository;

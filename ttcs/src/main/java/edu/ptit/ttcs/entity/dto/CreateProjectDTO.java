@@ -9,4 +9,5 @@ public class CreateProjectDTO {
     private Boolean isPublic;
     private String logoUrl;
     private String projectType; // "SCRUM" or "KANBAN"
+    private Long ownerId;
 }

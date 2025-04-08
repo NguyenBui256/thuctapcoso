@@ -20,11 +20,28 @@ const DuplicateProject = () => {
 
     const loadProjects = async () => {
         try {
-            const data = await projectService.getProjectsForDuplication();
-            setProjects(data);
+            console.log('Loading projects...');
+            const projects = await projectService.getProjectsForDuplication();
+            console.log('Projects data:', projects);
+
+            if (!Array.isArray(projects)) {
+                console.error('Projects data is not an array:', projects);
+                setError('Invalid projects data format');
+                setProjects([]);
+                return;
+            }
+
+            if (projects.length === 0) {
+                console.log('No projects found');
+                setError('No projects available to duplicate');
+            } else {
+                console.log('Found projects:', projects);
+                setProjects(projects);
+            }
         } catch (err) {
-            setError('Failed to load projects');
             console.error('Error loading projects:', err);
+            setError('Failed to load projects');
+            setProjects([]);
         } finally {
             setLoading(false);
         }
@@ -102,11 +119,15 @@ const DuplicateProject = () => {
                         className="w-full p-3 border border-gray-300 rounded focus:outline-none"
                     >
                         <option value="">Choose an existing project to duplicate</option>
-                        {projects.map(project => (
-                            <option key={project.id} value={project.id}>
-                                {project.name}
-                            </option>
-                        ))}
+                        {projects && projects.length > 0 ? (
+                            projects.map(project => (
+                                <option key={project.id} value={project.id}>
+                                    {project.name}
+                                </option>
+                            ))
+                        ) : (
+                            <option value="" disabled>No projects available</option>
+                        )}
                     </select>
                 </div>
 

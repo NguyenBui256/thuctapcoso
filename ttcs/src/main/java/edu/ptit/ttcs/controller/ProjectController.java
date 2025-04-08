@@ -3,11 +3,12 @@ package edu.ptit.ttcs.controller;
 import edu.ptit.ttcs.entity.Project;
 import edu.ptit.ttcs.entity.User;
 import edu.ptit.ttcs.entity.dto.CreateProjectDTO;
-import edu.ptit.ttcs.entity.dto.ProjectDTO;
 import edu.ptit.ttcs.entity.dto.PageResponse;
+import edu.ptit.ttcs.entity.dto.ProjectDTO;
 import edu.ptit.ttcs.mapper.ProjectMapper;
 import edu.ptit.ttcs.service.ProjectService;
 import edu.ptit.ttcs.service.UserService;
+import edu.ptit.ttcs.util.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,9 +17,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/projects")
+@RequestMapping("/api/v1/projects")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:3000")
 public class ProjectController {
 
     private final ProjectService projectService;
@@ -37,13 +37,6 @@ public class ProjectController {
             @PathVariable Long moduleId) {
         Project updatedProject = projectService.addModuleToProject(projectId, moduleId);
         return ResponseEntity.ok(projectMapper.toDTO(updatedProject));
-    }
-
-    @GetMapping
-    public ResponseEntity<PageResponse<ProjectDTO>> getAllProjects(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        return ResponseEntity.ok(projectService.findAll(page, size));
     }
 
     @GetMapping("/{id}")
@@ -75,7 +68,7 @@ public class ProjectController {
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/public")
+    @GetMapping
     public ResponseEntity<PageResponse<ProjectDTO>> getPublicProjects(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {

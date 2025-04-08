@@ -1,4 +1,4 @@
-package com.example.cosmeticsshop.util.constant;
+package edu.ptit.ttcs.util.constant;
 
 public enum RoyaltyEnum {
     PLATINUM, GOLD, SILVER, BRONZE

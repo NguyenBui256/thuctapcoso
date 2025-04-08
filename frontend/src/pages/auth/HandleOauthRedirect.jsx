@@ -1,20 +1,20 @@
 import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import {BASE_API_URL} from "../../common/constants"
+import { BASE_API_URL } from "../../common/constants"
 import { setUserData } from '../../utils/AuthUtils';
 import Loading from '../Loading'
 
-function sendApi(provider, code){
-    fetch(`${BASE_API_URL}/v1/auth/oauth?provider=${provider}&code=${code}`, {
-      method: "POST",
-      credentials: "include"
-    })
+function sendApi(provider, code) {
+  fetch(`${BASE_API_URL}/v1/auth/oauth?provider=${provider}&code=${code}`, {
+    method: "POST",
+    credentials: "include"
+  })
     .then(res => {
-      if(res.status != 200){
+      if (res.status != 200) {
         alert("Something wrong, please try again!")
         window.location.assign('/login')
       }
-      else{
+      else {
         res.json()
           .then(data => {
             localStorage.setItem("access_token", data.token)
@@ -42,6 +42,6 @@ export default function HandleOauthRedirect() {
   useEffect(() => sendApi(provider, code))
 
   return (
-    <Loading/>
+    <Loading />
   );
 }

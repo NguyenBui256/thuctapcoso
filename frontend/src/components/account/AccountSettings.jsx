@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import UserSettings from './UserSettings';
 import ChangePassword from './ChangePassword';
 import EmailNotifications from './EmailNotifications';
 
 const AccountSettings = () => {
     const [activeTab, setActiveTab] = useState('user-settings');
+
+    useEffect(() => {
+        console.log('AccountSettings component mounted');
+    }, []);
 
     const tabs = [
         { id: 'user-settings', label: 'USER SETTINGS' },
@@ -13,6 +17,7 @@ const AccountSettings = () => {
     ];
 
     const renderContent = () => {
+        console.log('Rendering content for tab:', activeTab);
         switch (activeTab) {
             case 'user-settings':
                 return <UserSettings />;
@@ -39,7 +44,10 @@ const AccountSettings = () => {
                                 {tabs.map(tab => (
                                     <li key={tab.id}>
                                         <button
-                                            onClick={() => setActiveTab(tab.id)}
+                                            onClick={() => {
+                                                console.log('Tab clicked:', tab.id);
+                                                setActiveTab(tab.id);
+                                            }}
                                             className={`block w-full text-left py-2 px-4 ${activeTab === tab.id
                                                 ? 'text-gray-900 bg-gray-100 font-medium'
                                                 : 'text-gray-600 hover:bg-gray-100'
@@ -54,7 +62,7 @@ const AccountSettings = () => {
                     </div>
 
                     {/* Main Content */}
-                    <div className="flex-1 bg-white">
+                    <div className="flex-1 p-8">
                         {renderContent()}
                     </div>
                 </div>

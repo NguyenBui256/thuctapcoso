@@ -1,4 +1,4 @@
-package com.example.cosmeticsshop.util.validator;
+package edu.ptit.ttcs.util.validator;
 
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
