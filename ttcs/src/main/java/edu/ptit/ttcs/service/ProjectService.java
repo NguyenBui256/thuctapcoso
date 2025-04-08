@@ -1,7 +1,9 @@
 package edu.ptit.ttcs.service;
 
 import edu.ptit.ttcs.dao.ModuleRepository;
+import edu.ptit.ttcs.dao.ModuleRepository;
 import edu.ptit.ttcs.dao.ProjectRepository;
+import edu.ptit.ttcs.entity.Module;
 import edu.ptit.ttcs.entity.Module;
 import edu.ptit.ttcs.entity.Project;
 import edu.ptit.ttcs.entity.User;
@@ -9,6 +11,7 @@ import edu.ptit.ttcs.entity.dto.CreateProjectDTO;
 import edu.ptit.ttcs.entity.dto.PageResponse;
 import edu.ptit.ttcs.entity.dto.ProjectDTO;
 import edu.ptit.ttcs.mapper.ProjectMapper;
+import edu.ptit.ttcs.util.SecurityUtils;
 import edu.ptit.ttcs.util.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -18,7 +21,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.LocalDateTime;
 import java.util.HashSet;
+import java.util.List;
 import java.util.List;
 import java.util.Set;
 
