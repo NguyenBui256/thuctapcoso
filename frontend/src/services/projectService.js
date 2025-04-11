@@ -66,6 +66,20 @@ export const projectService = {
     // Get projects by user ID
     getProjectsByUser: async (userId) => {
         try {
+            // If userId is not provided, get the current user's ID
+            if (!userId) {
+                const currentUserData = localStorage.getItem('userData');
+                if (currentUserData) {
+                    const userData = JSON.parse(currentUserData);
+                    userId = userData.userId;
+                }
+                if (!userId) {
+                    userId = localStorage.getItem('userId');
+                }
+                if (!userId) {
+                    throw new Error('User ID not available');
+                }
+            }
             const response = await api.get(`/v1/projects/user/${userId}`);
             return response.data;
         } catch (error) {

@@ -9,6 +9,7 @@ import edu.ptit.ttcs.entity.dto.UpdateUserDTO;
 import edu.ptit.ttcs.entity.dto.UserSettingsResponseDTO;
 import edu.ptit.ttcs.service.UserSettingsService;
 import edu.ptit.ttcs.util.SecurityUtils;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -16,16 +17,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class UserSettingsServiceImpl implements UserSettingsService {
-
-    @Autowired
-    private UserSettingsRepository userSettingsRepository;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private SecurityUtils securityUtils;
+    private final UserSettingsRepository userSettingsRepository;
+    private final UserRepository userRepository;
+    private final SecurityUtils securityUtils;
 
     @Override
     @Transactional

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { projectService } from '../services/projectService';
+import { projectService } from '../../services/projectService';
 
 const projectTypeInfo = {
     scrum: {
@@ -56,7 +56,8 @@ const CreateProject = () => {
         isPublic: true,
         logoUrl: '',
         type: projectType.toUpperCase(),
-        projectType: projectType.toUpperCase()
+        projectType: projectType.toUpperCase(),
+        ownerId: localStorage.getItem("userId")
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);

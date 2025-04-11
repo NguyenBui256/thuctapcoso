@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -20,7 +19,7 @@ import edu.ptit.ttcs.service.ProjectRoleService;
 import edu.ptit.ttcs.util.ApiResponse;
 
 @RestController
-@RequestMapping("/api/projects/{projectId}/roles")
+@RequestMapping("/api/v1/users/{userId}/projects/{projectId}/roles")
 public class ProjectRoleController {
 
     @Autowired
@@ -30,7 +29,7 @@ public class ProjectRoleController {
     public ResponseEntity<ApiResponse<ProjectRoleDTO>> createRole(
             @PathVariable Long projectId,
             @RequestBody ProjectRoleRequestDTO request,
-            @RequestHeader("User-Id") Long userId) {
+            @PathVariable Long userId) {
         try {
             request.validate();
 
@@ -48,7 +47,7 @@ public class ProjectRoleController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<ProjectRoleDTO>>> getProjectRoles(
             @PathVariable Long projectId,
-            @RequestHeader("User-Id") Long userId) {
+            @PathVariable Long userId) {
         try {
             List<ProjectRoleDTO> roles = projectRoleService.getProjectRoles(projectId, userId);
             return ResponseEntity.ok(new ApiResponse<>("success", "Project roles retrieved successfully", roles));
@@ -61,7 +60,7 @@ public class ProjectRoleController {
     public ResponseEntity<ApiResponse<ProjectRoleDTO>> getRole(
             @PathVariable Long projectId,
             @PathVariable Long roleId,
-            @RequestHeader("User-Id") Long userId) {
+            @PathVariable Long userId) {
         try {
             ProjectRoleDTO role = projectRoleService.getProjectRoleById(roleId, userId);
             return ResponseEntity.ok(new ApiResponse<>("success", "Role retrieved successfully", role));
@@ -75,7 +74,7 @@ public class ProjectRoleController {
             @PathVariable Long projectId,
             @PathVariable Long roleId,
             @RequestBody ProjectRoleRequestDTO request,
-            @RequestHeader("User-Id") Long userId) {
+            @PathVariable Long userId) {
         try {
             request.validate();
 
@@ -94,7 +93,7 @@ public class ProjectRoleController {
     public ResponseEntity<ApiResponse<Void>> deleteRole(
             @PathVariable Long projectId,
             @PathVariable Long roleId,
-            @RequestHeader("User-Id") Long userId) {
+            @PathVariable Long userId) {
         try {
             projectRoleService.deleteProjectRole(roleId, userId);
             return ResponseEntity.ok(new ApiResponse<>("success", "Role deleted successfully", null));

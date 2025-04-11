@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { projectService } from '../services/projectService';
+import { projectService } from '../../services/projectService';
 
 const ProjectForm = ({ projectId, onSuccess }) => {
     const [formData, setFormData] = useState({

@@ -3,10 +3,8 @@ package edu.ptit.ttcs.service;
 import edu.ptit.ttcs.dao.ModuleRepository;
 import edu.ptit.ttcs.dao.ModuleRepository;
 import edu.ptit.ttcs.dao.ProjectRepository;
+import edu.ptit.ttcs.entity.*;
 import edu.ptit.ttcs.entity.Module;
-import edu.ptit.ttcs.entity.Module;
-import edu.ptit.ttcs.entity.Project;
-import edu.ptit.ttcs.entity.User;
 import edu.ptit.ttcs.entity.dto.CreateProjectDTO;
 import edu.ptit.ttcs.entity.dto.PageResponse;
 import edu.ptit.ttcs.entity.dto.ProjectDTO;
@@ -74,7 +72,7 @@ public class ProjectService {
     }
 
     public List<Project> findByOwner(User owner) {
-        return projectRepository.findByOwner(owner);
+        return projectRepository.findByCreatedBy(owner);
     }
 
     @Transactional
@@ -101,7 +99,6 @@ public class ProjectService {
     @Transactional
     public Project createProject(CreateProjectDTO createProjectDTO) {
         Project project = projectMapper.toEntity(createProjectDTO);
-        project.setCreatedBy(securityUtils.getCurrentUser());
         return projectRepository.save(project);
     }
 
@@ -146,23 +143,15 @@ public class ProjectService {
         projectRepository.save(project);
     }
 
-    public ProjectDTO getProjectById(Long id) {
-        // Implementation needed
-        throw new UnsupportedOperationException("Method not implemented");
-    }
-
-    public PageResponse<ProjectDTO> getProjects(int page, int size) {
-        // Implementation needed
-        throw new UnsupportedOperationException("Method not implemented");
-    }
-
     public boolean isUserProjectAdmin(Long projectId, Long userId) {
-        // Implementation needed
-        throw new UnsupportedOperationException("Method not implemented");
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new RuntimeException("Project not found"));
+        return project.getCreatedBy().getId().equals(userId);
     }
 
     public boolean isUserProjectMember(Long projectId, Long userId) {
-        // Implementation needed
-        throw new UnsupportedOperationException("Method not implemented");
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new RuntimeException("Project not found"));
+        return project.getProjectMembers().contains(userId);
     }
 }

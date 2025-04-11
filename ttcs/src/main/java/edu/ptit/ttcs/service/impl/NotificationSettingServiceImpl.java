@@ -9,6 +9,7 @@ import edu.ptit.ttcs.entity.dto.NotificationSettingDTO;
 import edu.ptit.ttcs.entity.dto.NotificationSettingResponseDTO;
 import edu.ptit.ttcs.service.NotificationSettingService;
 import edu.ptit.ttcs.util.SecurityUtils;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,16 +18,12 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class NotificationSettingServiceImpl implements NotificationSettingService {
 
-    @Autowired
-    private NotificationSettingRepository notificationSettingRepository;
-
-    @Autowired
-    private ProjectRepository projectRepository;
-
-    @Autowired
-    private SecurityUtils securityUtils;
+    private final NotificationSettingRepository notificationSettingRepository;
+    private final ProjectRepository projectRepository;
+    private final SecurityUtils securityUtils;
 
     @Override
     @Transactional

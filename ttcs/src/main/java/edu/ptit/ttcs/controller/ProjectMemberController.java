@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -21,7 +20,7 @@ import edu.ptit.ttcs.service.ProjectMemberService;
 import edu.ptit.ttcs.util.ApiResponse;
 
 @RestController
-@RequestMapping("/api/projects/{projectId}/members")
+@RequestMapping("/api/v1/user/{userId}/project/{projectId}/members")
 public class ProjectMemberController {
 
     @Autowired
@@ -31,7 +30,7 @@ public class ProjectMemberController {
     public ResponseEntity<ApiResponse<ProjectMemberDTO>> addMember(
             @PathVariable Long projectId,
             @RequestBody ProjectMemberRequestDTO request,
-            @RequestHeader("User-Id") Long userId) {
+            @PathVariable Long userId) {
         try {
             request.validate();
             ProjectMemberDTO member = projectMemberService.addMemberToProject(
@@ -49,7 +48,7 @@ public class ProjectMemberController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<ProjectMemberDTO>>> getProjectMembers(
             @PathVariable Long projectId,
-            @RequestHeader("User-Id") Long userId) {
+            @PathVariable Long userId) {
         try {
             List<ProjectMemberDTO> members = projectMemberService.getProjectMembers(projectId, userId);
             return ResponseEntity.ok(new ApiResponse<>("success", "Project members retrieved successfully", members));
@@ -63,7 +62,7 @@ public class ProjectMemberController {
             @PathVariable Long projectId,
             @PathVariable Long memberId,
             @RequestBody ProjectMemberRequestDTO request,
-            @RequestHeader("User-Id") Long userId) {
+            @PathVariable Long userId) {
         try {
             request.validate();
             ProjectMemberDTO member = projectMemberService.updateProjectMember(
@@ -82,7 +81,7 @@ public class ProjectMemberController {
     public ResponseEntity<ApiResponse<Void>> removeMember(
             @PathVariable Long projectId,
             @PathVariable Long memberId,
-            @RequestHeader("User-Id") Long userId) {
+            @PathVariable Long userId) {
         try {
             projectMemberService.removeProjectMember(projectId, memberId, userId);
             return ResponseEntity.ok(new ApiResponse<>("success", "Member removed successfully", null));
@@ -96,7 +95,7 @@ public class ProjectMemberController {
             @PathVariable Long projectId,
             @PathVariable Long memberId,
             @RequestBody PointsUpdateRequestDTO request,
-            @RequestHeader("User-Id") Long userId) {
+            @PathVariable Long userId) {
         try {
             request.validate();
             projectMemberService.updateMemberPoints(
