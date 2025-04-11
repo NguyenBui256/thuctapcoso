@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
-const Sidebar = ({ currentProject }) => {
+const Sidebar = ({ currentProject, onToggleCollapse }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState('project');
   
@@ -12,8 +12,19 @@ const Sidebar = ({ currentProject }) => {
     textPrimary: { color: primaryColor },
   };
 
+  // Notify parent component when sidebar collapses/expands
+  useEffect(() => {
+    if (onToggleCollapse && typeof onToggleCollapse === 'function') {
+      onToggleCollapse(sidebarCollapsed);
+    }
+  }, [sidebarCollapsed, onToggleCollapse]);
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed(!sidebarCollapsed);
+  };
+
   return (
-    <aside className={`${sidebarCollapsed ? 'w-20' : 'w-64'} bg-taiga-dark text-white flex-shrink-0 h-full`}>
+      <aside className={`${sidebarCollapsed ? 'w-20' : 'w-64'} bg-taiga-dark text-white flex-shrink-0 fixed left-0 top-12 h-[calc(100vh-3rem)] transition-all duration-300`}>
       <div className="p-4 h-full flex flex-col">
         <div className="mb-6">
           <Link 
@@ -27,7 +38,7 @@ const Sidebar = ({ currentProject }) => {
               <line x1="8" y1="21" x2="16" y2="21"></line>
               <line x1="12" y1="17" x2="12" y2="21"></line>
             </svg>
-            {!sidebarCollapsed && <span className="ml-2 truncate">{currentProject?.name || 'Project Name'}</span>}
+            {!sidebarCollapsed && <span className="ml-2 truncate">{currentProject?.name || 'Projects'}</span>}
           </Link>
         </div>
         
@@ -115,7 +126,7 @@ const Sidebar = ({ currentProject }) => {
             {!sidebarCollapsed && <span className="ml-2 truncate">Settings</span>}
           </Link>
           <button 
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            onClick={toggleSidebar}
             className={`w-full flex items-center justify-${sidebarCollapsed ? 'center' : 'start'} px-3 py-2 text-sm text-gray-200 hover:bg-gray-700 rounded-md mt-4`}
           >
             <svg className="w-6 h-6 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
