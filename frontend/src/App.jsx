@@ -1,4 +1,3 @@
-
 import { lazy } from 'react';
 
 const LoginPage = lazy(() => import('./pages/auth/login'));
@@ -8,14 +7,15 @@ const HandleOauthRedirect = lazy(() => import('./pages/auth/HandleOauthRedirect'
 const ForgotPasswordPage = lazy(() => import('./pages/auth/forgot-password/ForgotPasswordPage'))
 const ResetPasswordPage = lazy(() => import('./pages/auth/forgot-password/ResetPasswordPage'))
 const ErrorPage = lazy(() => import('./pages/ErrorPage.jsx'));
+const ProjectDetail = lazy(() => import('./pages/project_detail/ProjectDetail'));
 
 import { ERROR_TYPE } from './pages/ErrorPage.jsx';
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import ProjectList from './components/ProjectList';
-import SelectProjectType from './components/SelectProjectType';
-import CreateProject from './components/CreateProject';
-import DuplicateProject from './components/DuplicateProject';
+import ProjectList from './components/project/ProjectList.jsx';
+import SelectProjectType from './components/project/SelectProjectType.jsx';
+import CreateProject from './components/project/CreateProject.jsx';
+import DuplicateProject from './components/project/DuplicateProject.jsx';
 import AccountSettings from './components/account/AccountSettings';
 
 function App() {
@@ -33,6 +33,7 @@ function App() {
         <Route path="/projects/new" element={<SelectProjectType />} />
         <Route path="/projects/create/:projectType" element={<CreateProject />} />
         <Route path="/projects/duplicate" element={<DuplicateProject />} />
+        <Route path="/projects/:projectId" element={<ProjectDetail />} />
         <Route path="/account/settings" element={<AccountSettings />} />
       </Route>
       <Route path='*' element={<ErrorPage errorType={ERROR_TYPE.NOT_FOUND} />} />

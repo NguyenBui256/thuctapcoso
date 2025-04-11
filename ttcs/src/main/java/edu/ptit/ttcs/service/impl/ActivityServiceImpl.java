@@ -8,6 +8,7 @@ import edu.ptit.ttcs.entity.User;
 import edu.ptit.ttcs.entity.dto.ActivityDTO;
 import edu.ptit.ttcs.entity.dto.ActivityDTO;
 import edu.ptit.ttcs.service.ActivityService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,22 +18,13 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class ActivityServiceImpl implements ActivityService {
-
-        @Autowired
-        private ActivityRepository activityRepository;
-
-        @Autowired
-        private ProjectRepository projectRepository;
-
-        @Autowired
-        private IssueRepository issueRepository;
-
-        @Autowired
-        private UserRepository userRepository;
-
-        @Autowired
-        private ProjectMemberRepository projectMemberRepository;
+        private final ActivityRepository activityRepository;
+        private final ProjectRepository projectRepository;
+        private final IssueRepository issueRepository;
+        private final UserRepository userRepository;
+        private final ProjectMemberRepository projectMemberRepository;
 
         @Override
         @Transactional

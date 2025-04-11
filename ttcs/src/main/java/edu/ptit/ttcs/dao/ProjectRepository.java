@@ -11,7 +11,7 @@ import java.util.List;
 
 @Repository
 public interface ProjectRepository extends JpaRepository<Project, Long> {
-    List<Project> findByOwner(User owner);
+    List<Project> findByCreatedBy(User owner);
 
     Page<Project> findByIsDeletedFalse(Pageable pageable);
 

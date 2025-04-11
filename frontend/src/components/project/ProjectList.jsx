@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { projectService } from '../services/projectService';
-import { FiLock } from 'react-icons/fi';
+import React, {useEffect, useState} from 'react';
+import {useNavigate} from 'react-router-dom';
+import {FiLock} from 'react-icons/fi';
+import {fetchProjectsByUserId} from '../../utils/api';
 
 const ProjectList = () => {
     const [projects, setProjects] = useState([]);
@@ -20,23 +20,19 @@ const ProjectList = () => {
     const fetchProjects = async () => {
         try {
             setLoading(true);
-            const response = await projectService.getAllProjects(currentPage, pageSize);
-            console.log('API Response:', response); // Debug log
-
-            // Check if response is valid
-            if (response && response.data) {
-                const projectsData = response.data.content || [];
-                const totalPagesData = response.data.totalPages || 0;
-
-                console.log('Projects data:', projectsData); // Debug log
-                console.log('Total pages:', totalPagesData); // Debug log
-
-                setProjects(projectsData);
-                setTotalPages(totalPagesData);
-            } else {
-                console.error('Invalid response format:', response);
-                setError('Invalid response format from server');
-            }
+            
+            // Use fetchProjectsByUserId from api utils instead of getAllProjects
+            const projectsData = await fetchProjectsByUserId();
+            console.log('Projects data:', projectsData);
+            
+            // Since fetchProjectsByUserId doesn't support pagination yet, we'll handle it client-side
+            const startIdx = currentPage * pageSize;
+            const endIdx = startIdx + pageSize;
+            const paginatedProjects = projectsData.slice(startIdx, endIdx);
+            const calculatedTotalPages = Math.ceil(projectsData.length / pageSize);
+            
+            setProjects(paginatedProjects);
+            setTotalPages(calculatedTotalPages);
         } catch (err) {
             setError('Failed to fetch projects');
             console.error('Error fetching projects:', err);

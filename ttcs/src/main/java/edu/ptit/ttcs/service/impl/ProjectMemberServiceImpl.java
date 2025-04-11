@@ -13,6 +13,7 @@ import edu.ptit.ttcs.entity.dto.ProjectMemberDTO;
 import edu.ptit.ttcs.service.ActivityService;
 import edu.ptit.ttcs.service.ProjectMemberService;
 import edu.ptit.ttcs.service.ProjectService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,25 +23,15 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class ProjectMemberServiceImpl implements ProjectMemberService {
 
-        @Autowired
-        private ProjectRepository projectRepository;
-
-        @Autowired
-        private UserRepository userRepository;
-
-        @Autowired
-        private ProjectMemberRepository projectMemberRepository;
-
-        @Autowired
-        private ProjectRoleRepository projectRoleRepository;
-
-        @Autowired
-        private ProjectService projectService;
-
-        @Autowired
-        private ActivityService activityService;
+        private final ProjectRepository projectRepository;
+        private final UserRepository userRepository;
+        private final ProjectMemberRepository projectMemberRepository;
+        private final ProjectRoleRepository projectRoleRepository;
+        private final ProjectService projectService;
+        private final ActivityService activityService;
 
         @Override
         @Transactional

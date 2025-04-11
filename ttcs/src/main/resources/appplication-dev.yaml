@@ -4,9 +4,9 @@ spring:
       port: 6379
       host: localhost
   datasource:
-    url: jdbc:mysql://localhost:3306/taiga_clone
-    username: ttcs
-    password: 123456
+    url: jdbc:mysql://localhost:3306/ttcs
+    username: root
+    password: Theshanon25062004@
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     show-sql: true

@@ -95,6 +95,7 @@ public class JwtService {
     public String generateAccessToken(User user, Map<String, Object> claims) {
         Instant now = Instant.now();
         Instant expiration = now.plusSeconds(constant.getAccessTokenExpiration());
+        claims.put("userId", user.getId());
         claims.put("avatar", user.getAvatar());
         claims.put("fullName", user.getFullName());
         claims.put("email", user.getEmail());

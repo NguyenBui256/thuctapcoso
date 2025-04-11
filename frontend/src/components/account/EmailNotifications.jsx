@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { projectService } from '../../services/projectService';
+import { fetchProjectsByUserId } from '../../utils/api';
 
 const EmailNotifications = () => {
     const [projects, setProjects] = useState([]);
@@ -16,42 +17,37 @@ const EmailNotifications = () => {
     const fetchProjects = async (page) => {
         try {
             setLoading(true);
-            const response = await projectService.getAllProjects(page, pageSize);
-            console.log('API Response:', response); // Debug log
-
-            // Check if response is valid and has the expected structure
-            if (!response || !response.data) {
-                throw new Error('Invalid response format from server');
-            }
-
-            const { content, totalPages: total } = response.data;
-
-            if (!Array.isArray(content)) {
-                throw new Error('Projects data is not an array');
-            }
-
+            
+            // Use fetchProjectsByUserId from api utils instead of getAllProjects
+            const allProjects = await fetchProjectsByUserId();
+            
+            // Client-side pagination
+            const startIdx = page * pageSize;
+            const endIdx = startIdx + pageSize;
+            const paginatedProjects = allProjects.slice(startIdx, endIdx);
+            const calculatedTotalPages = Math.ceil(allProjects.length / pageSize);
+            
             // Fetch notification settings for each project
-            const projectsWithSettings = await Promise.all(content.map(async project => {
+            const projectsWithSettings = await Promise.all(paginatedProjects.map(async project => {
                 try {
                     const setting = await projectService.getProjectNotificationSetting(project.id);
-                    console.log(setting);
                     return {
                         ...project,
-                        projectName: setting.data.projectName,
+                        projectName: setting.data.projectName || project.name,
                         notification: setting.data.notificationType
                     };
                 } catch (err) {
                     console.error(`Error fetching notification setting for project ${project.id}:`, err);
                     return {
                         ...project,
+                        projectName: project.name, // Fallback to the project name from the projects list
                         notification: 'none'
                     };
                 }
             }));
 
             setProjects(projectsWithSettings);
-            console.log(projectsWithSettings);
-            setTotalPages(total);
+            setTotalPages(calculatedTotalPages);
         } catch (err) {
             setError('Failed to load projects');
             console.error('Error loading projects:', err);
@@ -126,7 +122,7 @@ const EmailNotifications = () => {
                         <tbody>
                             {projects.map(project => (
                                 <tr key={project.id} className="border-b">
-                                    <td className="py-3 pl-2">{`${project.projectName}`}</td>
+                                    <td className="py-3 pl-2">{project.projectName}</td>
                                     <td className="text-center">
                                         <button
                                             onClick={() => handleNotificationChange(project.id, 'all')}

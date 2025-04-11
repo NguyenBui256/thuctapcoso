@@ -1,4 +1,6 @@
 spring:
+  profiles:
+    active: dev
   application:
     name: ttcs
   security:
@@ -29,4 +31,4 @@ spring:
 
 app:
   cors:
-    allowedOrigins: ${server.base_url}:3000,${server.base_url}:8080,${server.base_url}:5173
+    allowedOrigins: http://localhost:3000,http://localhost:8080,http://localhost:5173

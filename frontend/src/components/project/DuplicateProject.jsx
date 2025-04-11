@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { projectService } from '../services/projectService';
+import { projectService } from '../../services/projectService';
 
 const DuplicateProject = () => {
     const navigate = useNavigate();

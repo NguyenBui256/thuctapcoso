@@ -10,6 +10,7 @@ import edu.ptit.ttcs.entity.dto.ProjectRoleDTO;
 import edu.ptit.ttcs.service.ActivityService;
 import edu.ptit.ttcs.service.ProjectRoleService;
 import edu.ptit.ttcs.service.ProjectService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,19 +22,13 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class ProjectRoleServiceImpl implements ProjectRoleService {
 
-        @Autowired
-        private ProjectRepository projectRepository;
-
-        @Autowired
-        private ProjectRoleRepository projectRoleRepository;
-
-        @Autowired
-        private ProjectService projectService;
-
-        @Autowired
-        private ActivityService activityService;
+        private final ProjectRepository projectRepository;
+        private final ProjectRoleRepository projectRoleRepository;
+        private final ProjectService projectService;
+        private final ActivityService activityService;
 
         @Override
         @Transactional

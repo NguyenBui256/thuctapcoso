@@ -17,7 +17,7 @@ const Sidebar = ({ currentProject }) => {
       <div className="p-4 h-full flex flex-col">
         <div className="mb-6">
           <Link 
-            to="/project" 
+            to={currentProject ? `/projects/${currentProject.id}` : '/projects'} 
             className={`flex items-center justify-${sidebarCollapsed ? 'center' : 'start'} px-3 py-2 text-sm rounded-md ${activeTab === 'project' ? 'text-white' : 'text-gray-200 hover:bg-gray-700'}`}
             onClick={() => setActiveTab('project')}
             style={activeTab === 'project' ? styles.bgPrimary : {}}
