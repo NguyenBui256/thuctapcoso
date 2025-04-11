@@ -25,7 +25,7 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
         response.getWriter().write("{\"error\": \"Unauthorized\", \"message\": \"" + authException.getMessage() + "\"}");
         String origin = request.getHeader("Origin");
         if(Arrays.asList(allowedOrigins).contains(origin)) {
-            response.addHeader("Access-Control-Allow-Origin", origin);
+            response.setHeader("Access-Control-Allow-Origin", origin);
         }
     }
 }
