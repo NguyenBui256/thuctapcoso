@@ -55,6 +55,8 @@ const LoginPage = () => {
         return
       }
 
+      console.log(data)
+
       localStorage.setItem('access_token', data.data.token)
       setUserData(data.data.token)
 
