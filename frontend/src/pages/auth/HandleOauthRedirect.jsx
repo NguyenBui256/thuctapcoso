@@ -17,8 +17,8 @@ function sendApi(provider, code) {
       else {
         res.json()
           .then(data => {
-            localStorage.setItem("access_token", data.token)
-            setUserData(data.token)
+            localStorage.setItem("access_token", data.data.token)
+            setUserData(data.data.token)
           })
         const from = localStorage.getItem('from')
         localStorage.removeItem('from')
