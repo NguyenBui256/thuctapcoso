@@ -111,7 +111,7 @@ export const getCurrentUserId = () => {
     // Try to get userId directly from localStorage
     const userId = localStorage.getItem("userId");
     if (userId) return userId;
-    
+
     // If not found, try to extract from userData
     const userDataStr = localStorage.getItem("userData");
     if (userDataStr) {
@@ -125,7 +125,7 @@ export const getCurrentUserId = () => {
             console.error("Error parsing userData:", err);
         }
     }
-    
+
     // Default fallback value if userId cannot be determined
     return null;
 }
