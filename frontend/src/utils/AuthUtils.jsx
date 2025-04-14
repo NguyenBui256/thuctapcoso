@@ -58,15 +58,15 @@ export async function fetchWithAuth(url, from, isCompulsory, options = {}) {
                 }
 
                 const data = await ref.json()
-                localStorage.setItem("access_token", data.token)
-                setUserData(data.token)
+                localStorage.setItem("access_token", data.data.token)
+                setUserData(data.data.token)
 
                 // Retry the original request with new token
                 return fetch(url, {
                     ...options,
                     headers: {
                         ...options.headers,
-                        'Authorization': `Bearer ${data.token}`,
+                        'Authorization': `Bearer ${data.data.token}`,
                     },
                     credentials: 'include'
                 })
