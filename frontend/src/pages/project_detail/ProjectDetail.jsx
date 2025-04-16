@@ -30,14 +30,20 @@ function ProjectDetail() {
   useEffect(() => {
     const getProject = async () => {
       if (!projectId) {
+        console.error("No project ID provided");
         setError('Project ID not found');
         return;
       }
 
+      console.log("Fetching project with ID:", projectId);
       setLoading(true);
       setError(null);
       try {
         const projectData = await fetchProjectById(projectId);
+        console.log("Received project data:", projectData);
+        if (!projectData || !projectData.id) {
+          throw new Error("Invalid project data received");
+        }
         setCurrentProject(projectData);
       } catch (err) {
         setError(err.message);
@@ -53,11 +59,12 @@ function ProjectDetail() {
   // Fetch project activities and members when current project changes
   useEffect(() => {
     if (!currentProject) {
-      console.log("No current project, skipping activity fetch");
+      console.log("No current project, skipping data fetch");
       return;
     }
 
-    console.log("Fetching activities for project:", currentProject.id);
+    console.log("Current project data:", currentProject);
+    console.log("Fetching activities and members for project:", currentProject.id);
 
     const getProjectData = async () => {
       setLoading(true);
@@ -67,19 +74,24 @@ function ProjectDetail() {
         setProjectMembers([]);
 
         // Fetch activities and members in parallel
-        const [activitiesData, membersData] = await Promise.all([
-          fetchProjectActivities(currentProject.id),
+        console.log("Starting parallel fetch for activities and members");
+        const [membersData] = await Promise.all([
+          // fetchProjectActivities(currentProject.id),
           fetchProjectMembers(currentProject.id)
         ]);
 
-        console.log("Setting activities:", activitiesData);
-        setActivities(activitiesData);
+        // console.log("Activities data received:", activitiesData);
+        console.log("Members data received:", membersData);
 
-        console.log("Setting project members:", membersData);
-        setProjectMembers(membersData);
+        console.log("MEM:")
+        console.log(membersData);
+        // setActivities(activitiesData || []);
+        setProjectMembers(membersData || []); // Ensure we always set an array
       } catch (err) {
         console.error('Error fetching project data:', err);
-        // Don't set error state to avoid blocking UI
+        // Set empty arrays on error to avoid undefined
+        setActivities([]);
+        setProjectMembers([]);
       } finally {
         setLoading(false);
       }
@@ -221,7 +233,7 @@ function ProjectDetail() {
                 {/* Activity feed */}
                 <div className="bg-white rounded-lg shadow-sm">
                   <h3 className="text-lg font-medium p-4 border-b">Recent Activities</h3>
-                  {sampleActivities.map((activity, index) => (
+                  {activities.map((activity, index) => (
                     <div
                       key={activity.id || index}
                       className="p-4 border-b border-gray-100 last:border-b-0"
@@ -270,7 +282,7 @@ function ProjectDetail() {
 
                 {/* Team members component */}
                 <TeamMembers
-                  projectMembers={projectMembers.length > 0 ? projectMembers : sampleTeamMembers}
+                  projectMembers={projectMembers}
                   loading={loading}
                   getUserInitials={getUserInitials}
                 />

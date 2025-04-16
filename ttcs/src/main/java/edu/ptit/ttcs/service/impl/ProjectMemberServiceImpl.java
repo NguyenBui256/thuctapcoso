@@ -259,6 +259,7 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                 dto.setTotalPoint(member.getTotalPoint());
                 dto.setIsAdmin(member.getIsAdmin());
                 dto.setJoinedAt(member.getCreatedAt());
+                dto.setAvatar(member.getUser().getAvatar());
                 return dto;
         }
 }

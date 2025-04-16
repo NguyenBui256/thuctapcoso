@@ -1,17 +1,18 @@
 package edu.ptit.ttcs.service;
 
+import edu.ptit.ttcs.dao.*;
 import edu.ptit.ttcs.dao.ModuleRepository;
-import edu.ptit.ttcs.dao.ModuleRepository;
-import edu.ptit.ttcs.dao.ProjectRepository;
 import edu.ptit.ttcs.entity.*;
 import edu.ptit.ttcs.entity.Module;
 import edu.ptit.ttcs.entity.dto.CreateProjectDTO;
 import edu.ptit.ttcs.entity.dto.PageResponse;
 import edu.ptit.ttcs.entity.dto.ProjectDTO;
+import edu.ptit.ttcs.entity.enums.ProjectRoleName;
 import edu.ptit.ttcs.mapper.ProjectMapper;
 import edu.ptit.ttcs.util.SecurityUtils;
 import edu.ptit.ttcs.util.SecurityUtils;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -20,11 +21,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.LocalDateTime;
-import java.util.HashSet;
+import java.util.*;
 import java.util.List;
-import java.util.List;
-import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ProjectService {
@@ -33,6 +33,9 @@ public class ProjectService {
     private final ModuleRepository moduleRepository;
     private final ProjectMapper projectMapper;
     private final SecurityUtils securityUtils;
+    private final UserRepository userRepository;
+    private final ProjectRoleRepository projectRoleRepository;
+    private final ProjectMemberRepository projectMemberRepository;
 
     @Transactional
     public Project save(Project project) {
@@ -98,8 +101,44 @@ public class ProjectService {
 
     @Transactional
     public Project createProject(CreateProjectDTO createProjectDTO) {
+        User creator = userRepository.findById(createProjectDTO.getOwnerId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
         Project project = projectMapper.toEntity(createProjectDTO);
-        return projectRepository.save(project);
+        log.info("Project CREATED AT: {}", project.getCreatedAt());
+        project = projectRepository.save(project);
+        log.info("Project created: {}", project.getId());
+
+        ProjectRole toSetForAdminProjectRole = null;
+
+        for (ProjectRoleName roleName : ProjectRoleName.values()) {
+            ProjectRole projectRole = new ProjectRole();
+            projectRole.setProject(project);
+            projectRole.setRoleName(roleName.name());
+            projectRole.setCreatedBy(creator);
+            projectRole.setUpdatedBy(creator);
+            projectRole.setCreatedAt(LocalDateTime.now());
+            projectRole.setUpdatedAt(LocalDateTime.now());
+            projectRoleRepository.save(projectRole);
+            if (roleName == ProjectRoleName.PROJECT_MANAGER) {
+                toSetForAdminProjectRole = projectRole;
+            }
+            log.info("ProjectRole {} - ID: {}", projectRole.getRoleName(), projectRole.getId());
+        }
+
+        ProjectMember projectMember = new ProjectMember();
+        projectMember.setProject(project);
+        projectMember.setUser(creator);
+        projectMember.setIsAdmin(true);
+        projectMember.setCreatedBy(creator);
+        projectMember.setUpdatedBy(creator);
+        projectMember.setCreatedAt(LocalDateTime.now());
+        projectMember.setUpdatedAt(LocalDateTime.now());
+        projectMember.setProjectRole(toSetForAdminProjectRole);
+        projectMemberRepository.save(projectMember);
+        log.info("ProjectMember ID: {}", projectMember.getId());
+
+        return project;
     }
 
     @Transactional
@@ -152,6 +191,8 @@ public class ProjectService {
     public boolean isUserProjectMember(Long projectId, Long userId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Project not found"));
-        return project.getProjectMembers().contains(userId);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return projectMemberRepository.existsByProjectAndUserAndIsDeleteFalse(project, user);
     }
 }

@@ -2,6 +2,7 @@ package edu.ptit.ttcs.entity;
 
 import jakarta.persistence.*;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 
 import java.util.HashSet;
@@ -11,6 +12,7 @@ import java.util.Set;
 @Table(name = "project_role")
 @Getter
 @Setter
+@RequiredArgsConstructor
 public class ProjectRole extends BaseEntity {
 
     @Id
