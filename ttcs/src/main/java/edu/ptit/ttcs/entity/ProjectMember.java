@@ -27,11 +27,11 @@ public class ProjectMember extends BaseEntity {
     private ProjectRole projectRole;
 
     @Column(name = "total_point")
-    private Integer totalPoint;
+    private Integer totalPoint = 0;
 
     @Column(name = "is_admin")
-    private Boolean isAdmin;
+    private Boolean isAdmin = false;
 
     @Column(name = "is_delete")
-    private Boolean isDelete;
+    private Boolean isDelete = false;
 }

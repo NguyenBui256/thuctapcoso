@@ -5,7 +5,7 @@ import { ToastContainer } from "react-toastify";
 export default function MainLayout() {
     
     return (
-        <div>
+        <div className="pt-12">
             <Navbar/>
             <Outlet/>
             <ToastContainer

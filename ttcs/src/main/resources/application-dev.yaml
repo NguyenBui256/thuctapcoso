@@ -1,15 +1,17 @@
 spring:
+  main:
+    allow-bean-definition-overriding: true
   data:
     redis:
       port: 6379
       host: localhost
   datasource:
-    url: jdbc:mysql://localhost:3306/taiga_clone
-    username: ttcs
-    password: 123456
+    url: jdbc:mysql://localhost:3306/ttcs
+    username: root
+    password: Theshanon25062004@
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
@@ -31,3 +33,4 @@ fe_base_url: ${server.base_url}:5173
 
 upload-file:
   base-uri: ""
+
