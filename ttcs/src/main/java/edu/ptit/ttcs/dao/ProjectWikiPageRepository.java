@@ -7,14 +7,16 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ProjectWikiPageRepository extends JpaRepository<ProjectWikiPage, Integer> {
+    Optional<ProjectWikiPage> findByIdAndProjectIdAndIsDeleteFalse(Long id, Long projectId);
+
     List<ProjectWikiPage> findByProject(Project project);
 
     List<ProjectWikiPage> findByCreatedBy(User user);
 
     List<ProjectWikiPage> findByUpdatedBy(User user);
 
-    List<ProjectWikiPage> findByProjectAndIsDeleteFalse(Project project);
 }

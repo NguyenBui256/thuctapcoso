@@ -8,6 +8,7 @@ const ForgotPasswordPage = lazy(() => import('./pages/auth/forgot-password/Forgo
 const ResetPasswordPage = lazy(() => import('./pages/auth/forgot-password/ResetPasswordPage'))
 const ErrorPage = lazy(() => import('./pages/ErrorPage.jsx'));
 const ProjectDetail = lazy(() => import('./pages/project_detail/ProjectDetail'));
+const WikiPage = lazy(() => import('./pages/Wiki/WikiPage'));
 
 import { ERROR_TYPE } from './pages/ErrorPage.jsx';
 import React from 'react';
@@ -28,12 +29,13 @@ function App() {
       <Route path='/forgot-password' element={<ForgotPasswordPage />} />
       <Route path='/reset-password/:token' element={<ResetPasswordPage />} />
       <Route path='/' element={<MainLayout />}>
-        <Route path="/" element={<Navigate to="/projects" replace />} />
+        <Route path="/" element={<Navigate to="/" replace />} />
         <Route path="/projects" element={<ProjectList />} />
         <Route path="/projects/new" element={<SelectProjectType />} />
         <Route path="/projects/create/:projectType" element={<CreateProject />} />
         <Route path="/projects/duplicate" element={<DuplicateProject />} />
         <Route path="/projects/:projectId" element={<ProjectDetail />} />
+        <Route path="/projects/:projectId/wiki" element={<WikiPage />} />
         <Route path="/account/settings" element={<AccountSettings />} />
       </Route>
       <Route path='*' element={<ErrorPage errorType={ERROR_TYPE.NOT_FOUND} />} />

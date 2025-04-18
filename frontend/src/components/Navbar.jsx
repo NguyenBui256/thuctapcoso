@@ -21,7 +21,7 @@ const NavigationBar = () => {
     };
 
     return (
-        <Navbar bg="light" expand="lg">
+        <Navbar bg="light" expand="lg" className="fixed top-0 left-0 right-0 z-50 w-full">
             <Container>
                 <Navbar.Brand as={Link} to="/">TTCS</Navbar.Brand>
                 <Navbar.Toggle aria-controls="basic-navbar-nav" />
