@@ -1,11 +1,13 @@
 package edu.ptit.ttcs.service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import edu.ptit.ttcs.dao.ProjectMemberRepository;
 import edu.ptit.ttcs.dao.ProjectWikiPageRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cglib.core.Local;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,7 +33,7 @@ public class ProjectWikiService {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Project not found"));
         
-        List<ProjectWikiPage> wikiPages = wikiPageRepository.findByProject(project);
+        List<ProjectWikiPage> wikiPages = wikiPageRepository.findByProjectAndIsDeleteFalse(project);
         return wikiPages.stream()
                 .map(ProjectWikiPageDTO::fromEntity)
                 .collect(Collectors.toList());
@@ -63,6 +65,8 @@ public class ProjectWikiService {
         wikiPage.setContent(request.getContent());
         wikiPage.setCreatedBy(user);
         wikiPage.setUpdatedBy(user);
+        wikiPage.setCreatedAt(LocalDateTime.now());
+        wikiPage.setUpdatedAt(LocalDateTime.now());
         wikiPage.setIsDelete(false);
         wikiPage.setEditCount(0);
         
@@ -84,8 +88,9 @@ public class ProjectWikiService {
         wikiPage.setTitle(request.getTitle());
         wikiPage.setContent(request.getContent());
         wikiPage.setUpdatedBy(user);
+        wikiPage.setUpdatedAt(LocalDateTime.now());
         wikiPage.setEditCount(wikiPage.getEditCount() + 1);
-        
+
         ProjectWikiPage updatedWikiPage = wikiPageRepository.save(wikiPage);
         return ProjectWikiPageDTO.fromEntity(updatedWikiPage);
     }

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import Sidebar from '../../components/layout/Sidebar';
 import ProjectHeader from '../../components/project/ProjectHeader';
 import ProjectActivities from '../../components/project/ProjectActivities';
 import ProjectInfo from '../../components/project/ProjectInfo';
@@ -10,23 +9,14 @@ import { formatDate, getUserInitials } from '../../utils/helpers';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 function ProjectDetail() {
-  const [watching, setWatching] = useState(3);
-  const [liked, setLiked] = useState(1);
   const [currentProject, setCurrentProject] = useState(null);
   const [activities, setActivities] = useState([]);
   const [projectMembers, setProjectMembers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const navigate = useNavigate();
   const { projectId } = useParams();
 
-  // Handle sidebar collapse state
-  const handleSidebarToggle = (collapsed) => {
-    setSidebarCollapsed(collapsed);
-  };
-
-  // Fetch project by ID from URL params
   useEffect(() => {
     const getProject = async () => {
       if (!projectId) {
@@ -56,7 +46,6 @@ function ProjectDetail() {
     getProject();
   }, [projectId]);
 
-  // Fetch project activities and members when current project changes
   useEffect(() => {
     if (!currentProject) {
       console.log("No current project, skipping data fetch");
@@ -69,27 +58,21 @@ function ProjectDetail() {
     const getProjectData = async () => {
       setLoading(true);
       try {
-        // Clear previous data when switching projects
         setActivities([]);
         setProjectMembers([]);
 
-        // Fetch activities and members in parallel
         console.log("Starting parallel fetch for activities and members");
         const [membersData] = await Promise.all([
-          // fetchProjectActivities(currentProject.id),
           fetchProjectMembers(currentProject.id)
         ]);
 
-        // console.log("Activities data received:", activitiesData);
         console.log("Members data received:", membersData);
 
         console.log("MEM:")
         console.log(membersData);
-        // setActivities(activitiesData || []);
-        setProjectMembers(membersData || []); // Ensure we always set an array
+        setProjectMembers(membersData || []);
       } catch (err) {
         console.error('Error fetching project data:', err);
-        // Set empty arrays on error to avoid undefined
         setActivities([]);
         setProjectMembers([]);
       } finally {
@@ -100,7 +83,6 @@ function ProjectDetail() {
     getProjectData();
   }, [currentProject]);
 
-  // Create sample activities in the proper format for testing
   const sampleActivities = [
     {
       id: 1,
@@ -158,7 +140,6 @@ function ProjectDetail() {
     }
   ];
 
-  // Tạo dữ liệu mẫu cho team members nếu chưa có dữ liệu từ API
   const sampleTeamMembers = [
     {
       id: 1,
@@ -187,111 +168,90 @@ function ProjectDetail() {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-100">
-      {/* Main content area with sidebar */}
-      <div className="flex flex-1 h-[calc(100vh-3rem)]">
-        {/* Sidebar fixed on the left */}
-        <Sidebar 
-          currentProject={currentProject} 
-          onToggleCollapse={handleSidebarToggle}
-        />
-        
-        {/* Main content with right margin to account for sidebar */}
-        <div className={`flex-1 ${sidebarCollapsed ? 'ml-20' : 'ml-64'} overflow-auto transition-all duration-300`}>
-          <div className="max-w-6xl mx-auto px-4 py-8">
-            {/* Main content */}
-            <div className="flex flex-col md:flex-row">
-              <div className="w-full md:w-2/3 pr-0 md:pr-8">
-                {/* Project Details */}
-                {loading && <div className="text-center py-4">Loading activities...</div>}
+    <>
+      <div className="flex flex-col md:flex-row">
+        <div className="w-full md:w-2/3 pr-0 md:pr-8">
+          {loading && <div className="text-center py-4">Loading project details...</div>}
 
-                {error && (
-                  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                    <p>{error}</p>
-                  </div>
-                )}
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+              <p>{error}</p>
+            </div>
+          )}
 
-                {/* Project information card */}
-                {currentProject && (
-                  <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-                    <div className="flex items-center">
-                      <div className="w-12 h-12 bg-gray-200 flex items-center justify-center rounded-sm mr-4">
-                        {currentProject.logo ? (
-                          <img src={currentProject.logo} alt="Project Logo" className="w-10 h-10" />
-                        ) : (
-                          <div className="text-lg text-gray-500">{currentProject.name?.substring(0, 2) || 'P'}</div>
-                        )}
-                      </div>
-                      <div>
-                        <h2 className="text-lg font-medium">{currentProject.name}</h2>
-                        <p className="text-sm text-gray-600">{currentProject.description || 'No description available'}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Activity feed */}
-                <div className="bg-white rounded-lg shadow-sm">
-                  <h3 className="text-lg font-medium p-4 border-b">Recent Activities</h3>
-                  {activities.map((activity, index) => (
-                    <div
-                      key={activity.id || index}
-                      className="p-4 border-b border-gray-100 last:border-b-0"
-                    >
-                      <div className="flex">
-                        {/* User avatar */}
-                        <div className="mr-4 flex-shrink-0">
-                          <div className="h-8 w-8 rounded-full bg-purple-300 flex items-center justify-center text-white text-xs">
-                            NT
-                          </div>
-                        </div>
-
-                        {/* Activity details */}
-                        <div className="flex-1">
-                          <div className="text-sm">
-                            <span className="font-medium text-purple-600">{activity.username}</span>
-                            <span className="text-gray-700"> {activity.action} </span>
-                            <a href={`/${activity.targetType.toLowerCase()}s/${activity.targetId}`} className="font-medium text-blue-500 hover:underline">
-                              {activity.targetName}
-                            </a>
-                            {activity.details && <span className="text-gray-700"> {activity.details}</span>}
-                          </div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            {formatDate(activity.timestamp)}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+          {currentProject && (
+            <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-gray-200 flex items-center justify-center rounded-sm mr-4">
+                  {currentProject.logo ? (
+                    <img src={currentProject.logo} alt="Project Logo" className="w-10 h-10" />
+                  ) : (
+                    <div className="text-lg text-gray-500">{currentProject.name?.substring(0, 2) || 'P'}</div>
+                  )}
                 </div>
-              </div>
-
-              {/* Right sidebar */}
-              <div className="w-full md:w-1/3 mt-6 md:mt-0">
-                {/* Project info card */}
-                <div className="bg-white rounded-lg shadow-sm mb-6">
-                  <div className="p-4">
-                    <h3 className="text-base font-medium mb-2 text-center">This project is looking for people</h3>
-                    <p className="text-sm text-gray-700 mb-4 text-center">Tôi cần người giỏi</p>
-                    <button className="flex items-center justify-center w-full bg-gray-200 text-gray-700 py-2 rounded hover:bg-gray-300">
-                      <span className="mr-2">✉</span>
-                      Contact the project
-                    </button>
-                  </div>
+                <div>
+                  <h2 className="text-lg font-medium">{currentProject.name}</h2>
+                  <p className="text-sm text-gray-600">{currentProject.description || 'No description available'}</p>
                 </div>
-
-                {/* Team members component */}
-                <TeamMembers
-                  projectMembers={projectMembers}
-                  loading={loading}
-                  getUserInitials={getUserInitials}
-                />
               </div>
             </div>
+          )}
+
+          <div className="bg-white rounded-lg shadow-sm">
+            <h3 className="text-lg font-medium p-4 border-b">Recent Activities</h3>
+            {sampleActivities.map((activity, index) => (
+              <div
+                key={activity.id || index}
+                className="p-4 border-b border-gray-100 last:border-b-0"
+              >
+                <div className="flex">
+                  <div className="mr-4 flex-shrink-0">
+                    <div className="h-8 w-8 rounded-full bg-purple-300 flex items-center justify-center text-white text-xs">
+                      {getUserInitials(activity.username)}
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm">
+                      <span className="font-medium text-purple-600">{activity.username}</span>
+                      <span className="text-gray-700"> {activity.action} </span>
+                      <a href={`#`} className="font-medium text-blue-500 hover:underline">
+                        {activity.targetName}
+                      </a>
+                      {activity.details && <span className="text-gray-700"> {activity.details}</span>}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {formatDate(activity.timestamp)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {sampleActivities.length === 0 && !loading && (
+              <div className="p-4 text-center text-gray-500">No recent activities found.</div>
+            )}
           </div>
         </div>
+
+        <div className="w-full md:w-1/3 mt-6 md:mt-0">
+          <div className="bg-white rounded-lg shadow-sm mb-6">
+            <div className="p-4">
+              <h3 className="text-base font-medium mb-2 text-center">This project is looking for people</h3>
+              <p className="text-sm text-gray-700 mb-4 text-center">Tôi cần người giỏi</p>
+              <button className="flex items-center justify-center w-full bg-gray-200 text-gray-700 py-2 rounded hover:bg-gray-300">
+                <span className="mr-2">✉</span>
+                Contact the project
+              </button>
+            </div>
+          </div>
+
+          <TeamMembers
+            projectMembers={sampleTeamMembers}
+            loading={loading}
+            getUserInitials={getUserInitials}
+          />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 

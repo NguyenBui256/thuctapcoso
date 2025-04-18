@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import Navbar from '../../components/Navbar';
-import Sidebar from '../../components/layout/Sidebar';
 import WikiSidebar from './WikiSidebar';
 import WikiContent from './WikiContent';
 import WikiPagesTable from './WikiPagesTable';
@@ -12,38 +10,12 @@ const WikiPage = () => {
   const { projectId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const [project, setProject] = useState(null);
   const [wikiPages, setWikiPages] = useState([]);
   const [selectedPage, setSelectedPage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [viewMode, setViewMode] = useState('single'); // 'single' or 'all'
   const userId = getCurrentUserId();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-
-  // Fetch project data
-  useEffect(() => {
-    const fetchProject = async () => {
-      try {
-        const response = await fetchWithAuth(
-          `${BASE_API_URL}/v1/projects/${projectId}`,
-          `/projects/${projectId}/wiki`,
-          true
-        );
-        if (response) {
-          const data = await response.json();
-          setProject(data);
-        }
-      } catch (err) {
-        setError('Failed to load project');
-        console.error(err);
-      }
-    };
-
-    if (userId && projectId) {
-      fetchProject();
-    }
-  }, [projectId, userId]);
 
   // Fetch all wiki pages
   useEffect(() => {
@@ -93,10 +65,6 @@ const WikiPage = () => {
       } else if (wikiPages.length > 0 || loading) {
         // Fetch only if pages are loaded or still loading
         fetchWikiPage(pageId);
-      } else if (!loading) {
-        setError(`Page with ID ${pageId} not found.`);
-        setViewMode('single');
-        setSelectedPage(null);
       }
     } else if (wikiPages.length > 0) {
       setSelectedPage(wikiPages[0]);
@@ -266,73 +234,51 @@ const WikiPage = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen">
-      <Navbar />
-      <div className="flex flex-1">
-        <Sidebar 
-          currentProject={project} 
-          onToggleCollapse={setSidebarCollapsed} 
-        />
-        {/* Container for Wiki Sidebar + Content - Add positioning */}
-        <div 
-          className={`fixed top-12 right-0 transition-all duration-300 flex flex-1 ${sidebarCollapsed ? 'left-20' : 'left-64'}`}
-        >
-          <WikiSidebar 
-            className="h-[calc(100vh-3rem)] overflow-y-auto" // Keep height calc
-            pages={wikiPages || []} 
-            selectedPageId={selectedPage?.id}
-            onSelectPage={handlePageSelect} 
-            onDeletePage={handleDeletePage} 
-            onCreatePage={handleCreatePage}
-            onViewAllPages={toggleViewMode}
-            viewMode={viewMode}
-          />
-          
-          {/* Main Content Area */}
-          <div className="flex-1 h-[calc(100vh-3rem)] overflow-y-auto bg-gray-50 p-6">
-            {error && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-                <span className="block sm:inline">{error}</span>
-              </div>
-            )}
-            {viewMode === 'all' ? (
-              <div>
-                {loading && wikiPages.length === 0 ? (
-                  <div className="text-center text-gray-500">Loading pages...</div>
-                ) : (
-                  <WikiPagesTable pages={wikiPages} projectId={projectId} />
-                )}
-              </div>
+    <div className="flex h-full w-full">
+      {/* Wiki Sidebar */}
+      <WikiSidebar 
+        className="flex-shrink-0 w-64 h-full flex-col overflow-y-auto border-r border-gray-200 bg-white"
+        pages={wikiPages || []} 
+        selectedPageId={selectedPage?.id}
+        onSelectPage={handlePageSelect} 
+        onDeletePage={handleDeletePage} 
+        onCreatePage={handleCreatePage}
+        onViewAllPages={toggleViewMode}
+        viewMode={viewMode}
+      />
+      
+      {/* Main Wiki Content Area - Remove horizontal padding */}
+      <div className="flex-1 h-full overflow-y-auto">
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+            <span className="block sm:inline">{error}</span>
+          </div>
+        )}
+        {viewMode === 'all' ? (
+          <div>
+            {loading && wikiPages.length === 0 ? (
+              <div className="text-center text-gray-500">Loading pages...</div>
             ) : (
-              <div className="max-w-4xl mx-auto">
-                <div className="flex justify-between items-center mb-6">
-                  <h1 className="text-2xl font-bold text-gray-800">Wiki</h1>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={toggleViewMode}
-                      className="px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-                    >
-                      View All Pages
-                    </button>
-                  </div>
-                </div>
-                {loading && !selectedPage ? ( // Show loading only if no page is selected yet
-                  <div className="text-center text-gray-500">Loading page...</div>
-                ) : selectedPage ? (
-                  <WikiContent 
-                    page={selectedPage} 
-                    onUpdatePage={handleUpdatePage}
-                    onDeletePage={handleDeletePage}
-                  />
-                ) : (
-                  <div className="text-center text-gray-500">
-                    {wikiPages.length > 0 ? 'Select a page from the sidebar.' : 'Create a new page to get started.'}
-                  </div>
-                )}
+              <WikiPagesTable pages={wikiPages} projectId={projectId} />
+            )}
+          </div>
+        ) : (
+          <div className="mx-auto">
+            {loading && !selectedPage ? ( // Show loading only if no page is selected yet
+              <div className="text-center text-gray-500">Loading page...</div>
+            ) : selectedPage ? (
+              <WikiContent 
+                page={selectedPage} 
+                onUpdatePage={handleUpdatePage} 
+                onDeletePage={handleDeletePage}
+              />
+            ) : (
+              <div className="text-center text-gray-500">
+                {wikiPages.length > 0 ? 'Select a page from the sidebar.' : 'Create a new page to get started.'}
               </div>
             )}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

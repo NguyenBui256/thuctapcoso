@@ -13,7 +13,7 @@ import java.util.Optional;
 public interface ProjectWikiPageRepository extends JpaRepository<ProjectWikiPage, Integer> {
     Optional<ProjectWikiPage> findByIdAndProjectIdAndIsDeleteFalse(Long id, Long projectId);
 
-    List<ProjectWikiPage> findByProject(Project project);
+    List<ProjectWikiPage> findByProjectAndIsDeleteFalse(Project project);
 
     List<ProjectWikiPage> findByCreatedBy(User user);
 

@@ -29,7 +29,7 @@ const WikiSidebar = ({ pages, selectedPageId, onSelectPage, onDeletePage, onCrea
   };
 
   return (
-    <div className={`w-64 border-r border-gray-200 flex-shrink-0 bg-white ${className || ''}`}>
+    <div className={`w-72 border-r border-gray-200 flex-shrink-0 bg-white ${className || ''}`}>
       <div className="p-4">
         <h2 className="text-lg font-semibold text-gray-700 mb-4">BOOKMARKS</h2>
         

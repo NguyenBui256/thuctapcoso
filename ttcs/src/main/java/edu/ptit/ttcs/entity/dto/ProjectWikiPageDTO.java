@@ -34,6 +34,8 @@ public class ProjectWikiPageDTO {
         dto.setContent(entity.getContent());
         dto.setCreatedBy(entity.getCreatedBy() != null ? UserDTO.fromEntity(entity.getCreatedBy()) : null);
         dto.setUpdatedBy(entity.getUpdatedBy() != null ? UserDTO.fromEntity(entity.getUpdatedBy()) : null);
+        dto.setCreatedAt(entity.getCreatedAt());
+        dto.setUpdatedAt(entity.getUpdatedAt());
         dto.setEditCount(entity.getEditCount());
 
         // Convert attachments to DTOs
