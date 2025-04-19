@@ -2,13 +2,16 @@ import { BASE_API_URL } from "../common/constants"
 
 export async function checkAuthenticated() {
     try {
-        const accessToken = localStorage.getItem("access_token")
+        const accessToken = localStorage.getItem("userData")
         if (!accessToken) {
             // Try to refresh token
             const ref = await fetch(`${BASE_API_URL}/v1/auth/refresh`, {
                 credentials: "include"
             })
-            if (ref.status !== 200) return false
+            if (ref.status !== 200) {
+                await localStorage.removeItem('userData')
+                return false
+            }
 
             const data = await ref.json()
             localStorage.setItem("access_token", data.data.token)
@@ -51,6 +54,8 @@ export async function fetchWithAuth(url, from, isCompulsory, options = {}) {
                 })
 
                 if (ref.status !== 200) {
+                    await localStorage.removeItem('userData')
+                    await localStorage.removeItem('access_token')
                     if (isCompulsory) {
                         window.location.assign('/login' + `${from ? '?from=' + from : ''}`)
                     }

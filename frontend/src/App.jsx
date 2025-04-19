@@ -12,9 +12,12 @@ const ResetPasswordPage = lazy(() => import('./pages/auth/forgot-password/ResetP
 const ProjectDetail = lazy(() => import('./pages/project_detail/ProjectDetail'));
 const WikiPage = lazy(() => import('./pages/Wiki/WikiPage'));
 const MainLayout = lazy(() => import('./pages/MainLayout.jsx'))
+const BacklogPage = lazy(() => import('./pages/scrum/BacklogPage.jsx'));
+const SprintPage = lazy(() => import('./pages/scrum/SprintPage.jsx'));
 
 import { ERROR_TYPE } from './pages/ErrorPage.jsx';
 import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import ProjectList from './components/project/ProjectList.jsx';
 import SelectProjectType from './components/project/SelectProjectType.jsx';
 import CreateProject from './components/project/CreateProject.jsx';
@@ -23,6 +26,7 @@ import AccountSettings from './components/account/AccountSettings.jsx';
 import KanbanBoardWrapper from './components/kanban/KanbanBoardWrapper.jsx';
 import TaigaUserStoryDetail from './components/kanban/TaigaUserStoryDetail';
 import TaigaTaskDetail from './components/kanban/TaigaTaskDetail.jsx';
+
 
 function App() {
   return (
@@ -33,7 +37,7 @@ function App() {
       <Route path='/forgot-password' element={<ForgotPasswordPage />} />
       <Route path='/reset-password/:token' element={<ResetPasswordPage />} />
       <Route path='/' element={<MainLayout />}>
-        <Route path="/" />
+        <Route path="/" element={<Navigate to="/projects" replace />} />
         <Route path="/projects" element={<ProjectList />} />
         <Route path="/projects/new" element={<SelectProjectType />} />
         <Route path="/projects/create/:projectType" element={<CreateProject />} />
@@ -45,6 +49,10 @@ function App() {
         <Route path="/projects/:projectId" element={<ProjectDetailLayout />} >
           <Route index element={< ProjectDetail />} />
           <Route path="wiki" element={<WikiPage />} />
+        </Route>
+        <Route path="/projects/:projectId" element={<ProjectDetail />}>
+          <Route path='backlog' element={<BacklogPage/>}/>
+          <Route path='sprint/:sprintId' element={<SprintPage/>}/>
         </Route>
         <Route path="/account/settings" element={<AccountSettings />} />
       </Route>

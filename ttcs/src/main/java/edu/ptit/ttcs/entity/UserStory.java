@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -19,6 +20,10 @@ public class UserStory extends BaseEntity {
     private Integer id;
 
     @ManyToOne
+    @JoinColumn(name = "project_id")
+    private Project project;
+
+    @ManyToOne
     @JoinColumn(name = "sprint_id")
     private Sprint sprint;
 
@@ -29,7 +34,7 @@ public class UserStory extends BaseEntity {
     private String description;
 
     @Column(name = "due_date")
-    private LocalDate dueDate;
+    private LocalDateTime dueDate;
 
     @ManyToOne
     @JoinColumn(name = "status_id")
@@ -38,10 +43,6 @@ public class UserStory extends BaseEntity {
     @ManyToOne
     @JoinColumn(name = "swimlane_id")
     private KanbanSwimland swimlane;
-
-    @ManyToOne
-    @JoinColumn(name = "project_id")
-    private Project project;
 
     @Column(name = "is_block")
     private Boolean isBlock;

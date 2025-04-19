@@ -131,7 +131,7 @@ public class UserStoryController {
 
     /**
      * Creates a new user story in the Kanban board
-     * 
+     *
      * @param request The request containing the user story and the assignee
      *                information
      * @return ResponseEntity with the created user story
@@ -328,7 +328,7 @@ public class UserStoryController {
     /**
      * Updates the status and optionally the order of a user story when dragged and
      * dropped on the Kanban board
-     * 
+     *
      * @param id       The ID of the user story to update
      * @param statusId The ID of the new status
      * @param order    The optional new order/position in the column (nullable)
