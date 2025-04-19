@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -19,6 +20,10 @@ public class UserStory extends BaseEntity {
     private Integer id;
 
     @ManyToOne
+    @JoinColumn(name = "project_id")
+    private Project project;
+
+    @ManyToOne
     @JoinColumn(name = "sprint_id")
     private Sprint sprint;
 
@@ -29,7 +34,7 @@ public class UserStory extends BaseEntity {
     private String description;
 
     @Column(name = "due_date")
-    private LocalDate dueDate;
+    private LocalDateTime dueDate;
 
     @ManyToOne
     @JoinColumn(name = "status_id")
@@ -58,10 +63,10 @@ public class UserStory extends BaseEntity {
     private Set<ProjectSettingTag> tags = new HashSet<>();
 
     @ManyToMany
-    @JoinTable(name = "user_story_user", joinColumns = @JoinColumn(name = "user_story_id"), inverseJoinColumns = @JoinColumn(name = "user_id"))
-    private Set<User> assignedUsers = new HashSet<>();
+    @JoinTable(name = "user_story_assign", joinColumns = @JoinColumn(name = "user_story_id"), inverseJoinColumns = @JoinColumn(name = "project_member_id"))
+    private Set<ProjectMember> assignedUsers = new HashSet<>();
 
     @ManyToMany
-    @JoinTable(name = "user_story_watcher", joinColumns = @JoinColumn(name = "user_story_id"), inverseJoinColumns = @JoinColumn(name = "user_id"))
-    private Set<User> watchers = new HashSet<>();
+    @JoinTable(name = "user_story_watcher", joinColumns = @JoinColumn(name = "user_story_id"), inverseJoinColumns = @JoinColumn(name = "project_member_id"))
+    private Set<ProjectMember> watchers = new HashSet<>();
 }

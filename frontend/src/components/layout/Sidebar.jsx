@@ -56,18 +56,27 @@ const Sidebar = ({ currentProject, onToggleCollapse }) => {
               </svg>
               {!sidebarCollapsed && <span className="ml-2 truncate">Epics</span>}
             </Link>
-            <Link 
-              to="/scrum" 
-              className={`flex items-center justify-${sidebarCollapsed ? 'center' : 'start'} px-3 py-2 text-sm rounded-md ${activeTab === 'scrum' ? 'text-white' : 'text-gray-200 hover:bg-gray-700'}`}
-              onClick={() => setActiveTab('scrum')}
-              style={activeTab === 'scrum' ? styles.bgPrimary : {}}
-            >
-              <svg className="w-6 h-6 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <path d="M12 6v6l4 2"></path>
-              </svg>
-              {!sidebarCollapsed && <span className="ml-2 truncate">Scrum</span>}
-            </Link>
+            <div>
+              <div
+                to="/scrum" 
+                className={`flex items-center justify-${sidebarCollapsed ? 'center' : 'start'} px-3 py-2 text-sm rounded-md ${activeTab === 'scrum' ? 'text-white' : 'text-gray-200 hover:bg-gray-700'}`}
+                onClick={() => setActiveTab('scrum')}
+                style={activeTab === 'scrum' ? styles.bgPrimary : {}}
+              >
+                <svg className="w-6 h-6 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="M12 6v6l4 2"></path>
+                </svg>
+                {!sidebarCollapsed && <span className="ml-2 truncate">Scrum</span>}
+              </div>
+
+              <Link 
+                to={'backlog'}
+                className='ml-10 bg-cyan-500'  
+              >
+                Backlog
+              </Link>
+            </div>
             <Link 
               to="/kanban" 
               className={`flex items-center justify-${sidebarCollapsed ? 'center' : 'start'} px-3 py-2 text-sm rounded-md ${activeTab === 'kanban' ? 'text-white' : 'text-gray-200 hover:bg-gray-700'}`}

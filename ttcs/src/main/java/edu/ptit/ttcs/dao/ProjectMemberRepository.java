@@ -6,6 +6,7 @@ import edu.ptit.ttcs.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import javax.swing.text.html.Option;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,4 +21,6 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, In
     List<ProjectMember> findByProjectAndIsDeleteFalse(Project project);
 
     boolean existsByProjectAndUserAndIsDeleteFalse(Project project, User user);
+
+    Optional<ProjectMember> findByUserAndProject(User user, Project project);
 }

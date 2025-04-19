@@ -8,6 +8,8 @@ const ForgotPasswordPage = lazy(() => import('./pages/auth/forgot-password/Forgo
 const ResetPasswordPage = lazy(() => import('./pages/auth/forgot-password/ResetPasswordPage'))
 const ErrorPage = lazy(() => import('./pages/ErrorPage.jsx'));
 const ProjectDetail = lazy(() => import('./pages/project_detail/ProjectDetail'));
+const BacklogPage = lazy(() => import('./pages/scrum/BacklogPage.jsx'));
+const SprintPage = lazy(() => import('./pages/scrum/SprintPage.jsx'));
 
 import { ERROR_TYPE } from './pages/ErrorPage.jsx';
 import React from 'react';
@@ -17,6 +19,7 @@ import SelectProjectType from './components/project/SelectProjectType.jsx';
 import CreateProject from './components/project/CreateProject.jsx';
 import DuplicateProject from './components/project/DuplicateProject.jsx';
 import AccountSettings from './components/account/AccountSettings';
+
 
 function App() {
 
@@ -33,7 +36,10 @@ function App() {
         <Route path="/projects/new" element={<SelectProjectType />} />
         <Route path="/projects/create/:projectType" element={<CreateProject />} />
         <Route path="/projects/duplicate" element={<DuplicateProject />} />
-        <Route path="/projects/:projectId" element={<ProjectDetail />} />
+        <Route path="/projects/:projectId" element={<ProjectDetail />}>
+          <Route path='backlog' element={<BacklogPage/>}/>
+          <Route path='sprint/:sprintId' element={<SprintPage/>}/>
+        </Route>
         <Route path="/account/settings" element={<AccountSettings />} />
       </Route>
       <Route path='*' element={<ErrorPage errorType={ERROR_TYPE.NOT_FOUND} />} />

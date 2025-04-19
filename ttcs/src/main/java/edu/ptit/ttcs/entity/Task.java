@@ -16,8 +16,8 @@ public class Task {
     private Integer id;
 
     @ManyToOne
-    @JoinColumn(name = "user_id")
-    private User user;
+    @JoinColumn(name = "assigned_member_id")
+    private ProjectMember assigned;
 
     @ManyToOne
     @JoinColumn(name = "user_story_id")
@@ -41,8 +41,8 @@ public class Task {
     private List<ProjectSettingTag> tags = new ArrayList<>();
 
     @ManyToMany
-    @JoinTable(name = "task_watcher", joinColumns = @JoinColumn(name = "task_id"), inverseJoinColumns = @JoinColumn(name = "user_id"))
-    private List<User> watchers = new ArrayList<>();
+    @JoinTable(name = "task_watcher", joinColumns = @JoinColumn(name = "task_id"), inverseJoinColumns = @JoinColumn(name = "project_member_id"))
+    private List<ProjectMember> watchers = new ArrayList<>();
 
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL)
     private List<Comment> comments = new ArrayList<>();

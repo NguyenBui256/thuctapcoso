@@ -36,16 +36,19 @@ public class Sprint {
 
     @ManyToOne
     @JoinColumn(name = "created_by_id")
-    private User createdBy;
+    private ProjectMember createdBy;
 
     @Column(nullable = false)
     private LocalDateTime createdDate;
 
     @ManyToOne
     @JoinColumn(name = "updated_by_id")
-    private User updatedBy;
+    private ProjectMember updatedBy;
 
     private LocalDateTime updatedDate;
+
+    @OneToMany(mappedBy = "sprint", cascade = CascadeType.ALL)
+    private List<UserStory> userStories = new ArrayList<>();
 
     @OneToMany(mappedBy = "sprint", cascade = CascadeType.ALL)
     private List<Issue> issues = new ArrayList<>();
