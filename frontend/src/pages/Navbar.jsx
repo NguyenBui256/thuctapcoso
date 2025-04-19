@@ -24,7 +24,7 @@ export default function Navbar() {
     const [isProfileOpen, setIsProfileOpen] = useState(false);
 
     return (
-        <div className="h-12 bg-gray-200 flex items-center">
+        <div className="h-12 bg-gray-200 flex items-center fixed top-0 left-0 right-0 z-50">
             {authenticated ? (
                 <div className="w-full">
                     <div className="flex items-center justify-between px-4 py-2">

@@ -2,14 +2,14 @@ import { lazy } from 'react';
 
 const LoginPage = lazy(() => import('./pages/auth/login'));
 const RegisterPage = lazy(() => import('./pages/auth/register'));
-const MainLayout = lazy(() => import('./pages/MainLayout'))
+const ProjectDetailLayout = lazy(() => import('./components/layout/ProjectDetailLayout.jsx'))
 const HandleOauthRedirect = lazy(() => import('./pages/auth/HandleOauthRedirect'))
 const ForgotPasswordPage = lazy(() => import('./pages/auth/forgot-password/ForgotPasswordPage'))
 const ResetPasswordPage = lazy(() => import('./pages/auth/forgot-password/ResetPasswordPage'))
 const ErrorPage = lazy(() => import('./pages/ErrorPage.jsx'));
 const ProjectDetail = lazy(() => import('./pages/project_detail/ProjectDetail'));
-const BacklogPage = lazy(() => import('./pages/scrum/BacklogPage.jsx'));
-const SprintPage = lazy(() => import('./pages/scrum/SprintPage.jsx'));
+const WikiPage = lazy(() => import('./pages/Wiki/WikiPage'));
+const MainLayout = lazy(() => import ('./pages/MainLayout.jsx'))
 
 import { ERROR_TYPE } from './pages/ErrorPage.jsx';
 import React from 'react';
@@ -19,7 +19,6 @@ import SelectProjectType from './components/project/SelectProjectType.jsx';
 import CreateProject from './components/project/CreateProject.jsx';
 import DuplicateProject from './components/project/DuplicateProject.jsx';
 import AccountSettings from './components/account/AccountSettings';
-
 
 function App() {
 
@@ -36,9 +35,9 @@ function App() {
         <Route path="/projects/new" element={<SelectProjectType />} />
         <Route path="/projects/create/:projectType" element={<CreateProject />} />
         <Route path="/projects/duplicate" element={<DuplicateProject />} />
-        <Route path="/projects/:projectId" element={<ProjectDetail />}>
-          <Route path='backlog' element={<BacklogPage/>}/>
-          <Route path='sprint/:sprintId' element={<SprintPage/>}/>
+        <Route path="/projects/:projectId" element={<ProjectDetailLayout />} >
+          <Route index element={< ProjectDetail /> } />
+          <Route path="wiki" element={<WikiPage />} />
         </Route>
         <Route path="/account/settings" element={<AccountSettings />} />
       </Route>

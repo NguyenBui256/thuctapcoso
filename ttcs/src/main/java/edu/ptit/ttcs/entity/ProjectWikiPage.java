@@ -11,11 +11,11 @@ import java.util.Set;
 @Table(name = "project_wiki_page")
 @Setter
 @Getter
-public class ProjectWikiPage {
+public class ProjectWikiPage extends BaseEntity{
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Long id;
 
     @ManyToOne
     @JoinColumn(name = "project_id")
@@ -28,14 +28,6 @@ public class ProjectWikiPage {
 
     @Column(name = "is_delete")
     private Boolean isDelete;
-
-    @ManyToOne
-    @JoinColumn(name = "created_by")
-    private User createdBy;
-
-    @ManyToOne
-    @JoinColumn(name = "updated_by")
-    private User updatedBy;
 
     @Column(name = "edit_count")
     private Integer editCount;
