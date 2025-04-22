@@ -11,21 +11,21 @@ export const fetchProjectsByUserId = async () => {
   if (!userId) {
     throw new Error("User ID not available. Please login again.");
   }
-  
+
   const response = await fetchWithAuth(
-    `${API_BASE_URL}/v1/projects/user/${userId}`, 
+    `${API_BASE_URL}/v1/projects/user/${userId}`,
     '/projects',  // redirect here if auth fails
     true,         // is authentication compulsory
     { method: 'GET' }
   );
-  
+
   if (!response || !response.ok) {
     throw new Error(`Failed to fetch projects: ${response?.statusText || 'Authentication failed'}`);
   }
-  
+
   const data = await response.json();
   console.log(data);
-  
+
   if (Array.isArray(data.data)) {
     return data.data;
   } else {
@@ -33,9 +33,9 @@ export const fetchProjectsByUserId = async () => {
   }
 };
 
-export const fetchProjectById = async(projectId) => {
+export const fetchProjectById = async (projectId) => {
   const response = await fetchWithAuth(
-    `${API_BASE_URL}/v1/projects/${projectId}`, 
+    `${API_BASE_URL}/v1/projects/${projectId}`,
     '/projects',  // redirect here if auth fails
     true,         // is authentication compulsory
     { method: 'GET' }
@@ -45,7 +45,7 @@ export const fetchProjectById = async(projectId) => {
   }
   const data = await response.json();
   console.log(data);
-  if(data.data) {
+  if (data.data) {
     return data.data;
   } else {
     throw new Error("Invalid API response format");
@@ -58,9 +58,9 @@ export const fetchProjectActivities = async (projectId) => {
   if (!userId) {
     throw new Error("User ID not available. Please login again.");
   }
-  
+
   const response = await fetchWithAuth(
-    `${API_BASE_URL}/v1/user/${userId}/project/${projectId}/activities`, 
+    `${API_BASE_URL}/v1/user/${userId}/project/${projectId}/activities`,
     `/projects/${projectId}`,
     true,
     { method: 'GET' }
@@ -68,13 +68,13 @@ export const fetchProjectActivities = async (projectId) => {
 
   const data = await response.json();
   console.log(data);
-  
+
   if (!response || !response.ok) {
     throw new Error(`Failed to fetch activities: ${response?.message || 'Authentication failed'}`);
   }
-  
+
   // const data = await response.json();
-  
+
   if (Array.isArray(data.data)) {
     return data.data;
   } else {
@@ -88,20 +88,20 @@ export const fetchProjectMembers = async (projectId) => {
   if (!userId) {
     throw new Error("User ID not available. Please login again.");
   }
-  
+
   const response = await fetchWithAuth(
     `${API_BASE_URL}/v1/user/${userId}/project/${projectId}/members`,
     `/projects/${projectId}`,
     true,
     { method: 'GET' }
   );
-  
+
   if (!response || !response.ok) {
     throw new Error(`Failed to fetch project members: ${response?.message || 'Authentication failed'}`);
   }
-  
+
   const data = await response.json();
-  
+
   if (Array.isArray(data.data)) {
     return data.data;
   } else {
@@ -116,25 +116,25 @@ export const testApiConnection = async () => {
     if (!userId) {
       return { success: false, error: 'User ID not available' };
     }
-    
+
     const response = await fetchWithAuth(
       `${API_BASE_URL}/v1/users/${userId}/projects`,
       '/projects',
       false,  // not compulsory for testing
       { method: 'GET' }
     );
-    
+
     if (!response) {
       return { success: false, error: 'Authentication failed' };
     }
-    
+
     const text = await response.text();
-    
+
     try {
       const data = JSON.parse(text);
       return { success: response.ok, data };
-    } catch (e) {
-      return { success: false, error: 'Invalid JSON response', text };
+    } catch (error) {
+      return { success: false, error: `Invalid JSON response: ${error.message}`, text };
     }
   } catch (err) {
     return { success: false, error: err.message };

@@ -19,4 +19,6 @@ public interface ProjectMemberService {
     ProjectMemberDTO getProjectMember(Long projectId, Long userId);
 
     void updateMemberPoints(Long projectId, Long userId, Integer points, Long requestUserId);
+
+    List<ProjectMemberDTO> getProjectMembersList(Long projectId);
 }

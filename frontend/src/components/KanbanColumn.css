@@ -1,0 +1,153 @@
+.kanban-column {
+    flex: 0 0 280px;
+    min-width: 280px;
+    background-color: #f5f5f5;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.column-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid #e0e0e0;
+    border-radius: 8px 8px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.column-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.task-count {
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.task-list {
+    padding: 8px;
+    flex-grow: 1;
+    overflow-y: auto;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.task-list.dragging-over {
+    background-color: rgba(0, 120, 215, 0.05);
+}
+
+.add-task-button {
+    margin-top: 8px;
+    padding: 8px;
+    border: none;
+    background: transparent;
+    color: #666;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    border-radius: 4px;
+}
+
+.add-task-button:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    color: #333;
+}
+
+.add-task-form {
+    background-color: white;
+    border-radius: 4px;
+    padding: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin-top: 8px;
+}
+
+.add-task-form input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 8px;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.form-actions button {
+    flex: 1;
+    padding: 6px 0;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.add-button {
+    background-color: #0078d4;
+    color: white;
+}
+
+.add-button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.cancel-button {
+    background-color: #f5f5f5;
+    color: #333;
+}
+
+/* Column status-specific styling */
+.column-new .column-header {
+    background-color: #6c757d;
+    color: white;
+}
+
+.column-ready .column-header {
+    background-color: #dc3545;
+    color: white;
+}
+
+.column-in-progress .column-header {
+    background-color: #fd7e14;
+    color: white;
+}
+
+.column-ready-for-review .column-header {
+    background-color: #ffc107;
+    color: black;
+}
+
+.column-done .column-header {
+    background-color: #28a745;
+    color: white;
+}
+
+/* Custom scrollbar for task list */
+.task-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.task-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.task-list::-webkit-scrollbar-thumb {
+    background: #cccccc;
+    border-radius: 3px;
+}
+
+.task-list::-webkit-scrollbar-thumb:hover {
+    background: #aaaaaa;
+}

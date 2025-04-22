@@ -1,8 +1,8 @@
 package edu.ptit.ttcs.service;
 
 import edu.ptit.ttcs.dao.ModuleRepository;
-import edu.ptit.ttcs.dao.ModuleRepository;
 import edu.ptit.ttcs.dao.ProjectRepository;
+import edu.ptit.ttcs.dao.UserRepository;
 import edu.ptit.ttcs.entity.*;
 import edu.ptit.ttcs.entity.Module;
 import edu.ptit.ttcs.entity.dto.CreateProjectDTO;
@@ -10,13 +10,13 @@ import edu.ptit.ttcs.entity.dto.PageResponse;
 import edu.ptit.ttcs.entity.dto.ProjectDTO;
 import edu.ptit.ttcs.mapper.ProjectMapper;
 import edu.ptit.ttcs.util.SecurityUtils;
-import edu.ptit.ttcs.util.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.LocalDateTime;
 import java.time.LocalDateTime;
@@ -33,6 +33,8 @@ public class ProjectService {
     private final ModuleRepository moduleRepository;
     private final ProjectMapper projectMapper;
     private final SecurityUtils securityUtils;
+    @Autowired
+    private UserRepository userRepository;
 
     @Transactional
     public Project save(Project project) {
@@ -97,8 +99,16 @@ public class ProjectService {
     }
 
     @Transactional
-    public Project createProject(CreateProjectDTO createProjectDTO) {
-        Project project = projectMapper.toEntity(createProjectDTO);
+    public Project createProject(CreateProjectDTO createProjectDTO, Long currentUserId) {
+        // Get user from repository
+        User creator = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Project project = new Project();
+        project.setName(createProjectDTO.getName());
+        project.setDescription(createProjectDTO.getDescription());
+        project.setCreatedBy(creator);
+        project.setCreatedAt(LocalDateTime.now());
         return projectRepository.save(project);
     }
 

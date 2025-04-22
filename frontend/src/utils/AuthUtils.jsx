@@ -11,8 +11,8 @@ export async function checkAuthenticated() {
             if (ref.status !== 200) return false
 
             const data = await ref.json()
-            localStorage.setItem("access_token", data.token)
-            setUserData(data.token)
+            localStorage.setItem("access_token", data.data.token)
+            setUserData(data.data.token)
             return true
         }
 

@@ -22,6 +22,14 @@ public class Activity {
     private Issue issue;
 
     @ManyToOne
+    @JoinColumn(name = "user_story_id")
+    private UserStory userStory;
+
+    @ManyToOne
+    @JoinColumn(name = "task_id")
+    private Task task;
+
+    @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;
 

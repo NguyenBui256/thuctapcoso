@@ -5,12 +5,10 @@ import edu.ptit.ttcs.validation.Username;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import lombok.Data;
 import lombok.Builder;
-import lombok.Getter;
-import lombok.Setter;
 
-@Getter
-@Setter
+@Data
 @Builder
 public class RegistrationDTO {
 
@@ -26,6 +24,8 @@ public class RegistrationDTO {
 
     @StrongPassword
     private String password;
+
+    private String bio;
 
     private String avatar;
 

@@ -1,0 +1,193 @@
+.kanban-task {
+    background-color: white;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease-in-out;
+}
+
+.kanban-task:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.kanban-task.is-dragging {
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    opacity: 0.9;
+}
+
+/* Styling for user story card */
+.kanban-task.user-story {
+    background-color: #f0f7ff;
+    border-left: 4px solid #3498db;
+}
+
+.kanban-task.is-blocked {
+    border-left: 4px solid #e74c3c;
+    background-color: #fff5f5;
+}
+
+.task-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.task-number {
+    font-size: 12px;
+    color: #777;
+    font-weight: 500;
+}
+
+/* Special styling for user story number */
+.user-story .task-number {
+    font-weight: 600;
+    color: #3498db;
+}
+
+.task-assignee {
+    display: flex;
+    align-items: center;
+}
+
+.assignee-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.task-content {
+    margin-bottom: 8px;
+}
+
+.task-title {
+    font-weight: 500;
+    margin-bottom: 4px;
+    word-break: break-word;
+}
+
+/* Make user story title more prominent */
+.user-story .task-title {
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.task-details {
+    margin-top: 8px;
+    font-size: 13px;
+    padding-top: 8px;
+    border-top: 1px solid #eee;
+}
+
+.task-description {
+    color: #666;
+    margin-bottom: 6px;
+    word-break: break-word;
+}
+
+.task-due-date {
+    font-size: 12px;
+    color: #777;
+    margin-top: 4px;
+}
+
+.task-actions {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: none;
+}
+
+.kanban-task:hover .task-actions {
+    display: flex;
+}
+
+.edit-button,
+.delete-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    padding: 0;
+    margin-left: 4px;
+    color: #777;
+}
+
+.edit-button:hover {
+    background-color: #f0f0f0;
+    color: #3498db;
+}
+
+.delete-button:hover {
+    background-color: #f0f0f0;
+    color: #e74c3c;
+}
+
+.task-edit {
+    margin-bottom: 8px;
+}
+
+.task-edit input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    margin-bottom: 6px;
+}
+
+.edit-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.save-button,
+.cancel-button {
+    padding: 4px 8px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.save-button {
+    background-color: #3498db;
+    color: white;
+}
+
+.save-button:disabled {
+    background-color: #95a5a6;
+    cursor: not-allowed;
+}
+
+.cancel-button {
+    background-color: #f0f0f0;
+    color: #333;
+}
+
+/* Story points styling */
+.story-points {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.story-points .point {
+    background-color: #e8f4fd;
+    border: 1px solid #bde0fe;
+    border-radius: 12px;
+    padding: 2px 8px;
+    font-size: 11px;
+    color: #2980b9;
+}
