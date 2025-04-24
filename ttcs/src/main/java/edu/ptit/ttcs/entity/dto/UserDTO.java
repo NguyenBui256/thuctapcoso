@@ -1,5 +1,7 @@
 package edu.ptit.ttcs.entity.dto;
 
+import edu.ptit.ttcs.entity.User;
+
 public class UserDTO {
     private Long id;
     private String username;
@@ -27,5 +29,15 @@ public class UserDTO {
 
     public void setFullName(String fullName) {
         this.fullName = fullName;
+    }
+
+    public static UserDTO fromEntity(User user) {
+        if (user == null)
+            return null;
+        UserDTO dto = new UserDTO();
+        dto.setId(user.getId());
+        dto.setUsername(user.getUsername());
+        dto.setFullName(user.getFullName());
+        return dto;
     }
 }

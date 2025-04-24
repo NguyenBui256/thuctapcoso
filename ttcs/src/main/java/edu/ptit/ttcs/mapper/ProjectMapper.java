@@ -1,10 +1,13 @@
 package edu.ptit.ttcs.mapper;
 
+import edu.ptit.ttcs.dao.UserRepository;
 import edu.ptit.ttcs.entity.Module;
 import edu.ptit.ttcs.entity.Project;
+import edu.ptit.ttcs.entity.User;
 import edu.ptit.ttcs.entity.dto.CreateProjectDTO;
 import edu.ptit.ttcs.entity.dto.ProjectDTO;
 import edu.ptit.ttcs.dao.ModuleRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -15,10 +18,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @Component
+@RequiredArgsConstructor
 public class ProjectMapper {
 
-    @Autowired
-    private ModuleRepository moduleRepository;
+    private final ModuleRepository moduleRepository;
+    private final UserRepository userRepository;
 
     public Project toEntity(CreateProjectDTO dto) {
         Project project = new Project();
@@ -28,6 +32,9 @@ public class ProjectMapper {
         project.setLogoUrl(dto.getLogoUrl());
         project.setCreatedAt(LocalDateTime.now());
         project.setUpdatedAt(LocalDateTime.now());
+        User user = userRepository.findById(dto.getOwnerId())
+                .orElseThrow(() -> new RuntimeException("User not found."));
+        project.setCreatedBy(user);
         project.setIsDeleted(false);
 
         // Map project type to module

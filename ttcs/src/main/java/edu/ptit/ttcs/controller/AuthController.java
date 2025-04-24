@@ -19,15 +19,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.Map;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import edu.ptit.ttcs.dao.RoleRepository;
-import edu.ptit.ttcs.dao.UserRepository;
-import edu.ptit.ttcs.entity.Role;
-import edu.ptit.ttcs.entity.User;
 
 @RestController
 @RequiredArgsConstructor
@@ -42,54 +34,13 @@ public class AuthController {
 
         private final AuthenticationManagerBuilder authenticationManagerBuilder;
 
-        @Autowired
-        private UserRepository userRepository;
-
-        @Autowired
-        private RoleRepository roleRepository;
-
-        @Autowired
-        private PasswordEncoder passwordEncoder;
-
         @PostMapping("/register")
-        public ResponseEntity<?> register(@RequestBody RegistrationDTO registrationDTO) {
-                try {
-                        // Check if username or email already exists
-                        if (userRepository.existsByUsernameOrEmail(registrationDTO.getUsername(),
-                                        registrationDTO.getEmail())) {
-                                return ResponseEntity.badRequest().body("Username or email already exists");
-                        }
-
-                        // Create new user
-                        User user = new User();
-                        user.setUsername(registrationDTO.getUsername());
-                        user.setEmail(registrationDTO.getEmail());
-                        user.setFullName(registrationDTO.getFullName());
-                        user.setPassword(passwordEncoder.encode(registrationDTO.getPassword()));
-                        user.setBio(registrationDTO.getBio());
-                        user.setAvatar(registrationDTO.getAvatar());
-
-                        // Set created_at to current time
-                        user.setCreatedAt(LocalDateTime.now());
-
-                        // Get or create USER role
-                        Role role = roleRepository.findByName("USER")
-                                        .orElseGet(() -> {
-                                                Role newRole = new Role();
-                                                newRole.setName("USER");
-                                                newRole.setDescription("Regular user role");
-                                                newRole.setActive(true);
-                                                return roleRepository.save(newRole);
-                                        });
-                        user.setRole(role);
-
-                        // Save user
-                        userRepository.save(user);
-
-                        return ResponseEntity.ok("User registered successfully");
-                } catch (Exception e) {
-                        return ResponseEntity.badRequest().body(e.getMessage());
-                }
+        public ResponseEntity<?> register(@RequestBody @Valid RegistrationDTO dto) {
+                AuthResponse res = authService.register(dto, false);
+                return ResponseEntity.ok()
+                                .header(HttpHeaders.SET_COOKIE, getRefreshTokenCookie(res.getRefreshToken()).toString())
+                                .body(Map.of(
+                                                "token", res.getAccessToken()));
         }
 
         @PostMapping("/login")

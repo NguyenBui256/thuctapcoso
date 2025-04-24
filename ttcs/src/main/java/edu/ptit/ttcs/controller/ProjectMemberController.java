@@ -77,7 +77,7 @@ public class ProjectMemberController {
     }
 
     @PutMapping("/{memberId}")
-    public ResponseEntity<ApiResponse<ProjectMemberDTO>> updateMember(
+    public ResponseEntity<ProjectMemberDTO> updateMember(
             @PathVariable Long projectId,
             @PathVariable Long memberId,
             @RequestBody ProjectMemberRequestDTO request,
@@ -90,27 +90,27 @@ public class ProjectMemberController {
                     request.getRoleId(),
                     request.getIsAdmin(),
                     userId);
-            return ResponseEntity.ok(new ApiResponse<>("success", "Member updated successfully", member));
+            return ResponseEntity.ok(member);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
+            return ResponseEntity.badRequest().body(null);
         }
     }
 
     @DeleteMapping("/{memberId}")
-    public ResponseEntity<ApiResponse<Void>> removeMember(
+    public ResponseEntity<Void> removeMember(
             @PathVariable Long projectId,
             @PathVariable Long memberId,
             @PathVariable Long userId) {
         try {
             projectMemberService.removeProjectMember(projectId, memberId, userId);
-            return ResponseEntity.ok(new ApiResponse<>("success", "Member removed successfully", null));
+            return ResponseEntity.ok(null);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
+            return ResponseEntity.badRequest().body(null);
         }
     }
 
     @PutMapping("/{memberId}/points")
-    public ResponseEntity<ApiResponse<Void>> updateMemberPoints(
+    public ResponseEntity<Void> updateMemberPoints(
             @PathVariable Long projectId,
             @PathVariable Long memberId,
             @RequestBody PointsUpdateRequestDTO request,
@@ -122,9 +122,9 @@ public class ProjectMemberController {
                     memberId,
                     request.getPoints(),
                     userId);
-            return ResponseEntity.ok(new ApiResponse<>("success", "Member points updated successfully", null));
+            return ResponseEntity.ok(null);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
+            return ResponseEntity.badRequest().body(null);
         }
     }
 

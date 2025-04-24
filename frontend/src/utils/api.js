@@ -101,6 +101,9 @@ export const fetchProjectMembers = async (projectId) => {
   }
 
   const data = await response.json();
+  console.log("TEAM MEMBERS: ");
+  console.log(data.data);
+
 
   if (Array.isArray(data.data)) {
     return data.data;

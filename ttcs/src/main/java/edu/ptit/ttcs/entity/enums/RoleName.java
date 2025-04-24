@@ -6,11 +6,11 @@ public enum RoleName {
 
     private final String value;
 
-    RoleName(String value){
+    RoleName(String value) {
         this.value = value;
     }
 
-    public String toString(){
+    public String toString() {
         return value;
     }
 }

@@ -56,20 +56,22 @@ public class UserService {
     }
 
     public Role getRoleByName(RoleName name) {
-        return roleRepository.findByName(name.toString()).orElse(null);
+        return roleRepository.findByName(name.toString())
+                .orElseThrow(() -> new RuntimeException("Role " + name + " not found"));
     }
 
     public String getRandomUserDefaultAvatar() {
+        // Generate a random background color that's not too dark or too bright
         Random random = new Random();
-        int x = random.nextInt(5) + 1;
         int r, g, b;
         do {
-            r = random.nextInt(156) + 50;
-            g = random.nextInt(156) + 50;
-            b = random.nextInt(156) + 50;
+            r = random.nextInt(256);
+            g = random.nextInt(256);
+            b = random.nextInt(256);
         } while (isTooDark(r, g, b) || isTooBright(r, g, b));
-        String hexColor = String.format("%02X%02X%02X", r, g, b);
-        return "0" + x + "." + hexColor;
+
+        String hexColor = String.format("%02x%02x%02x", r, g, b);
+        return "https://ui-avatars.com/api/?background=" + hexColor + "&color=ffffff";
     }
 
     private static boolean isTooDark(int r, int g, int b) {

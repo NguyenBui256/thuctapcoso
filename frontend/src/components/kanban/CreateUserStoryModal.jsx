@@ -43,6 +43,16 @@ const CreateUserStoryModal = ({
     const [swimlanes, setSwimlanes] = useState([]);
     const [projectMembers, setProjectMembers] = useState([]);
 
+    // Update status and swimlane when initial values change
+    useEffect(() => {
+        if (initialStatusId) {
+            setStatusId(initialStatusId);
+        }
+        if (initialSwimlaneId) {
+            setSwimlaneId(initialSwimlaneId);
+        }
+    }, [initialStatusId, initialSwimlaneId]);
+
     // Thêm event listener cho việc nhấn phím Escape
     useEffect(() => {
         const handleEscapeKey = (e) => {

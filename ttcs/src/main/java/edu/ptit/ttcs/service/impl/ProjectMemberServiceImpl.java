@@ -266,16 +266,18 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
         }
 
         private ProjectMemberDTO mapToDTO(ProjectMember member) {
-                return new ProjectMemberDTO(
-                                member.getId(),
-                                member.getProject().getId(),
-                                member.getUser().getId(),
-                                member.getUser().getUsername(),
-                                member.getUser().getFullName(),
-                                member.getProjectRole() != null ? member.getProjectRole().getId() : null,
-                                member.getProjectRole() != null ? member.getProjectRole().getRoleName() : null,
-                                member.getTotalPoint(),
-                                member.getIsAdmin(),
-                                member.getCreatedAt());
+                ProjectMemberDTO dto = new ProjectMemberDTO();
+                dto.setId(member.getId());
+                dto.setProjectId(member.getProject() != null ? member.getProject().getId() : null);
+                dto.setUserId(member.getUser() != null ? member.getUser().getId() : null);
+                dto.setUsername(member.getUser() != null ? member.getUser().getUsername() : null);
+                dto.setUserFullName(member.getUser() != null ? member.getUser().getFullName() : null);
+                dto.setProjectRoleId(member.getProjectRole() != null ? member.getProjectRole().getId() : null);
+                dto.setRoleName(member.getProjectRole() != null ? member.getProjectRole().getRoleName() : null);
+                dto.setTotalPoint(member.getTotalPoint());
+                dto.setIsAdmin(member.getIsAdmin());
+                dto.setJoinedAt(member.getCreatedAt());
+                dto.setAvatar(member.getUser().getAvatar());
+                return dto;
         }
 }

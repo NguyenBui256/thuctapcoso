@@ -21,6 +21,8 @@ const KanbanBoardWrapper = () => {
     const [modalInitialSwimlaneId, setModalInitialSwimlaneId] = useState(null);
     const [expandedColumns, setExpandedColumns] = useState({});
     const [draggingItemId, setDraggingItemId] = useState(null);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
+
     useEffect(() => {
         const fetchData = async () => {
             if (!projectId) {
@@ -95,7 +97,7 @@ const KanbanBoardWrapper = () => {
         };
 
         fetchData();
-    }, [projectId]);
+    }, [projectId, refreshTrigger]);
 
     const handleCreateSwimland = async (e) => {
         e.preventDefault();
@@ -291,7 +293,16 @@ const KanbanBoardWrapper = () => {
     };
 
     const handleOpenUserStoryModal = (status, swimlaneId) => {
-        setModalInitialStatus(status);
+        // Convert status name to status id
+        const statusMap = {
+            'NEW': 1,
+            'READY': 2,
+            'IN PROGRESS': 3,
+            'READY FOR TEST': 4,
+            'DONE': 5,
+            'ARCHIVED': 6
+        };
+        setModalInitialStatus(statusMap[status] || 1);
         setModalInitialSwimlaneId(swimlaneId);
         setShowUserStoryModal(true);
     };
@@ -299,11 +310,45 @@ const KanbanBoardWrapper = () => {
     const handleCloseUserStoryModal = (wasCreated = false) => {
         setShowUserStoryModal(false);
         if (wasCreated) {
-            axios.get(`/api/kanban/board/userstory/project/${projectId}`)
-                .then(response => setUserStories(response.data || []))
-                .catch(error => console.error('Error fetching updated user stories:', error));
+            // Trigger refresh by incrementing refreshTrigger
+            setRefreshTrigger(prev => prev + 1);
         }
     };
+
+    const renderCreateSwimlaneModal = () => (
+        <div className={`fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full ${showCreateModal ? '' : 'hidden'}`}>
+            <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div className="mt-3">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900">Create New Swimlane</h3>
+                    <form onSubmit={handleCreateSwimland} className="mt-4">
+                        <input
+                            type="text"
+                            value={newSwimlaneName}
+                            onChange={(e) => setNewSwimlaneName(e.target.value)}
+                            placeholder="Enter swimlane name"
+                            className="w-full p-2 border rounded"
+                            required
+                        />
+                        <div className="mt-4 flex justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setShowCreateModal(false)}
+                                className="mr-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                className="px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600"
+                            >
+                                Create
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    );
 
     // Add CSS for better drag and drop appearance
     useEffect(() => {
@@ -469,119 +514,8 @@ const KanbanBoardWrapper = () => {
         );
     }
 
-    const renderCreateSwimlaneModal = () => (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
-                <h3 className="text-xl font-semibold mb-4">Create Swimlane</h3>
-                <form onSubmit={handleCreateSwimland}>
-                    <div className="mb-4">
-                        <label htmlFor="swimlaneName" className="block mb-2 font-medium">Name</label>
-                        <input
-                            type="text"
-                            id="swimlaneName"
-                            value={newSwimlaneName}
-                            onChange={(e) => setNewSwimlaneName(e.target.value)}
-                            placeholder="Enter swimlane name"
-                            className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            autoFocus
-                            required
-                        />
-                    </div>
-                    <div className="flex justify-end space-x-3">
-                        <button
-                            type="button"
-                            className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-100 transition-colors"
-                            onClick={() => setShowCreateModal(false)}
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            className="px-4 py-2 bg-teal-400 rounded font-medium hover:bg-teal-500 transition-colors disabled:opacity-50"
-                            disabled={!newSwimlaneName.trim()}
-                        >
-                            Create
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-
-
     return (
         <div className="flex flex-col h-full bg-gray-100">
-            <style jsx>{`
-                /* CSS for proper dropdown positioning */
-                .header-dropdown {
-                    position: absolute;
-                    top: auto;
-                    bottom: 100%;
-                    right: 0;
-                    margin-bottom: 5px;
-                    z-index: 50;
-                    box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
-                    border-radius: 0.375rem;
-                    background-color: white;
-                    border: 1px solid #e5e7eb;
-                    min-width: 10rem;
-                }
-                
-                /* For dropdown arrows pointing down */
-                .dropdown-arrow:after {
-                    content: '';
-                    position: absolute;
-                    bottom: -5px;
-                    right: 10px;
-                    width: 10px;
-                    height: 10px;
-                    background-color: white;
-                    transform: rotate(45deg);
-                    border-bottom: 1px solid #e5e7eb;
-                    border-right: 1px solid #e5e7eb;
-                }
-                
-                /* General dropdown styling for all components */
-                .dropdown-menu {
-                    position: absolute;
-                    bottom: 100%;
-                    right: 0;
-                    margin-bottom: 5px;
-                    z-index: 50;
-                    box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
-                    border-radius: 0.375rem;
-                    background-color: white;
-                    border: 1px solid #e5e7eb;
-                    min-width: 12rem;
-                }
-                
-                /* Dropdown arrow for all dropdowns */
-                .dropdown-arrow-down:after {
-                    content: '';
-                    position: absolute;
-                    bottom: -5px;
-                    right: 10px;
-                    width: 10px;
-                    height: 10px;
-                    background-color: white;
-                    transform: rotate(45deg);
-                    border-bottom: 1px solid #e5e7eb;
-                    border-right: 1px solid #e5e7eb;
-                }
-
-                /* Make sure the board fills the entire width */
-                .kanban-board-container {
-                    width: 100%;
-                    padding-left: 1rem;
-                    padding-right: 0;
-                    overflow-x: auto;
-                }
-
-                /* Remove margin from last column */
-                .kanban-column:last-child {
-                    margin-right: 0 !important;
-                }
-            `}</style>
             <div className="pl-4 pr-0 w-full">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-4">
@@ -651,7 +585,7 @@ const KanbanBoardWrapper = () => {
                                             </div>
                                             <div className="flex items-center space-x-1">
                                                 <button
-                                                    onClick={() => handleOpenUserStoryModal(column.status, swimlanes[0]?.id)}
+                                                    onClick={() => handleOpenUserStoryModal(column.name, swimlanes[0]?.id)}
                                                     className="text-gray-500 hover:text-gray-700"
                                                 >
                                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -780,8 +714,8 @@ const KanbanBoardWrapper = () => {
                 show={showUserStoryModal}
                 onHide={handleCloseUserStoryModal}
                 projectId={projectId}
-                statusId={modalInitialStatus}
-                swimlaneId={modalInitialSwimlaneId}
+                initialStatusId={modalInitialStatus}
+                initialSwimlaneId={modalInitialSwimlaneId}
                 onUserStoryCreated={() => handleCloseUserStoryModal(true)}
             />
         </div>

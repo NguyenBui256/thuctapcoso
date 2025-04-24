@@ -5,6 +5,14 @@ import './App.css';
 const LoginPage = lazy(() => import('./pages/auth/login'));
 const RegisterPage = lazy(() => import('./pages/auth/register'));
 const ErrorPage = lazy(() => import('./pages/ErrorPage'));
+const ProjectDetailLayout = lazy(() => import('./components/layout/ProjectDetailLayout.jsx'))
+const HandleOauthRedirect = lazy(() => import('./pages/auth/HandleOauthRedirect'))
+const ForgotPasswordPage = lazy(() => import('./pages/auth/forgot-password/ForgotPasswordPage'))
+const ResetPasswordPage = lazy(() => import('./pages/auth/forgot-password/ResetPasswordPage'))
+const ProjectDetail = lazy(() => import('./pages/project_detail/ProjectDetail'));
+const WikiPage = lazy(() => import('./pages/Wiki/WikiPage'));
+const MainLayout = lazy(() => import('./pages/MainLayout.jsx'))
+
 import { ERROR_TYPE } from './pages/ErrorPage.jsx';
 import React from 'react';
 import ProjectList from './components/project/ProjectList.jsx';
@@ -12,11 +20,6 @@ import SelectProjectType from './components/project/SelectProjectType.jsx';
 import CreateProject from './components/project/CreateProject.jsx';
 import DuplicateProject from './components/project/DuplicateProject.jsx';
 import AccountSettings from './components/account/AccountSettings.jsx';
-import MainLayout from './pages/MainLayout.jsx';
-import ProjectDetail from './pages/project_detail/ProjectDetail.jsx';
-import HandleOauthRedirect from './pages/auth/HandleOauthRedirect.jsx';
-import ForgotPasswordPage from './pages/auth/forgot-password/ForgotPasswordPage.jsx';
-import ResetPasswordPage from './pages/auth/forgot-password/ResetPasswordPage.jsx';
 import KanbanBoardWrapper from './components/kanban/KanbanBoardWrapper.jsx';
 import TaigaUserStoryDetail from './components/kanban/TaigaUserStoryDetail';
 import TaigaTaskDetail from './components/kanban/TaigaTaskDetail.jsx';
@@ -39,6 +42,10 @@ function App() {
         <Route path="/projects/:projectId/kanban" element={<KanbanBoardWrapper />} />
         <Route path="/projects/:projectId/userstory/:userStoryId" element={<TaigaUserStoryDetail />} />
         <Route path="/task/:taskId" element={<TaigaTaskDetail />} />
+        <Route path="/projects/:projectId" element={<ProjectDetailLayout />} >
+          <Route index element={< ProjectDetail />} />
+          <Route path="wiki" element={<WikiPage />} />
+        </Route>
         <Route path="/account/settings" element={<AccountSettings />} />
       </Route>
       <Route path='*' element={<ErrorPage errorType={ERROR_TYPE.NOT_FOUND} />} />
