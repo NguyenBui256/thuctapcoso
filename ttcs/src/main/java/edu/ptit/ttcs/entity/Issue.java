@@ -81,6 +81,7 @@ public class Issue {
     private List<ProjectSettingTag> tags = new ArrayList<>();
 
     @OneToMany(cascade = CascadeType.ALL)
+    @JoinTable(name = "issues_attachments", joinColumns = @JoinColumn(name = "issue_id", referencedColumnName = "id", columnDefinition = "BIGINT"), inverseJoinColumns = @JoinColumn(name = "attachment_id", referencedColumnName = "id", columnDefinition = "BIGINT"))
     private List<Attachment> attachments = new ArrayList<>();
 
     @OneToMany(mappedBy = "issue", cascade = CascadeType.ALL)

@@ -11,7 +11,8 @@ import java.util.Set;
 @Table(name = "project_wiki_page")
 @Setter
 @Getter
-public class ProjectWikiPage extends BaseEntity{
+@Inheritance(strategy = InheritanceType.TABLE_PER_CLASS)
+public class ProjectWikiPage extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -33,6 +34,6 @@ public class ProjectWikiPage extends BaseEntity{
     private Integer editCount;
 
     @ManyToMany
-    @JoinTable(name = "wiki_page_attachment", joinColumns = @JoinColumn(name = "wiki_page_id"), inverseJoinColumns = @JoinColumn(name = "attachment_id"))
+    @JoinTable(name = "wiki_page_attachment", joinColumns = @JoinColumn(name = "wiki_page_id", referencedColumnName = "id", columnDefinition = "BIGINT"), inverseJoinColumns = @JoinColumn(name = "attachment_id", referencedColumnName = "id", columnDefinition = "BIGINT"))
     private Set<Attachment> attachments = new HashSet<>();
 }

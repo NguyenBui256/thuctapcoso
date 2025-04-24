@@ -11,8 +11,8 @@ export async function checkAuthenticated() {
             if (ref.status !== 200) return false
 
             const data = await ref.json()
-            localStorage.setItem("access_token", data.token)
-            setUserData(data.token)
+            localStorage.setItem("access_token", data.data.token)
+            setUserData(data.data.token)
             return true
         }
 
@@ -111,7 +111,7 @@ export const getCurrentUserId = () => {
     // Try to get userId directly from localStorage
     const userId = localStorage.getItem("userId");
     if (userId) return userId;
-    
+
     // If not found, try to extract from userData
     const userDataStr = localStorage.getItem("userData");
     if (userDataStr) {
@@ -125,7 +125,7 @@ export const getCurrentUserId = () => {
             console.error("Error parsing userData:", err);
         }
     }
-    
+
     // Default fallback value if userId cannot be determined
     return null;
 }

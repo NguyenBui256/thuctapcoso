@@ -1,0 +1,112 @@
+.taiga-task-detail-container {
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.task-card {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.task-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+}
+
+.task-id-title {
+    display: flex;
+    align-items: flex-start;
+}
+
+.task-id-title .close-button {
+    margin-right: 16px;
+}
+
+.task-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.title-input {
+    font-size: 18px;
+    font-weight: 500;
+    margin-top: 8px;
+}
+
+.section-title {
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.description-text {
+    margin-bottom: 20px;
+    white-space: pre-line;
+}
+
+.task-details-sidebar .details-card {
+    margin-bottom: 16px;
+}
+
+.detail-item {
+    margin-bottom: 16px;
+}
+
+.detail-item:last-child {
+    margin-bottom: 0;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 400px;
+}
+
+.error-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 400px;
+    gap: 16px;
+}
+
+.comment-list {
+    margin-top: 24px;
+}
+
+.activity-list {
+    margin-top: 16px;
+}
+
+/* Status tag colors based on status name */
+.ant-tag-green {
+    background-color: #f6ffed;
+    border-color: #b7eb8f;
+    color: #52c41a;
+}
+
+.ant-tag-blue {
+    background-color: #e6f7ff;
+    border-color: #91d5ff;
+    color: #1890ff;
+}
+
+.ant-tag-orange {
+    background-color: #fff7e6;
+    border-color: #ffd591;
+    color: #fa8c16;
+}

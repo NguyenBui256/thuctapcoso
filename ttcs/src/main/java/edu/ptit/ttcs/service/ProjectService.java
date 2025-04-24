@@ -2,6 +2,8 @@ package edu.ptit.ttcs.service;
 
 import edu.ptit.ttcs.dao.*;
 import edu.ptit.ttcs.dao.ModuleRepository;
+import edu.ptit.ttcs.dao.ProjectRepository;
+import edu.ptit.ttcs.dao.UserRepository;
 import edu.ptit.ttcs.entity.*;
 import edu.ptit.ttcs.entity.Module;
 import edu.ptit.ttcs.entity.dto.CreateProjectDTO;
@@ -10,7 +12,6 @@ import edu.ptit.ttcs.entity.dto.ProjectDTO;
 import edu.ptit.ttcs.entity.enums.ProjectRoleName;
 import edu.ptit.ttcs.mapper.ProjectMapper;
 import edu.ptit.ttcs.util.SecurityUtils;
-import edu.ptit.ttcs.util.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -18,6 +19,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.LocalDateTime;
 import java.time.LocalDateTime;
@@ -141,6 +143,49 @@ public class ProjectService {
         return project;
     }
 
+    public Project createProject(CreateProjectDTO createProjectDTO, Long currentUserId) {
+        // Get user from repository
+        User creator = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Project project = new Project();
+        project.setName(createProjectDTO.getName());
+        project.setDescription(createProjectDTO.getDescription());
+        project.setCreatedBy(creator);
+        project.setCreatedAt(LocalDateTime.now());
+        project = projectRepository.save(project);
+
+        // Create default project roles
+        ProjectRole managerRole = null;
+        for (ProjectRoleName roleName : ProjectRoleName.values()) {
+            ProjectRole projectRole = new ProjectRole();
+            projectRole.setProject(project);
+            projectRole.setRoleName(roleName.name());
+            projectRole.setCreatedBy(creator);
+            projectRole.setUpdatedBy(creator);
+            projectRole.setCreatedAt(LocalDateTime.now());
+            projectRole.setUpdatedAt(LocalDateTime.now());
+            projectRole = projectRoleRepository.save(projectRole);
+            if (roleName == ProjectRoleName.PROJECT_MANAGER) {
+                managerRole = projectRole;
+            }
+        }
+
+        // Add creator as project member with PROJECT_MANAGER role
+        ProjectMember projectMember = new ProjectMember();
+        projectMember.setProject(project);
+        projectMember.setUser(creator);
+        projectMember.setIsAdmin(true);
+        projectMember.setCreatedBy(creator);
+        projectMember.setUpdatedBy(creator);
+        projectMember.setCreatedAt(LocalDateTime.now());
+        projectMember.setUpdatedAt(LocalDateTime.now());
+        projectMember.setProjectRole(managerRole);
+        projectMemberRepository.save(projectMember);
+
+        return project;
+    }
+
     @Transactional
     public Project duplicateProject(Long projectId, CreateProjectDTO projectDTO) {
         Project sourceProject = projectRepository.findById(projectId)
@@ -193,6 +238,6 @@ public class ProjectService {
                 .orElseThrow(() -> new RuntimeException("Project not found"));
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        return projectMemberRepository.existsByProjectAndUserAndIsDeleteFalse(project, user);
+        return projectMemberRepository.existsByProjectIdAndUserIdAndIsDeleteFalse(project.getId(), user.getId());
     }
 }

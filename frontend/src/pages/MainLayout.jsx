@@ -3,11 +3,11 @@ import Navbar from "./Navbar";
 import { ToastContainer } from "react-toastify";
 
 export default function MainLayout() {
-    
+
     return (
         <div className="pt-12">
-            <Navbar/>
-            <Outlet/>
+            <Navbar />
+            <Outlet />
             <ToastContainer
                 position="bottom-right"
             />

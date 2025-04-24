@@ -9,9 +9,11 @@ import edu.ptit.ttcs.mapper.ProjectMapper;
 import edu.ptit.ttcs.service.ProjectService;
 import edu.ptit.ttcs.service.UserService;
 import edu.ptit.ttcs.util.ApiResponse;
-import edu.ptit.ttcs.util.ApiResponse;
+import edu.ptit.ttcs.util.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,9 +29,23 @@ public class ProjectController {
     private final ProjectMapper projectMapper;
 
     @PostMapping
-    public ResponseEntity<ProjectDTO> createProject(@RequestBody CreateProjectDTO createProjectDTO) {
-        Project project = projectService.createProject(createProjectDTO);
-        return ResponseEntity.ok(projectMapper.toDTO(project));
+    public ResponseEntity<Project> createProject(@RequestBody CreateProjectDTO createProjectDTO) {
+        // Get current user from SecurityContext
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        // Get user ID from authentication
+        String username = authentication.getName();
+        User currentUser = userService.getUserByLogin(username);
+        if (currentUser == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        // Create project with current user as creator
+        Project project = projectService.createProject(createProjectDTO, currentUser.getId());
+        return ResponseEntity.ok(project);
     }
 
     @PostMapping("/{projectId}/modules/{moduleId}")
