@@ -68,7 +68,7 @@ public class TaskController1 {
 
     @GetMapping("/get-filters")
     public ResponseEntity<FilterData> getFilters(@RequestParam long projectId,
-                                                 @ModelAttribute FilterParams filterParams){
+                                                 @ModelAttribute FilterParams filterParams) {
         return ResponseEntity.ok(taskService.getFilterData(projectId,
                 filterParams));
     }

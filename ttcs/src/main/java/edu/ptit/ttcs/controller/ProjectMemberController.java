@@ -109,7 +109,7 @@ public class ProjectMemberController {
             return ResponseEntity.badRequest().body(null);
         }
     }
-    
+
     @PostMapping("/invite")
     public ResponseEntity<ApiResponse<Void>> inviteUserByEmail(
             @PathVariable Long projectId,
@@ -123,7 +123,7 @@ public class ProjectMemberController {
             return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
         }
     }
-    
+
     @PostMapping("/leave")
     public ResponseEntity<ApiResponse<?>> leaveProject(
             @PathVariable Long projectId,

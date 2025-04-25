@@ -46,4 +46,6 @@ public interface ProjectMemberService {
      * @param userId ID of the user leaving the project
      */
     void leaveProject(Long projectId, Long userId);
+
+    void inviteUserByEmail(Long projectId, ProjectInviteDTO invite, Long requestUserId);
 }
