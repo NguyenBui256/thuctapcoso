@@ -2,6 +2,7 @@ package edu.ptit.ttcs.service;
 
 import java.util.List;
 
+import edu.ptit.ttcs.entity.dto.ProjectInviteDTO;
 import edu.ptit.ttcs.entity.dto.ProjectMemberDTO;
 
 public interface ProjectMemberService {
@@ -19,6 +20,8 @@ public interface ProjectMemberService {
     ProjectMemberDTO getProjectMember(Long projectId, Long userId);
 
     void updateMemberPoints(Long projectId, Long userId, Integer points, Long requestUserId);
+
+    void inviteUserByEmail(Long projectId, ProjectInviteDTO invite, Long requestUserId);
 
     List<ProjectMemberDTO> getProjectMembersList(Long projectId);
 }

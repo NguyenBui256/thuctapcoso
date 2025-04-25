@@ -11,6 +11,7 @@ const ForgotPasswordPage = lazy(() => import('./pages/auth/forgot-password/Forgo
 const ResetPasswordPage = lazy(() => import('./pages/auth/forgot-password/ResetPasswordPage'))
 const ProjectDetail = lazy(() => import('./pages/project_detail/ProjectDetail'));
 const WikiPage = lazy(() => import('./pages/Wiki/WikiPage'));
+const TeamPage = lazy(() => import('./pages/project_detail/TeamPage'));
 const MainLayout = lazy(() => import ('./pages/MainLayout.jsx'))
 const BacklogPage = lazy(() => import('./pages/scrum/BacklogPage'));
 const SprintPage = lazy(() => import ('./pages/scrum/SprintPage.jsx'))
@@ -35,6 +36,7 @@ import TaigaTaskDetail from './components/kanban/TaigaTaskDetail.jsx';
 
 
 function App() {
+
   return (
     <Routes>
       <Route path='/login' element={<LoginPage />} />
@@ -55,6 +57,7 @@ function App() {
         <Route path="/projects/:projectId" element={<ProjectDetailLayout />} >
           <Route index element={< ProjectDetail />} />
           <Route path="wiki" element={<WikiPage />} />
+          <Route path="team" element={<TeamPage />} />
           <Route path="backlog" element={<BacklogPage/>}/>
           <Route path="sprint/:sprintId" element={<SprintPage/>}/>
           <Route path='issues' element={<IssuePage/>}/>
