@@ -1,14 +1,16 @@
 package edu.ptit.ttcs.service.impl;
 
+import edu.ptit.ttcs.dao.NotificationRepository;
 import edu.ptit.ttcs.dao.ProjectMemberRepository;
 import edu.ptit.ttcs.dao.ProjectRepository;
 import edu.ptit.ttcs.dao.ProjectRoleRepository;
 import edu.ptit.ttcs.dao.UserRepository;
+import edu.ptit.ttcs.entity.Notification;
 import edu.ptit.ttcs.entity.Project;
 import edu.ptit.ttcs.entity.ProjectMember;
 import edu.ptit.ttcs.entity.ProjectRole;
 import edu.ptit.ttcs.entity.User;
-import edu.ptit.ttcs.entity.dto.ProjectMemberDTO;
+import edu.ptit.ttcs.entity.dto.ProjectInviteDTO;
 import edu.ptit.ttcs.entity.dto.ProjectMemberDTO;
 import edu.ptit.ttcs.service.ActivityService;
 import edu.ptit.ttcs.service.ProjectMemberService;
@@ -32,6 +34,7 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
         private final ProjectRoleRepository projectRoleRepository;
         private final ProjectService projectService;
         private final ActivityService activityService;
+        private final NotificationRepository notificationRepository;
 
         @Override
         @Transactional
@@ -245,6 +248,96 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                                 requestUserId,
                                 "UPDATE_POINTS",
                                 "Updated points for user " + user.getUsername() + " by " + points);
+        }
+
+        @Override
+        @Transactional
+        public void inviteUserByEmail(Long projectId, ProjectInviteDTO invite, Long requestUserId) {
+                // Check if requester is admin
+                if (!projectService.isUserProjectAdmin(projectId, requestUserId)) {
+                        throw new IllegalArgumentException("You don't have permission to invite members to this project");
+                }
+
+                // Validate invite parameters
+                invite.validate();
+
+                // Get project
+                Project project = projectRepository.findById(projectId)
+                        .orElseThrow(() -> new IllegalArgumentException("Project not found"));
+
+                // Get role if provided
+                ProjectRole projectRole = null;
+                if (invite.getRoleId() != null) {
+                        projectRole = projectRoleRepository.findById(invite.getRoleId())
+                                .orElseThrow(() -> new IllegalArgumentException("Project role not found"));
+
+                        // Check if role belongs to the project
+                        if (!projectRole.getProject().getId().equals(projectId)) {
+                                throw new IllegalArgumentException("Role does not belong to this project");
+                        }
+                }
+
+                // Get user by email
+                User user = userRepository.findByEmail(invite.getEmail());
+                
+                // If user doesn't exist, just create the notification without a receiver (will be handled later when user registers)
+                if (user == null) {
+                        // Create notification for future processing
+                        createInviteNotification(null, project, projectRole, invite.getIsAdmin(), requestUserId);
+                        
+                        // Record activity
+                        activityService.recordActivity(
+                                projectId,
+                                null,
+                                requestUserId,
+                                "INVITE_SENT",
+                                "Sent invitation to " + invite.getEmail());
+                        
+                        return;
+                }
+                
+                // Check if user is already a member
+                if (projectMemberRepository.existsByProjectAndUserAndIsDeleteFalse(project, user)) {
+                        throw new IllegalArgumentException("User is already a member of this project");
+                }
+                
+                // Create notification for existing user
+                createInviteNotification(user, project, projectRole, invite.getIsAdmin(), requestUserId);
+                
+                // Record activity
+                activityService.recordActivity(
+                        projectId,
+                        null,
+                        requestUserId,
+                        "INVITE_SENT",
+                        "Sent invitation to " + user.getUsername());
+        }
+        
+        private void createInviteNotification(User receiver, Project project, ProjectRole role, Boolean isAdmin, Long senderId) {
+                User sender = userRepository.findById(senderId)
+                        .orElseThrow(() -> new RunTimeException("User not found"));
+
+                Notification notification = new Notification();
+                notification.setReceiver(receiver);
+                notification.setDescription("You have been invited to join project: " + project.getName());
+                notification.setObjectId(project.getId().intValue());
+                notification.setType("PROJECT_INVITE");
+                notification.setCreatedAt(LocalDateTime.now());
+                notification.setUpdatedAt(LocalDateTime.now());
+                notification.setUpdatedBy(sender);
+                notification.setCreatedBy(sender);
+
+                // Store role and isAdmin info in the description to be used when accepting the invite
+                if (role != null) {
+                        notification.setDescription(notification.getDescription() + 
+                                " with role: " + role.getRoleName() + " (ID: " + role.getId() + ")");
+                }
+                
+                if (isAdmin != null && isAdmin) {
+                        notification.setDescription(notification.getDescription() + " as an admin");
+                }
+                
+                notificationRepository.save(notification);
         }
 
         private ProjectMemberDTO mapToDTO(ProjectMember member) {

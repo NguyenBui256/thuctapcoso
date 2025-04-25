@@ -19,14 +19,14 @@ import edu.ptit.ttcs.service.ProjectRoleService;
 import edu.ptit.ttcs.util.ApiResponse;
 
 @RestController
-@RequestMapping("/api/v1/users/{userId}/projects/{projectId}/roles")
+@RequestMapping("/api/v1/user/{userId}/project/{projectId}/roles")
 public class ProjectRoleController {
 
     @Autowired
     private ProjectRoleService projectRoleService;
 
     @PostMapping
-    public ResponseEntity<ApiResponse<ProjectRoleDTO>> createRole(
+    public ResponseEntity createRole(
             @PathVariable Long projectId,
             @RequestBody ProjectRoleRequestDTO request,
             @PathVariable Long userId) {
@@ -38,39 +38,39 @@ public class ProjectRoleController {
                     request.getRoleName(),
                     request.getPermissionIds(),
                     userId);
-            return ResponseEntity.ok(new ApiResponse<>("success", "Role created successfully", role));
+            return ResponseEntity.ok(role);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
+            return ResponseEntity.badRequest().body(null);
         }
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<ProjectRoleDTO>>> getProjectRoles(
+    public ResponseEntity getProjectRoles(
             @PathVariable Long projectId,
             @PathVariable Long userId) {
         try {
             List<ProjectRoleDTO> roles = projectRoleService.getProjectRoles(projectId, userId);
-            return ResponseEntity.ok(new ApiResponse<>("success", "Project roles retrieved successfully", roles));
+            return ResponseEntity.ok(roles);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
+            return ResponseEntity.badRequest().body(null);
         }
     }
 
     @GetMapping("/{roleId}")
-    public ResponseEntity<ApiResponse<ProjectRoleDTO>> getRole(
+    public ResponseEntity getRole(
             @PathVariable Long projectId,
             @PathVariable Long roleId,
             @PathVariable Long userId) {
         try {
             ProjectRoleDTO role = projectRoleService.getProjectRoleById(roleId, userId);
-            return ResponseEntity.ok(new ApiResponse<>("success", "Role retrieved successfully", role));
+            return ResponseEntity.ok(role);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
+            return ResponseEntity.badRequest().body(null);
         }
     }
 
     @PutMapping("/{roleId}")
-    public ResponseEntity<ApiResponse<ProjectRoleDTO>> updateRole(
+    public ResponseEntity updateRole(
             @PathVariable Long projectId,
             @PathVariable Long roleId,
             @RequestBody ProjectRoleRequestDTO request,

@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import edu.ptit.ttcs.entity.dto.PointsUpdateRequestDTO;
+import edu.ptit.ttcs.entity.dto.ProjectInviteDTO;
 import edu.ptit.ttcs.entity.dto.ProjectMemberDTO;
 import edu.ptit.ttcs.entity.dto.ProjectMemberRequestDTO;
 import edu.ptit.ttcs.service.ProjectMemberService;
@@ -106,6 +107,20 @@ public class ProjectMemberController {
             return ResponseEntity.ok(null);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(null);
+        }
+    }
+    
+    @PostMapping("/invite")
+    public ResponseEntity<ApiResponse<Void>> inviteUserByEmail(
+            @PathVariable Long projectId,
+            @RequestBody ProjectInviteDTO invite,
+            @PathVariable Long userId) {
+        try {
+            invite.validate();
+            projectMemberService.inviteUserByEmail(projectId, invite, userId);
+            return ResponseEntity.ok(new ApiResponse<>("success", "Invitation sent successfully", null));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
         }
     }
 }

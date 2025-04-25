@@ -9,6 +9,7 @@ const ResetPasswordPage = lazy(() => import('./pages/auth/forgot-password/ResetP
 const ErrorPage = lazy(() => import('./pages/ErrorPage.jsx'));
 const ProjectDetail = lazy(() => import('./pages/project_detail/ProjectDetail'));
 const WikiPage = lazy(() => import('./pages/Wiki/WikiPage'));
+const TeamPage = lazy(() => import('./pages/project_detail/TeamPage'));
 const MainLayout = lazy(() => import ('./pages/MainLayout.jsx'))
 
 import { ERROR_TYPE } from './pages/ErrorPage.jsx';
@@ -38,6 +39,7 @@ function App() {
         <Route path="/projects/:projectId" element={<ProjectDetailLayout />} >
           <Route index element={< ProjectDetail /> } />
           <Route path="wiki" element={<WikiPage />} />
+          <Route path="team" element={<TeamPage />} />
         </Route>
         <Route path="/account/settings" element={<AccountSettings />} />
       </Route>

@@ -1,11 +1,61 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { fetchWithAuth } from '../../utils/AuthUtils';
+import { BASE_API_URL } from '../../common/constants';
 
-const TeamMembers = ({ projectMembers, loading, getUserInitials }) => {
+const TeamMembers = ({ projectId, userId, getUserInitials }) => {
+  // State variables
+  const [projectMembers, setProjectMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   // Custom styles for the new primary color
   const primaryColor = "rgb(153, 214, 220)";
 
-  // Debug log to check members data
-  console.log("TeamMembers - Current members:", projectMembers);
+  // Fetch project members when the component mounts
+  useEffect(() => {
+    if (projectId && userId) {
+      fetchProjectMembers();
+    }
+  }, [projectId, userId]);
+
+  // Function to fetch project members using fetchWithAuth
+  const fetchProjectMembers = async () => {
+    setLoading(true);
+    try {
+      const response = await fetchWithAuth(
+        `${BASE_API_URL}/v1/user/${userId}/project/${projectId}/members`,
+        `/projects/${projectId}`, // redirect path if auth fails
+        true, // auth is required
+        { method: 'GET' }
+      );
+      
+      if (!response) {
+        throw new Error('Authentication failed');
+      }
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch project members: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log("API Response - Project Members:", data);
+      
+      // Check if the data has the expected structure
+      if (Array.isArray(data)) {
+        setProjectMembers(data);
+      } else if (data && Array.isArray(data.data)) {
+        setProjectMembers(data.data);
+      } else {
+        setProjectMembers([]);
+        console.warn("Unexpected response format:", data);
+      }
+    } catch (err) {
+      console.error('Error fetching team members:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleImageError = (e, member) => {
     console.log("Avatar load failed for member:", member.username);
@@ -20,6 +70,12 @@ const TeamMembers = ({ projectMembers, loading, getUserInitials }) => {
         <h3 className="text-lg font-medium text-gray-900">Team</h3>
       </div>
       <div className="px-4 py-5 sm:p-6 overflow-visible">
+        {error && (
+          <div className="text-red-500 mb-4">
+            {error}
+          </div>
+        )}
+        
         <div className="flex flex-wrap gap-3 overflow-visible">
           {loading && <div>Loading team members...</div>}
           
