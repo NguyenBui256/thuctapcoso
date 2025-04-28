@@ -6,6 +6,11 @@ import edu.ptit.ttcs.entity.ProjectSettingStatus;
 import edu.ptit.ttcs.dao.UserStoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import edu.ptit.ttcs.entity.dto.request.FilterParams;
+import edu.ptit.ttcs.entity.dto.response.FilterData;
+import edu.ptit.ttcs.entity.dto.response.UserStoryDTO;
+import edu.ptit.ttcs.service.UserStoryService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -22,7 +27,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.time.LocalDateTime;
 
-import edu.ptit.ttcs.entity.dto.UserStoryDTO;
+import edu.ptit.ttcs.entity.dto.response.UserStoryDTO;
 import edu.ptit.ttcs.entity.dto.TaskDTO;
 import edu.ptit.ttcs.entity.dto.CommentDTO;
 import edu.ptit.ttcs.service.KanbanUserStoryService;
@@ -118,6 +123,9 @@ public class UserStoryController {
 
     @Autowired
     private SecurityUtils securityUtils;
+
+    @Autowired
+    private UserStoryService userStoryService;
 
     @GetMapping("/userstory")
     public List<UserStory> getUserStoriesByStatus(@RequestParam("statusId") Integer statusId) {
@@ -1410,6 +1418,55 @@ public class UserStoryController {
             } catch (Exception e) {
                 // Fallback to default if header not available or parsing fails
             }
+    @GetMapping("/get")
+    public ResponseEntity<List<UserStoryDTO>> get(@RequestParam long projectId,
+                                                  @RequestParam(required = false) Long sprintId,
+                                                  @RequestParam(required = false) String keyword,
+                                                  @RequestParam(required = false) List<Long> statuses,
+                                                  @RequestParam(required = false) List<Long> assigns,
+                                                  @RequestParam(required = false) List<Long> createdBy,
+                                                  @RequestParam(required = false) List<Long> roles,
+                                                  @RequestParam(required = false) List<Long> excludeStatuses,
+                                                  @RequestParam(required = false) List<Long> excludeAssigns,
+                                                  @RequestParam(required = false) List<Long> excludeCreatedBy,
+                                                  @RequestParam(required = false) List<Long> excludeRoles){
+        return ResponseEntity.ok(userStoryService.get(projectId,
+                sprintId,
+                FilterParams.builder()
+                        .keyword(keyword)
+                        .statuses(statuses)
+                        .assigns(assigns)
+                        .roles(roles)
+                        .createdBy(createdBy)
+                        .excludeAssigns(excludeAssigns)
+                        .excludeCreatedBy(excludeCreatedBy)
+                        .excludeRoles(excludeRoles)
+                        .excludeStatuses(excludeStatuses)
+                        .build()));
+    }
+
+    @GetMapping("/get-filters")
+    public ResponseEntity<FilterData> getFilters(@RequestParam long projectId,
+                                                 @RequestParam(required = false) List<Long> statuses,
+                                                 @RequestParam(required = false) List<Long> assigns,
+                                                 @RequestParam(required = false) List<Long> createdBy,
+                                                 @RequestParam(required = false) List<Long> roles,
+                                                 @RequestParam(required = false) List<Long> excludeStatuses,
+                                                 @RequestParam(required = false) List<Long> excludeAssigns,
+                                                 @RequestParam(required = false) List<Long> excludeCreatedBy,
+                                                 @RequestParam(required = false) List<Long> excludeRoles){
+        return ResponseEntity.ok(userStoryService.getFilterData(projectId,
+                FilterParams.builder()
+                        .statuses(statuses)
+                        .assigns(assigns)
+                        .roles(roles)
+                        .createdBy(createdBy)
+                        .excludeAssigns(excludeAssigns)
+                        .excludeCreatedBy(excludeCreatedBy)
+                        .excludeRoles(excludeRoles)
+                        .excludeStatuses(excludeStatuses)
+                        .build()));
+    }
 
             // Find user
             Optional<User> userOptional = userRepository.findById(userId);

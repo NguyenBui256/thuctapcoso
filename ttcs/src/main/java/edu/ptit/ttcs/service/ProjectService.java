@@ -9,8 +9,11 @@ import edu.ptit.ttcs.entity.Module;
 import edu.ptit.ttcs.entity.dto.CreateProjectDTO;
 import edu.ptit.ttcs.entity.dto.PageResponse;
 import edu.ptit.ttcs.entity.dto.ProjectDTO;
+import edu.ptit.ttcs.entity.dto.response.PjStatusDTO;
 import edu.ptit.ttcs.entity.enums.ProjectRoleName;
+import edu.ptit.ttcs.exception.RequestException;
 import edu.ptit.ttcs.mapper.ProjectMapper;
+import edu.ptit.ttcs.util.ModelMapper;
 import edu.ptit.ttcs.util.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,11 +23,12 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.ui.ModelMap;
 
-import java.time.LocalDateTime;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -38,6 +42,7 @@ public class ProjectService {
     private final UserRepository userRepository;
     private final ProjectRoleRepository projectRoleRepository;
     private final ProjectMemberRepository projectMemberRepository;
+    private final PjSettingStatusRepository pjSettingStatusRepository;
 
     @Transactional
     public Project save(Project project) {
@@ -117,7 +122,7 @@ public class ProjectService {
         for (ProjectRoleName roleName : ProjectRoleName.values()) {
             ProjectRole projectRole = new ProjectRole();
             projectRole.setProject(project);
-            projectRole.setRoleName(roleName.name());
+            projectRole.setName(roleName.name());
             projectRole.setCreatedBy(creator);
             projectRole.setUpdatedBy(creator);
             projectRole.setCreatedAt(LocalDateTime.now());
@@ -126,7 +131,7 @@ public class ProjectService {
             if (roleName == ProjectRoleName.PROJECT_MANAGER) {
                 toSetForAdminProjectRole = projectRole;
             }
-            log.info("ProjectRole {} - ID: {}", projectRole.getRoleName(), projectRole.getId());
+            log.info("ProjectRole {} - ID: {}", projectRole.getName(), projectRole.getId());
         }
 
         ProjectMember projectMember = new ProjectMember();
@@ -162,7 +167,7 @@ public class ProjectService {
         for (ProjectRoleName roleName : ProjectRoleName.values()) {
             ProjectRole projectRole = new ProjectRole();
             projectRole.setProject(project);
-            projectRole.setRoleName(roleName.name());
+            projectRole.setName(roleName.name());
             projectRole.setCreatedBy(creator);
             projectRole.setUpdatedBy(creator);
             projectRole.setCreatedAt(LocalDateTime.now());
@@ -241,5 +246,13 @@ public class ProjectService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         return projectMemberRepository.existsByProjectIdAndUserIdAndIsDeleteFalse(project.getId(), user.getId());
+    }
+
+    public List<PjStatusDTO> getTaskStatuses(Long projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new RequestException("Project not found"));
+        return pjSettingStatusRepository.findAllByProjectAndType(project, StatusType.TASK)
+                .stream().map(st -> ModelMapper.getInstance().map(st, PjStatusDTO.class))
+                .toList();
     }
 }

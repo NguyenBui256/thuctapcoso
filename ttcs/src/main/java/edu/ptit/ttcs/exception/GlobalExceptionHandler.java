@@ -20,20 +20,13 @@ public class GlobalExceptionHandler {
                 "message", message
         ));
     }
-
-    @ExceptionHandler(value = RequestException.class)
-    public ResponseEntity<?> requestExceptionHandler(RequestException ex) {
-        return ResponseEntity.badRequest().body(Map.of(
-                "message", ex.getMessage()
-        ));
-    }
-
-    @ExceptionHandler(value = RuntimeException.class)
-    public ResponseEntity<?> runtimeExceptionHandler(RuntimeException ex) {
-        log.info("Runtime Exception: {}", ex.getMessage());
-        return ResponseEntity.badRequest().body(Map.of(
-                "message", "Runtime exception"
-        ));
-    }
+//
+//    @ExceptionHandler(value = RuntimeException.class)
+//    public ResponseEntity<?> runtimeExceptionHandler(RuntimeException ex) {
+//        log.info("Runtime Exception: {}", ex.getMessage());
+//        return ResponseEntity.badRequest().body(Map.of(
+//                "message", "Runtime exception"
+//        ));
+//    }
 
 }

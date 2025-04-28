@@ -3,6 +3,7 @@ package edu.ptit.ttcs.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -11,6 +12,11 @@ import java.util.List;
 @Entity
 @Table(name = "sprints")
 public class Sprint {
+
+    public static final String OPEN = "open";
+
+    public static final String CLOSED = "closed";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -26,13 +32,13 @@ public class Sprint {
     private Project project;
 
     @Column(nullable = false)
-    private LocalDateTime startDate;
+    private LocalDate startDate;
 
     @Column(nullable = false)
-    private LocalDateTime endDate;
+    private LocalDate endDate;
 
     @Column(nullable = false)
-    private String status;
+    private String status = OPEN;
 
     @ManyToOne
     @JoinColumn(name = "created_by_id")

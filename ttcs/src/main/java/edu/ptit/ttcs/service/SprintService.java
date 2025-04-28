@@ -2,7 +2,7 @@ package edu.ptit.ttcs.service;
 
 import edu.ptit.ttcs.dao.*;
 import edu.ptit.ttcs.entity.*;
-import edu.ptit.ttcs.entity.dto.request.CreateSprintDTO;
+import edu.ptit.ttcs.entity.dto.request.SaveSprintDTO;
 import edu.ptit.ttcs.entity.dto.response.SprintDTO;
 import edu.ptit.ttcs.exception.RequestException;
 import edu.ptit.ttcs.util.ModelMapper;
@@ -39,19 +39,25 @@ public class SprintService {
         List<Sprint> sprints = sprintRepository.findAllByProject(project);
         return sprints.stream()
                 .filter(sprint -> {
-                    for(UserStory us : sprint.getUserStories()) {
-                        if(us.getStatus().getClosed() != close) return false;
-                    }
-                    return true;
+                    if(sprint.getUserStories().isEmpty() == close) return true;
+                    return sprint.getUserStories().stream()
+                            .noneMatch(us -> us.getStatus().getClosed() != close);
                 })
                 .map(this::toSprintDTO)
                 .toList();
     }
 
     @Transactional
-    public SprintDTO createSprint(@Valid CreateSprintDTO dto) {
+    public SprintDTO createSprint(@Valid SaveSprintDTO dto) {
+        if(dto.getStartDate().isAfter(dto.getEndDate()))
+            throw new RequestException("Start date cannot be after end date");
         Project project = projectRepository.findById(dto.getProjectId())
                 .orElseThrow(() -> new RequestException("Project not found"));
+        List<Sprint> allSprints = sprintRepository.findAllByProject(project);
+        boolean duplicateName = allSprints.stream().anyMatch(sp -> sp.getName().equals(dto.getName()));
+        if(duplicateName) {
+            throw new RequestException("Sprint name already exists");
+        }
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByUsername(username).get();
         ProjectMember member = projectMemberRepository.findByUserAndProject(user, project)
@@ -63,11 +69,54 @@ public class SprintService {
         return toSprintDTO(sprintRepository.save(sprint));
     }
 
+    @Transactional
+    public SprintDTO update(int sprintId, @Valid SaveSprintDTO dto) {
+        if(dto.getStartDate().isAfter(dto.getEndDate()))
+            throw new RequestException("Start date cannot be after end date");
+        Sprint sprint = sprintRepository.findById((long)sprintId)
+                .orElseThrow(() -> new RequestException("Sprint not found"));
+        if(sprint.getProject().getId() != dto.getProjectId())
+            throw new RequestException("Sprint is not in this project");
+        List<Sprint> allSprints = sprintRepository.findAllByProject(sprint.getProject());
+        boolean duplicateName = allSprints.stream().anyMatch(sp ->
+                sp.getId() != sprintId && sp.getName().equals(dto.getName()));
+        if(duplicateName) {
+            throw new RequestException("Sprint name already exists");
+        }
+        sprint.setName(dto.getName());
+        sprint.setStartDate(dto.getStartDate());
+        sprint.setEndDate(dto.getEndDate());
+        sprint.setUpdatedDate(LocalDateTime.now());
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByUsername(username).get();
+        ProjectMember member = projectMemberRepository.findByUserAndProject(user, sprint.getProject())
+                .orElseThrow(() -> new RequestException("Member's not in this project"));
+        sprint.setUpdatedBy(member);
+        return toSprintDTO(sprintRepository.save(sprint));
+    }
+
+    @Transactional
+    public void delete(int sprintId, long projectId) {
+        Sprint sprint = sprintRepository.findById((long)sprintId)
+                .orElseThrow(() -> new RequestException("Sprint not found"));
+        if(sprint.getProject().getId() != projectId)
+            throw new RequestException("Sprint is not in this project");
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByUsername(username).get();
+        projectMemberRepository.findByUserAndProject(user, sprint.getProject())
+                .orElseThrow(() -> new RequestException("Member's not in this project"));
+        sprintRepository.delete(sprint);
+    }
+
     public SprintDTO toSprintDTO(Sprint sprint) {
         SprintDTO dto = ModelMapper.getInstance().map(sprint, SprintDTO.class);
         dto.setUserStories(sprint.getUserStories().stream()
                 .map(userStoryService::toDTO)
                 .toList());
+        dto.setTotal(sprint.getUserStories().size());
+        dto.setClosed((int)sprint.getUserStories().stream()
+                        .filter(us -> us.getStatus().getClosed())
+                        .count());
         return dto;
     }
 

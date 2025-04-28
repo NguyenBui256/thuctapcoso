@@ -6,6 +6,7 @@ import edu.ptit.ttcs.entity.dto.CreateProjectDTO;
 import edu.ptit.ttcs.entity.dto.PageResponse;
 import edu.ptit.ttcs.entity.dto.ProjectDTO;
 import edu.ptit.ttcs.entity.dto.ProjectMemberDTO;
+import edu.ptit.ttcs.entity.dto.response.PjStatusDTO;
 import edu.ptit.ttcs.mapper.ProjectMapper;
 import edu.ptit.ttcs.service.ProjectService;
 import edu.ptit.ttcs.service.ProjectMemberService;
@@ -107,6 +108,12 @@ public class ProjectController {
         Project project = projectService.duplicateProject(id, projectDTO);
         return ResponseEntity.ok(projectMapper.toDTO(project));
     }
+
+    @GetMapping("/get-task-statuses")
+    public ResponseEntity<List<PjStatusDTO>> getTaskStatus(@RequestParam long projectId) {
+        return ResponseEntity.ok(projectService.getTaskStatuses(projectId));
+    }
+
 
     @GetMapping("/members/{projectId}")
     public ResponseEntity<List<ProjectMemberDTO>> getProjectMembers(@PathVariable Long projectId) {
