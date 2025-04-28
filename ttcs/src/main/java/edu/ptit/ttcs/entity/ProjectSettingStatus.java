@@ -37,4 +37,5 @@ public class ProjectSettingStatus extends BaseEntity {
     private Boolean closed;
 
     private Boolean archived;
+
 }

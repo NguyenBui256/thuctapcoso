@@ -9,12 +9,10 @@ import edu.ptit.ttcs.entity.ProjectMember;
 import edu.ptit.ttcs.entity.ProjectRole;
 import edu.ptit.ttcs.entity.User;
 import edu.ptit.ttcs.entity.dto.ProjectMemberDTO;
-import edu.ptit.ttcs.entity.dto.ProjectMemberDTO;
 import edu.ptit.ttcs.service.ActivityService;
 import edu.ptit.ttcs.service.ProjectMemberService;
 import edu.ptit.ttcs.service.ProjectService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -255,7 +253,7 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                 dto.setUsername(member.getUser() != null ? member.getUser().getUsername() : null);
                 dto.setUserFullName(member.getUser() != null ? member.getUser().getFullName() : null);
                 dto.setProjectRoleId(member.getProjectRole() != null ? member.getProjectRole().getId() : null);
-                dto.setRoleName(member.getProjectRole() != null ? member.getProjectRole().getRoleName() : null);
+                dto.setRoleName(member.getProjectRole() != null ? member.getProjectRole().getName() : null);
                 dto.setTotalPoint(member.getTotalPoint());
                 dto.setIsAdmin(member.getIsAdmin());
                 dto.setJoinedAt(member.getCreatedAt());

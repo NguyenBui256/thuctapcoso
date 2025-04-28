@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useParams } from 'react-router-dom';
-import Navbar from '../../pages/Navbar';
 import Sidebar from './Sidebar'; // Assuming Sidebar is in the same layout folder
 import { fetchProjectById } from '../../utils/api'; // To fetch project for sidebar name
 import ErrorPage, { ERROR_TYPE } from '../../pages/ErrorPage'; // Import ErrorPage and ERROR_TYPE
 import { FiArrowUp } from 'react-icons/fi'; // Import icon
+import { ToastContainer } from 'react-toastify';
 
 const ProjectDetailLayout = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -84,11 +84,11 @@ const ProjectDetailLayout = () => {
         />
 
         <main className={`relative flex-1 overflow-y-auto ${sidebarCollapsed ? 'ml-20' : 'ml-64'} transition-all duration-300`}>
-          <div className="">
-             {loadingProject && <div>Loading project context...</div>}
-             {errorProject && <ErrorPage errorType={ERROR_TYPE.UNKNOWN_ERROR} />}
-             {!loadingProject && !errorProject && currentProject && <Outlet />}
-          </div>
+            <div className="">
+              {loadingProject && <div>Loading project context...</div>}
+              {errorProject && <ErrorPage errorType={ERROR_TYPE.UNKNOWN_ERROR} />}
+              {!loadingProject && !errorProject && currentProject && <Outlet />}
+            </div>
 
           {showScrollTop && (
             <button
@@ -101,6 +101,10 @@ const ProjectDetailLayout = () => {
           )}
         </main>
       </div>
+
+      <ToastContainer
+        position='bottom-right'
+      />
     </div>
   );
 };

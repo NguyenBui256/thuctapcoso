@@ -6,11 +6,10 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Getter
 @Setter
-public class CreateSprintDTO {
+public class SaveSprintDTO {
 
     @NotNull(message = "ProjectId cannot be empty")
     private long projectId;

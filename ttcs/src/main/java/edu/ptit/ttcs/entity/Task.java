@@ -23,6 +23,10 @@ public class Task {
     @JoinColumn(name = "user_story_id")
     private UserStory userStory;
 
+    @ManyToOne
+    @JoinColumn(name = "sprint_id")
+    private Sprint sprint;
+
     @Column(nullable = false)
     private String name;
 

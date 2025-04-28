@@ -1,4 +1,4 @@
-package edu.ptit.ttcs.entity;
+package edu.ptit.ttcs.entity.enums;
 
 public class StatusType {
 

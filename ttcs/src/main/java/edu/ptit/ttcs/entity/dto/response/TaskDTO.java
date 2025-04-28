@@ -2,6 +2,7 @@ package edu.ptit.ttcs.entity.dto.response;
 
 import edu.ptit.ttcs.entity.ProjectSettingStatus;
 import edu.ptit.ttcs.entity.ProjectSettingTag;
+import edu.ptit.ttcs.entity.dto.ProjectMemberDTO;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -17,8 +18,12 @@ public class TaskDTO {
 
     private String description;
 
-    private ProjectSettingStatus status;
+    private long userStoryId;
 
-    private List<ProjectSettingTag> tags;
+    private PjStatusDTO status;
+
+    private List<PjTagDTO> tags;
+
+    private ProjectMemberDTO assigned;
 
 }

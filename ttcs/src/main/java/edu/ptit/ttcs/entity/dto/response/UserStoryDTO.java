@@ -28,7 +28,7 @@ public class UserStoryDTO {
 
     private Integer designPoints;
 
-    private ProjectSettingStatus status;
+    private PjStatusDTO status;
 
     private List<TaskDTO> tasks;
 

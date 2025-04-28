@@ -24,7 +24,7 @@ public class ProjectRole extends BaseEntity {
     private Project project;
 
     @Column(name = "role_name")
-    private String roleName;
+    private String name;
 
     @OneToMany(mappedBy = "projectRole")
     private Set<ProjectMember> projectMembers = new HashSet<>();

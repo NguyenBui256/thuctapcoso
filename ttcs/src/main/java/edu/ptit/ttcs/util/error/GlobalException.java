@@ -1,8 +1,10 @@
 package edu.ptit.ttcs.util.error;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
+import edu.ptit.ttcs.exception.RequestException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -27,6 +29,15 @@ public class GlobalException {
         res.setMessage(ex.getMessage());
         res.setError("Internal Server Error");
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(res);
+    }
+
+    @ExceptionHandler(value = RequestException.class)
+    public ResponseEntity<?> requestExceptionHandler(RequestException ex) {
+        RestResponse<Object> res = new RestResponse<Object>();
+        res.setStatusCode(HttpStatus.BAD_REQUEST.value());
+        res.setMessage(ex.getMessage());
+        res.setError("Bad request");
+        return ResponseEntity.badRequest().body(res);
     }
 
     @ExceptionHandler(value = {

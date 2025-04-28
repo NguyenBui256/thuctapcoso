@@ -6,12 +6,10 @@ import edu.ptit.ttcs.entity.Permission;
 import edu.ptit.ttcs.entity.Project;
 import edu.ptit.ttcs.entity.ProjectRole;
 import edu.ptit.ttcs.entity.dto.ProjectRoleDTO;
-import edu.ptit.ttcs.entity.dto.ProjectRoleDTO;
 import edu.ptit.ttcs.service.ActivityService;
 import edu.ptit.ttcs.service.ProjectRoleService;
 import edu.ptit.ttcs.service.ProjectService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,7 +42,7 @@ public class ProjectRoleServiceImpl implements ProjectRoleService {
 
                 ProjectRole projectRole = new ProjectRole();
                 projectRole.setProject(project);
-                projectRole.setRoleName(roleName);
+                projectRole.setName(roleName);
                 projectRole.setCreatedAt(LocalDateTime.now());
                 projectRole.setUpdatedAt(LocalDateTime.now());
 
@@ -114,7 +112,7 @@ public class ProjectRoleServiceImpl implements ProjectRoleService {
                         throw new IllegalArgumentException("You don't have permission to update project roles");
                 }
 
-                role.setRoleName(roleName);
+                role.setName(roleName);
                 role.setUpdatedAt(LocalDateTime.now());
 
                 // Update permissions if provided
@@ -167,7 +165,7 @@ public class ProjectRoleServiceImpl implements ProjectRoleService {
                                 null,
                                 requestUserId,
                                 "DELETE_ROLE",
-                                "Deleted role: " + role.getRoleName());
+                                "Deleted role: " + role.getName());
         }
 
         private ProjectRoleDTO mapToDTO(ProjectRole role) {
@@ -178,7 +176,7 @@ public class ProjectRoleServiceImpl implements ProjectRoleService {
                 ProjectRoleDTO dto = new ProjectRoleDTO();
                 dto.setId(role.getId());
                 dto.setProjectId(role.getProject() != null ? role.getProject().getId() : null);
-                dto.setRoleName(role.getRoleName());
+                dto.setRoleName(role.getName());
                 dto.setPermissionIds(permissionIds);
                 return dto;
         }
