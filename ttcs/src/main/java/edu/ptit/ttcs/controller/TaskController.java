@@ -80,7 +80,7 @@ public class TaskController {
 
     /**
      * Get all tasks
-     * 
+     *
      * @return List of tasks
      */
     @GetMapping
@@ -94,7 +94,7 @@ public class TaskController {
 
     /**
      * Get task by ID
-     * 
+     *
      * @param id Task ID
      * @return Task if found
      */
@@ -107,7 +107,7 @@ public class TaskController {
 
     /**
      * Get tasks by user story
-     * 
+     *
      * @param userStoryId User story ID
      * @return List of tasks
      */
@@ -127,7 +127,7 @@ public class TaskController {
 
     /**
      * Get tasks assigned to user
-     * 
+     *
      * @param userId User ID
      * @return List of tasks
      */
@@ -147,7 +147,7 @@ public class TaskController {
 
     /**
      * Create new task
-     * 
+     *
      * @param taskRequestDTO Task request data
      * @return Created task
      */
@@ -196,7 +196,7 @@ public class TaskController {
 
     /**
      * Update task
-     * 
+     *
      * @param id             Task ID
      * @param taskRequestDTO Updated task data
      * @return Updated task
@@ -270,7 +270,7 @@ public class TaskController {
 
     /**
      * Delete task
-     * 
+     *
      * @param id Task ID
      * @return No content
      */
@@ -700,7 +700,7 @@ public class TaskController {
 
     /**
      * Update task status
-     * 
+     *
      * @param id     Task ID
      * @param status New status
      * @return Updated task
@@ -1021,7 +1021,7 @@ public class TaskController {
 
     /**
      * Convert Task entity to TaskDTO
-     * 
+     *
      * @param task Task entity
      * @return TaskDTO
      */
@@ -1099,7 +1099,7 @@ public class TaskController {
 
     /**
      * Convert TaskRequestDTO to Task entity
-     * 
+     *
      * @param taskRequestDTO TaskRequestDTO
      * @return Task entity
      * @throws Exception if required data is missing
@@ -1124,7 +1124,7 @@ public class TaskController {
 
     /**
      * Update Task entity from TaskRequestDTO
-     * 
+     *
      * @param task           Task entity to update
      * @param taskRequestDTO Source TaskRequestDTO
      * @throws Exception if required relationships cannot be established
@@ -1235,7 +1235,7 @@ public class TaskController {
 
     /**
      * Update task points
-     * 
+     *
      * @param id      Task ID
      * @param request Update points request
      * @return Updated task
