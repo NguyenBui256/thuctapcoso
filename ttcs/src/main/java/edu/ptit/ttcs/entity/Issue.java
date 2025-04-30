@@ -80,7 +80,8 @@ public class Issue {
     @JoinTable(name = "issue_tags", joinColumns = @JoinColumn(name = "issue_id"), inverseJoinColumns = @JoinColumn(name = "tag_id"))
     private List<ProjectSettingTag> tags = new ArrayList<>();
 
-    @OneToMany(mappedBy = "issue", cascade = CascadeType.ALL)
+    @OneToMany(cascade = CascadeType.ALL)
+    @JoinTable(name = "issues_attachments", joinColumns = @JoinColumn(name = "issue_id", referencedColumnName = "id", columnDefinition = "BIGINT"), inverseJoinColumns = @JoinColumn(name = "attachment_id", referencedColumnName = "id", columnDefinition = "BIGINT"))
     private List<Attachment> attachments = new ArrayList<>();
 
     @OneToMany(mappedBy = "issue", cascade = CascadeType.ALL)

@@ -11,4 +11,8 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
     List<Activity> findByProjectIdOrderByTimestampDesc(Long projectId);
 
     List<Activity> findByIssueIdOrderByTimestampDesc(Long issueId);
+
+    List<Activity> findByUserStoryIdOrderByTimestampDesc(Integer userStoryId);
+
+    List<Activity> findByTaskIdOrderByTimestampDesc(Integer taskId);
 }

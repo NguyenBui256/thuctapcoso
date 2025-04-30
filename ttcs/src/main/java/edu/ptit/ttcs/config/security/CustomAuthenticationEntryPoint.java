@@ -19,13 +19,15 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
     private String[] allowedOrigins;
 
     @Override
-    public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException) throws IOException, IOException {
+    public void commence(HttpServletRequest request, HttpServletResponse response,
+            AuthenticationException authException) throws IOException, IOException {
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setContentType("application/json");
-        response.getWriter().write("{\"error\": \"Unauthorized\", \"message\": \"" + authException.getMessage() + "\"}");
+        response.getWriter()
+                .write("{\"error\": \"Unauthorized\", \"message\": \"" + authException.getMessage() + "\"}");
         String origin = request.getHeader("Origin");
-        if(Arrays.asList(allowedOrigins).contains(origin)) {
-            response.addHeader("Access-Control-Allow-Origin", origin);
+        if (Arrays.asList(allowedOrigins).contains(origin)) {
+            response.setHeader("Access-Control-Allow-Origin", origin);
         }
     }
 }

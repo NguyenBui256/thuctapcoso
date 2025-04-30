@@ -11,8 +11,8 @@ export async function checkAuthenticated() {
             if (ref.status !== 200) return false
 
             const data = await ref.json()
-            localStorage.setItem("access_token", data.token)
-            setUserData(data.token)
+            localStorage.setItem("access_token", data.data.token)
+            setUserData(data.data.token)
             return true
         }
 
@@ -58,15 +58,15 @@ export async function fetchWithAuth(url, from, isCompulsory, options = {}) {
                 }
 
                 const data = await ref.json()
-                localStorage.setItem("access_token", data.token)
-                setUserData(data.token)
+                localStorage.setItem("access_token", data.data.token)
+                setUserData(data.data.token)
 
                 // Retry the original request with new token
                 return fetch(url, {
                     ...options,
                     headers: {
                         ...options.headers,
-                        'Authorization': `Bearer ${data.token}`,
+                        'Authorization': `Bearer ${data.data.token}`,
                     },
                     credentials: 'include'
                 })
@@ -96,13 +96,38 @@ export const setUserData = (accessToken) => {
             username: payload.sub,
             avatarUrl: payload.avatar,
             email: payload.email,
-            fullName: payload.fullName
+            fullName: payload.fullName,
+            userId: payload.userId || payload.id
         }
         localStorage.setItem("userData", JSON.stringify(userData))
+        localStorage.setItem("userId", userData.userId)
     }
     catch (err) {
         console.log(err)
     }
+}
+
+export const getCurrentUserId = () => {
+    // Try to get userId directly from localStorage
+    const userId = localStorage.getItem("userId");
+    if (userId) return userId;
+
+    // If not found, try to extract from userData
+    const userDataStr = localStorage.getItem("userData");
+    if (userDataStr) {
+        try {
+            const userData = JSON.parse(userDataStr);
+            if (userData.userId) {
+                localStorage.setItem("userId", userData.userId);
+                return userData.userId;
+            }
+        } catch (err) {
+            console.error("Error parsing userData:", err);
+        }
+    }
+
+    // Default fallback value if userId cannot be determined
+    return null;
 }
 
 export const logout = async () => {
@@ -112,6 +137,7 @@ export const logout = async () => {
     })
     await localStorage.removeItem("access_token")
     await localStorage.removeItem("userData")
+    await localStorage.removeItem("userId")
     await localStorage.removeItem("cart")
     window.location.assign("/")
 }

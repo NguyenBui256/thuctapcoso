@@ -1,0 +1,302 @@
+/* Taiga Kanban Board Styling */
+.kanban-container {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 60px);
+    width: 100%;
+    background-color: #f8f9fa;
+    overflow: hidden;
+}
+
+.kanban-title {
+    font-size: 22px;
+    font-weight: 600;
+    margin: 15px 20px;
+    color: #444;
+}
+
+/* Header with filters and zoom */
+.kanban-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 20px 10px;
+    margin-bottom: 15px;
+}
+
+.search-filters {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.filter-button {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background-color: #f1f1f1;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 13px;
+    color: #4a4a4a;
+    cursor: pointer;
+}
+
+.search-input {
+    width: 220px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 6px 10px 6px 30px;
+    font-size: 13px;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23777" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>');
+    background-repeat: no-repeat;
+    background-position: 8px center;
+    background-size: 14px;
+}
+
+.view-options {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Column headers row - horizontal like Taiga */
+.kanban-board {
+    padding: 0 20px;
+}
+
+.columns-header {
+    display: flex;
+    margin-bottom: 5px;
+}
+
+.column-header {
+    flex: 1;
+    min-width: 200px;
+    padding: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 3px 3px 0 0;
+    color: white;
+    margin-right: 10px;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.column-header.new {
+    background-color: #83629c;
+}
+
+.column-header.ready {
+    background-color: #c65c5c;
+}
+
+.column-header.in-progress {
+    background-color: #e88c2c;
+}
+
+.column-header.ready-for-test {
+    background-color: #e4c455;
+}
+
+.column-header.done {
+    background-color: #4da155;
+}
+
+.column-header.archived {
+    background-color: #8a8a8a;
+}
+
+.column-header-buttons {
+    display: flex;
+    gap: 5px;
+}
+
+.column-header button {
+    background: none;
+    border: none;
+    color: white;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 3px;
+}
+
+.column-header button:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Swimlanes - vertical like Taiga */
+.swimlanes-container {
+    flex: 1;
+    overflow: auto;
+}
+
+.swimlane {
+    margin-bottom: 15px;
+}
+
+.swimlane-header {
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    background-color: #f1f1f1;
+    border-radius: 4px;
+    margin-bottom: 5px;
+    cursor: pointer;
+}
+
+.swimlane-header i {
+    margin-right: 8px;
+    font-size: 12px;
+    color: #777;
+}
+
+.swimlane-header h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #444;
+}
+
+.swimlane-content {
+    display: flex;
+}
+
+.swimlane-column {
+    flex: 1;
+    min-width: 200px;
+    margin-right: 10px;
+    min-height: 60px;
+    border-radius: 0 0 3px 3px;
+    background-color: #f8f9fa;
+}
+
+/* Tasks styling */
+.task-list {
+    padding: 5px;
+}
+
+.task-card {
+    background-color: white;
+    border-radius: 3px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    padding: 8px 10px;
+    margin-bottom: 5px;
+    cursor: grab;
+    transition: transform 0.15s, box-shadow 0.15s;
+    position: relative;
+}
+
+.task-card:hover {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.task-card.dragging {
+    transform: rotate(1deg);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.task-id {
+    color: #83629c;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 3px;
+}
+
+.task-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.task-assignee {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    overflow: hidden;
+    background-color: #f1f1f1;
+}
+
+.task-assignee img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Zoom controls */
+.zoom-controls {
+    display: flex;
+    background-color: #f1f1f1;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.zoom-label {
+    margin-right: 5px;
+    font-size: 13px;
+    color: #666;
+}
+
+.zoom-button {
+    border: none;
+    background-color: transparent;
+    padding: 5px 8px;
+    font-size: 12px;
+    color: #666;
+    cursor: pointer;
+}
+
+.zoom-button.active {
+    background-color: #83629c;
+    color: white;
+}
+
+/* Empty state */
+.empty-column {
+    padding: 10px;
+    text-align: center;
+    color: #888;
+    font-size: 13px;
+}
+
+/* Count badges */
+.task-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    background-color: rgba(255, 255, 255, 0.25);
+    color: white;
+    font-size: 11px;
+    padding: 0 5px;
+    margin-left: 6px;
+}
+
+/* Archived label */
+.archived {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 20px;
+    background-color: #eee;
+    border-radius: 0 3px 3px 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    color: #888;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}

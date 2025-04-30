@@ -19,6 +19,9 @@ public class ProjectMemberDTO {
     private Integer totalPoint;
     private Boolean isAdmin;
     private LocalDateTime joinedAt;
+    private String avatar;
+    private String projectName;
+    private String projectDescription;
 
     public void validate() {
         if (projectId == null) {

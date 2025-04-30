@@ -11,11 +11,12 @@ import java.util.Set;
 @Table(name = "project_wiki_page")
 @Setter
 @Getter
-public class ProjectWikiPage {
+@Inheritance(strategy = InheritanceType.TABLE_PER_CLASS)
+public class ProjectWikiPage extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Long id;
 
     @ManyToOne
     @JoinColumn(name = "project_id")
@@ -29,18 +30,10 @@ public class ProjectWikiPage {
     @Column(name = "is_delete")
     private Boolean isDelete;
 
-    @ManyToOne
-    @JoinColumn(name = "created_by")
-    private User createdBy;
-
-    @ManyToOne
-    @JoinColumn(name = "updated_by")
-    private User updatedBy;
-
     @Column(name = "edit_count")
     private Integer editCount;
 
     @ManyToMany
-    @JoinTable(name = "wiki_page_attachment", joinColumns = @JoinColumn(name = "wiki_page_id"), inverseJoinColumns = @JoinColumn(name = "attachment_id"))
+    @JoinTable(name = "wiki_page_attachment", joinColumns = @JoinColumn(name = "wiki_page_id", referencedColumnName = "id", columnDefinition = "BIGINT"), inverseJoinColumns = @JoinColumn(name = "attachment_id", referencedColumnName = "id", columnDefinition = "BIGINT"))
     private Set<Attachment> attachments = new HashSet<>();
 }
