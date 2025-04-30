@@ -20,13 +20,7 @@ public interface IssueRepository extends JpaRepository<Issue, Long> {
     @Query("SELECT i FROM Issue i WHERE i.sprint.project = :project AND i.status = :status")
     List<Issue> findByProjectAndStatus(@Param("project") Project project, @Param("status") ProjectSettingStatus status);
 
-    List<Issue> findByAssignee(User user);
-
-    List<Issue> findByWatchersContaining(User user);
-
     List<Issue> findByProjectId(Long projectId);
-
-    long countByStatusId(Long statusId);
 
     List<Issue> findBySubjectContaining(String keyword);
 
