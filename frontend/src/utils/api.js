@@ -5,7 +5,36 @@ import { fetchWithAuth, getCurrentUserId } from './AuthUtils';
 // Using the BASE_API_URL from constants
 const API_BASE_URL = BASE_API_URL;
 
-// Fetch projects for the current user
+// Fetch ALL projects user is a member of (including ones they created and ones they're members of)
+export const fetchAllUserProjects = async () => {
+  const userId = getCurrentUserId();
+  if (!userId) {
+    throw new Error("User ID not available. Please login again.");
+  }
+
+  const response = await fetchWithAuth(
+    `${API_BASE_URL}/v1/projects/user/${userId}/projects/member`,
+    '/projects',  // redirect here if auth fails
+    true,         // is authentication compulsory
+    { method: 'GET' }
+  );
+
+  if (!response || !response.ok) {
+    throw new Error(`Failed to fetch projects: ${response?.statusText || 'Authentication failed'}`);
+  }
+
+  const responseData = await response.json();
+  console.log('All user projects data:', responseData);
+
+  // Handle nested response structure - data is in responseData.data.data
+  if (responseData.data && Array.isArray(responseData.data.data)) {
+    return responseData.data.data;
+  } else {
+    throw new Error("Invalid API response format");
+  }
+};
+
+// Fetch projects for the current user (only projects they created)
 export const fetchProjectsByUserId = async () => {
   const userId = getCurrentUserId();
   if (!userId) {
