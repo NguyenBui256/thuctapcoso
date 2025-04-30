@@ -199,7 +199,9 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                 List<ProjectMember> memberships = projectMemberRepository.findByUserAndIsDeleteFalse(user);
                 return memberships.stream()
                                 .filter(m -> !m.getIsDelete())
-                                .filter(m -> m.getProject() != null && !m.getProject().getIsDeleted())
+                                .filter(m -> m.getProject() != null &&
+                                                (m.getProject().getIsDeleted() == null
+                                                                || !m.getProject().getIsDeleted()))
                                 .map(this::mapToDTO)
                                 .collect(Collectors.toList());
         }
@@ -278,6 +280,11 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                 dto.setIsAdmin(member.getIsAdmin());
                 dto.setJoinedAt(member.getCreatedAt());
                 dto.setAvatar(member.getUser().getAvatar());
+
+                // Add the project name to make it easier to display in the UI
+                dto.setProjectName(member.getProject() != null ? member.getProject().getName() : null);
+                dto.setProjectDescription(member.getProject() != null ? member.getProject().getDescription() : null);
+
                 return dto;
         }
 }

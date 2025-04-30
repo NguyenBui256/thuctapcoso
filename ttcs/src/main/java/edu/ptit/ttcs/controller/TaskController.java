@@ -6,8 +6,8 @@ import edu.ptit.ttcs.dao.UserRepository;
 import edu.ptit.ttcs.dao.UserStoryRepository;
 import edu.ptit.ttcs.dao.ProjectMemberRepository;
 import edu.ptit.ttcs.dao.CommentRepository;
-import edu.ptit.ttcs.dto.TaskDTO;
-import edu.ptit.ttcs.dto.TaskRequestDTO;
+import edu.ptit.ttcs.entity.dto.TaskDTO;
+import edu.ptit.ttcs.entity.dto.request.TaskRequestDTO;
 import edu.ptit.ttcs.entity.ProjectSettingTag;
 import edu.ptit.ttcs.entity.Task;
 import edu.ptit.ttcs.entity.User;
@@ -15,7 +15,7 @@ import edu.ptit.ttcs.entity.UserStory;
 import edu.ptit.ttcs.entity.ProjectMember;
 import edu.ptit.ttcs.entity.ProjectSettingStatus;
 import edu.ptit.ttcs.entity.Comment;
-import edu.ptit.ttcs.dto.CommentDTO;
+import edu.ptit.ttcs.entity.dto.CommentDTO;
 import edu.ptit.ttcs.entity.dto.ActivityDTO;
 import edu.ptit.ttcs.service.ActivityService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -154,6 +154,28 @@ public class TaskController {
     @PostMapping
     public ResponseEntity<TaskDTO> createTask(@RequestBody TaskRequestDTO taskRequestDTO) {
         try {
+            // Validate required fields
+            if (taskRequestDTO.getName() == null || taskRequestDTO.getName().trim().isEmpty()) {
+                return ResponseEntity.badRequest().build();
+            }
+
+            // Validate user story exists
+            if (taskRequestDTO.getUserStoryId() == null) {
+                return ResponseEntity.badRequest().build();
+            }
+
+            Optional<UserStory> userStoryOptional = userStoryRepository.findById(taskRequestDTO.getUserStoryId());
+            if (!userStoryOptional.isPresent()) {
+                return ResponseEntity.badRequest().build();
+            }
+
+            // Validate user story has a project
+            UserStory userStory = userStoryOptional.get();
+            if (userStory.getProject() == null) {
+                return ResponseEntity.badRequest().build();
+            }
+
+            // Create and save task
             Task task = convertToEntity(taskRequestDTO);
             Task savedTask = taskRepository.save(task);
 
@@ -167,6 +189,7 @@ public class TaskController {
 
             return new ResponseEntity<>(convertToDTO(savedTask), HttpStatus.CREATED);
         } catch (Exception e) {
+            e.printStackTrace(); // Add logging
             return ResponseEntity.badRequest().build();
         }
     }
@@ -300,14 +323,15 @@ public class TaskController {
             }
 
             Task task = taskOptional.get();
-            List<User> oldAssignees = new ArrayList<>(task.getAssignees());
+            List<ProjectMember> oldAssignees = new ArrayList<>(task.getAssignees());
 
             // Update assignees
-            List<User> assignees = new ArrayList<>();
+            List<ProjectMember> assignees = new ArrayList<>();
             for (Integer userId : request.getUserIds()) {
-                Optional<User> userOptional = userRepository.findById(userId.longValue());
-                if (userOptional.isPresent()) {
-                    assignees.add(userOptional.get());
+                ProjectMember projectMember = projectMemberRepository.findByProjectIdAndUserIdAndIsDeleteFalse(
+                        task.getProject().getId(), userId.longValue());
+                if (projectMember != null) {
+                    assignees.add(projectMember);
                 }
             }
             task.setAssignees(assignees);
@@ -318,26 +342,26 @@ public class TaskController {
             Long projectId = updatedTask.getProject().getId();
 
             // Check for added assignees
-            for (User newAssignee : assignees) {
+            for (ProjectMember newAssignee : assignees) {
                 if (!oldAssignees.contains(newAssignee)) {
                     activityService.recordTaskActivity(
                             projectId,
                             updatedTask.getId(),
                             userId,
                             "assignee_added",
-                            "User " + newAssignee.getUsername() + " assigned to task");
+                            "User " + newAssignee.getUser().getUsername() + " assigned to task");
                 }
             }
 
             // Check for removed assignees
-            for (User oldAssignee : oldAssignees) {
+            for (ProjectMember oldAssignee : oldAssignees) {
                 if (!assignees.contains(oldAssignee)) {
                     activityService.recordTaskActivity(
                             projectId,
                             updatedTask.getId(),
                             userId,
                             "assignee_removed",
-                            "User " + oldAssignee.getUsername() + " removed from task");
+                            "User " + oldAssignee.getUser().getUsername() + " removed from task");
                 }
             }
 
@@ -402,14 +426,17 @@ public class TaskController {
                         .body(null); // Người dùng không thuộc project
             }
 
+            ProjectMember projectMember = projectMemberRepository.findByProjectIdAndUserIdAndIsDeleteFalse(
+                    task.getProject().getId(), user.getId());
+
             // Initialize list if null
             if (task.getAssignees() == null) {
                 task.setAssignees(new ArrayList<>());
             }
 
             // Add user if not already in list
-            if (!task.getAssignees().contains(user)) {
-                task.getAssignees().add(user);
+            if (!task.getAssignees().contains(projectMember)) {
+                task.getAssignees().add(projectMember);
                 task = taskRepository.save(task);
             }
 
@@ -511,14 +538,15 @@ public class TaskController {
             }
 
             Task task = taskOptional.get();
-            List<User> oldWatchers = new ArrayList<>(task.getWatchers());
+            List<ProjectMember> oldWatchers = new ArrayList<>(task.getWatchers());
 
             // Update watchers
-            List<User> watchers = new ArrayList<>();
+            List<ProjectMember> watchers = new ArrayList<>();
             for (Integer userId : request.getWatcherIds()) {
-                Optional<User> userOptional = userRepository.findById(userId.longValue());
-                if (userOptional.isPresent()) {
-                    watchers.add(userOptional.get());
+                ProjectMember projectMember = projectMemberRepository.findByProjectIdAndUserIdAndIsDeleteFalse(
+                        task.getProject().getId(), userId.longValue());
+                if (projectMember != null) {
+                    watchers.add(projectMember);
                 }
             }
             task.setWatchers(watchers);
@@ -529,26 +557,26 @@ public class TaskController {
             Long projectId = updatedTask.getProject().getId();
 
             // Check for added watchers
-            for (User newWatcher : watchers) {
+            for (ProjectMember newWatcher : watchers) {
                 if (!oldWatchers.contains(newWatcher)) {
                     activityService.recordTaskActivity(
                             projectId,
                             updatedTask.getId(),
                             userId,
                             "watcher_added",
-                            "User " + newWatcher.getUsername() + " started watching task");
+                            "User " + newWatcher.getUser().getUsername() + " started watching task");
                 }
             }
 
             // Check for removed watchers
-            for (User oldWatcher : oldWatchers) {
+            for (ProjectMember oldWatcher : oldWatchers) {
                 if (!watchers.contains(oldWatcher)) {
                     activityService.recordTaskActivity(
                             projectId,
                             updatedTask.getId(),
                             userId,
                             "watcher_removed",
-                            "User " + oldWatcher.getUsername() + " stopped watching task");
+                            "User " + oldWatcher.getUser().getUsername() + " stopped watching task");
                 }
             }
 
@@ -603,9 +631,12 @@ public class TaskController {
                 task.setWatchers(new ArrayList<>());
             }
 
+            ProjectMember projectMember = projectMemberRepository.findByProjectIdAndUserIdAndIsDeleteFalse(
+                    task.getProject().getId(), user.getId());
+
             // Add user if not already in list
-            if (!task.getWatchers().contains(user)) {
-                task.getWatchers().add(user);
+            if (!task.getWatchers().contains(projectMember)) {
+                task.getWatchers().add(projectMember);
                 task = taskRepository.save(task);
             }
 
@@ -637,11 +668,12 @@ public class TaskController {
             }
 
             Task task = taskOptional.get();
-            User user = userOptional.get();
+            ProjectMember projectMember = projectMemberRepository.findByProjectIdAndUserIdAndIsDeleteFalse(
+                    task.getProject().getId(), userId.longValue());
 
             // Remove user if in list
             if (task.getWatchers() != null) {
-                task.getWatchers().remove(user);
+                task.getWatchers().remove(projectMember);
                 task = taskRepository.save(task);
             }
 
@@ -1026,8 +1058,8 @@ public class TaskController {
                     .map(assignee -> {
                         TaskDTO.UserDTO userDTO = new TaskDTO.UserDTO();
                         userDTO.setId(assignee.getId().intValue());
-                        userDTO.setUsername(assignee.getUsername());
-                        userDTO.setFullName(assignee.getFullName());
+                        userDTO.setUsername(assignee.getUser().getUsername());
+                        userDTO.setFullName(assignee.getUser().getFullName());
                         return userDTO;
                     })
                     .collect(Collectors.toList());
@@ -1054,8 +1086,8 @@ public class TaskController {
                     .map(watcher -> {
                         TaskDTO.UserDTO userDTO = new TaskDTO.UserDTO();
                         userDTO.setId(watcher.getId().intValue());
-                        userDTO.setUsername(watcher.getUsername());
-                        userDTO.setFullName(watcher.getFullName());
+                        userDTO.setUsername(watcher.getUser().getUsername());
+                        userDTO.setFullName(watcher.getUser().getFullName());
                         return userDTO;
                     })
                     .collect(Collectors.toList());
@@ -1126,29 +1158,40 @@ public class TaskController {
             task.setUser(null);
         }
 
-        // Set multiple assignees - Quan hệ mới nhiều-nhiều
-        if (taskRequestDTO.getAssigneeIds() != null && !taskRequestDTO.getAssigneeIds().isEmpty()) {
-            List<User> assignees = new ArrayList<>();
-            for (Integer assigneeId : taskRequestDTO.getAssigneeIds()) {
-                Optional<User> assigneeOptional = userRepository.findById(assigneeId.longValue());
-                if (assigneeOptional.isPresent()) {
-                    assignees.add(assigneeOptional.get());
-                } else {
-                    throw new Exception("Assignee with ID " + assigneeId + " not found");
-                }
-            }
-            task.setAssignees(assignees);
-        } else {
-            task.setAssignees(new ArrayList<>());
-        }
-
-        // Set user story
+        // Set user story first, as it's needed for project reference
         if (taskRequestDTO.getUserStoryId() != null) {
             Optional<UserStory> userStoryOptional = userStoryRepository.findById(taskRequestDTO.getUserStoryId());
             if (!userStoryOptional.isPresent()) {
                 throw new Exception("User story not found");
             }
-            task.setUserStory(userStoryOptional.get());
+            UserStory userStory = userStoryOptional.get();
+            task.setUserStory(userStory);
+
+            // Set project from user story
+            if (userStory.getProject() != null) {
+                task.setProject(userStory.getProject());
+            } else {
+                throw new Exception("User story is not associated with a project");
+            }
+        } else {
+            throw new Exception("User story ID is required");
+        }
+
+        // Set multiple assignees - Quan hệ mới nhiều-nhiều
+        if (taskRequestDTO.getAssigneeIds() != null && !taskRequestDTO.getAssigneeIds().isEmpty()) {
+            List<ProjectMember> assignees = new ArrayList<>();
+            for (Integer assigneeId : taskRequestDTO.getAssigneeIds()) {
+                ProjectMember projectMember = projectMemberRepository.findByProjectIdAndUserIdAndIsDeleteFalse(
+                        task.getProject().getId(), assigneeId.longValue());
+                if (projectMember != null) {
+                    assignees.add(projectMember);
+                } else {
+                    throw new Exception("Assignee with ID " + assigneeId + " is not a member of this project");
+                }
+            }
+            task.setAssignees(assignees);
+        } else {
+            task.setAssignees(new ArrayList<>());
         }
 
         // Set tags if provided
@@ -1165,11 +1208,12 @@ public class TaskController {
 
         // Set watchers if provided
         if (taskRequestDTO.getWatcherIds() != null && !taskRequestDTO.getWatcherIds().isEmpty()) {
-            List<User> watchers = new ArrayList<>();
+            List<ProjectMember> watchers = new ArrayList<>();
             for (Integer watcherId : taskRequestDTO.getWatcherIds()) {
-                Optional<User> watcherOptional = userRepository.findById(watcherId.longValue());
-                if (watcherOptional.isPresent()) {
-                    watchers.add(watcherOptional.get());
+                ProjectMember projectMember = projectMemberRepository.findByProjectIdAndUserIdAndIsDeleteFalse(
+                        task.getProject().getId(), watcherId.longValue());
+                if (projectMember != null) {
+                    watchers.add(projectMember);
                 }
             }
             task.setWatchers(watchers);

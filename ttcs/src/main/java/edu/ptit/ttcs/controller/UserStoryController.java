@@ -22,17 +22,17 @@ import java.util.HashSet;
 import java.util.Set;
 import java.time.LocalDateTime;
 
-import edu.ptit.ttcs.dto.UserStoryDTO;
-import edu.ptit.ttcs.dto.TaskDTO;
-import edu.ptit.ttcs.dto.CommentDTO;
+import edu.ptit.ttcs.entity.dto.UserStoryDTO;
+import edu.ptit.ttcs.entity.dto.TaskDTO;
+import edu.ptit.ttcs.entity.dto.CommentDTO;
 import edu.ptit.ttcs.service.KanbanUserStoryService;
 import edu.ptit.ttcs.entity.User;
 import edu.ptit.ttcs.dao.UserRepository;
-import edu.ptit.ttcs.dto.KanbanTaskDTO;
+import edu.ptit.ttcs.entity.dto.KanbanTaskDTO;
 import edu.ptit.ttcs.service.KanbanTaskService;
-import edu.ptit.ttcs.dto.UserStoryResponseDTO;
+import edu.ptit.ttcs.entity.dto.UserStoryResponseDTO;
 import edu.ptit.ttcs.entity.KanbanSwimland;
-import edu.ptit.ttcs.dto.UserDTO;
+import edu.ptit.ttcs.entity.dto.UserDTO;
 import edu.ptit.ttcs.dao.ProjectMemberRepository;
 import edu.ptit.ttcs.entity.ProjectMember;
 import edu.ptit.ttcs.service.ActivityService;
@@ -132,12 +132,123 @@ public class UserStoryController {
     /**
      * Creates a new user story in the Kanban board
      * 
-     * @param userStory The user story details
+     * @param request The request containing the user story and the assignee
+     *                information
      * @return ResponseEntity with the created user story
      */
     @PostMapping("/userstory")
-    public ResponseEntity<?> createUserStory(@RequestBody UserStory userStory) {
+    public ResponseEntity<?> createUserStory(@RequestBody Map<String, Object> requestMap) {
         try {
+            UserStory userStory = new UserStory();
+            List<Integer> userIds = new ArrayList<>();
+
+            // Extract user story properties from the map
+            if (requestMap.containsKey("name")) {
+                userStory.setName((String) requestMap.get("name"));
+            }
+
+            if (requestMap.containsKey("description")) {
+                userStory.setDescription((String) requestMap.get("description"));
+            }
+
+            if (requestMap.containsKey("project")) {
+                Map<String, Object> projectMap = (Map<String, Object>) requestMap.get("project");
+                if (projectMap != null && projectMap.containsKey("id")) {
+                    Project project = new Project();
+                    project.setId(((Number) projectMap.get("id")).longValue());
+                    userStory.setProject(project);
+                }
+            }
+
+            if (requestMap.containsKey("status")) {
+                Map<String, Object> statusMap = (Map<String, Object>) requestMap.get("status");
+                if (statusMap != null && statusMap.containsKey("id")) {
+                    ProjectSettingStatus status = new ProjectSettingStatus();
+                    status.setId(((Number) statusMap.get("id")).intValue());
+                    userStory.setStatus(status);
+                }
+            }
+
+            if (requestMap.containsKey("swimlane")) {
+                Map<String, Object> swimlaneMap = (Map<String, Object>) requestMap.get("swimlane");
+                if (swimlaneMap != null && swimlaneMap.containsKey("id")) {
+                    KanbanSwimland swimlane = new KanbanSwimland();
+                    swimlane.setId(((Number) swimlaneMap.get("id")).intValue());
+                    userStory.setSwimlane(swimlane);
+                }
+            }
+
+            // Get current authenticated user
+            User currentUser = null;
+            try {
+                currentUser = securityUtils.getCurrentUser();
+            } catch (Exception e) {
+                // Handle case when current user cannot be retrieved
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
+            }
+
+            // Set the current user as the creator
+            if (currentUser != null) {
+                userStory.setCreatedBy(currentUser);
+            } else if (requestMap.containsKey("createdBy")) {
+                // Fallback to request parameter if current user is null
+                Map<String, Object> createdByMap = (Map<String, Object>) requestMap.get("createdBy");
+                if (createdByMap != null && createdByMap.containsKey("id")) {
+                    User createdBy = new User();
+                    createdBy.setId(((Number) createdByMap.get("id")).longValue());
+                    userStory.setCreatedBy(createdBy);
+                }
+            }
+
+            if (requestMap.containsKey("dueDate")) {
+                String dueDateStr = (String) requestMap.get("dueDate");
+                if (dueDateStr != null && !dueDateStr.isEmpty()) {
+                    try {
+                        LocalDate dueDate = LocalDate.parse(dueDateStr);
+                        userStory.setDueDate(dueDate);
+                    } catch (Exception e) {
+                        // Ignore parsing errors for due date
+                    }
+                }
+            }
+
+            if (requestMap.containsKey("isBlock")) {
+                userStory.setIsBlock((Boolean) requestMap.get("isBlock"));
+            }
+
+            if (requestMap.containsKey("uxPoints")) {
+                userStory.setUxPoints(((Number) requestMap.get("uxPoints")).intValue());
+            }
+
+            if (requestMap.containsKey("backPoints")) {
+                userStory.setBackPoints(((Number) requestMap.get("backPoints")).intValue());
+            }
+
+            if (requestMap.containsKey("frontPoints")) {
+                userStory.setFrontPoints(((Number) requestMap.get("frontPoints")).intValue());
+            }
+
+            if (requestMap.containsKey("designPoints")) {
+                userStory.setDesignPoints(((Number) requestMap.get("designPoints")).intValue());
+            }
+
+            // Extract user IDs if present
+            if (requestMap.containsKey("userIds")) {
+                List<Object> userIdsList = (List<Object>) requestMap.get("userIds");
+                if (userIdsList != null) {
+                    for (Object userIdObj : userIdsList) {
+                        if (userIdObj instanceof Number) {
+                            userIds.add(((Number) userIdObj).intValue());
+                        }
+                    }
+                }
+            }
+
+            // Set creation and update timestamps
+            LocalDateTime now = LocalDateTime.now();
+            userStory.setCreatedAt(now);
+            userStory.setUpdatedAt(now);
+
             // Ensure required fields are set
             if (userStory.getName() == null || userStory.getName().trim().isEmpty()) {
                 return ResponseEntity.badRequest().body("User story name is required");
@@ -175,35 +286,36 @@ public class UserStoryController {
             }
 
             // Validate and get all assigned users from database
-            Set<User> validAssignedUsers = new HashSet<>();
-            for (User assignedUser : userStory.getAssignedUsers()) {
-                if (assignedUser.getId() != null) {
-                    Optional<User> existingUser = userRepository.findById(assignedUser.getId());
-                    if (existingUser.isPresent()) {
-                        validAssignedUsers.add(existingUser.get());
-                    } else {
-                        return ResponseEntity.badRequest()
-                                .body("Assigned user with ID " + assignedUser.getId() + " not found");
+            Set<ProjectMember> assignees = new HashSet<>();
+            if (userIds != null && !userIds.isEmpty()) {
+                for (Integer userId : userIds) {
+                    ProjectMember projectMember = projectMemberRepository.findByProjectIdAndUserIdAndIsDeleteFalse(
+                            userStory.getProject().getId(), userId.longValue());
+                    if (projectMember != null) {
+                        assignees.add(projectMember);
                     }
                 }
             }
-            userStory.setAssignedUsers(validAssignedUsers);
+            userStory.setAssignedUsers(assignees);
+
+            // If no specific assignees and current user is a project member, add current
+            // user
+            if (assignees.isEmpty() && currentUser != null) {
+                ProjectMember currentUserMember = projectMemberRepository.findByProjectIdAndUserIdAndIsDeleteFalse(
+                        userStory.getProject().getId(), currentUser.getId());
+                if (currentUserMember != null) {
+                    userStory.getAssignedUsers().add(currentUserMember);
+                }
+            }
 
             // Save the user story first
             UserStory savedUserStory = userStoryRepository.save(userStory);
-
-            // Add creator to assigned users if not null and not already assigned
-            if (userStory.getCreatedBy() != null
-                    && !savedUserStory.getAssignedUsers().contains(userStory.getCreatedBy())) {
-                savedUserStory.getAssignedUsers().add(userStory.getCreatedBy());
-                userStoryRepository.save(savedUserStory);
-            }
 
             // Record activity for user story creation
             activityService.recordUserStoryActivity(
                     savedUserStory.getProject().getId(),
                     savedUserStory.getId(),
-                    savedUserStory.getCreatedBy() != null ? savedUserStory.getCreatedBy().getId() : 1L,
+                    currentUser != null ? currentUser.getId() : 1L,
                     "user_story_created",
                     "User story was created");
 
@@ -280,7 +392,7 @@ public class UserStoryController {
         return ResponseEntity.ok(savedUserStory);
     }
 
-    @PatchMapping("/userstory/{id}/status")
+    @PutMapping("/userstory/{id}/status")
     public ResponseEntity<?> patchUserStoryStatus(
             @PathVariable Integer id,
             @RequestBody Map<String, Integer> payload) {
@@ -428,6 +540,34 @@ public class UserStoryController {
                 dto.setBackPoints(story.getBackPoints());
                 dto.setFrontPoints(story.getFrontPoints());
                 dto.setDesignPoints(story.getDesignPoints());
+
+                // Set the created date and created by information
+                dto.setCreatedAt(story.getCreatedAt());
+                if (story.getCreatedBy() != null) {
+                    dto.setCreatedByFullName(story.getCreatedBy().getFullName());
+                    dto.setCreatedByUsername(story.getCreatedBy().getUsername());
+                }
+
+                // Add assigned users information
+                if (story.getAssignedUsers() != null && !story.getAssignedUsers().isEmpty()) {
+                    List<UserDTO> assignedUsers = story.getAssignedUsers().stream()
+                            .map(member -> {
+                                User user = member.getUser();
+                                UserDTO userDto = new UserDTO();
+                                userDto.setId(user.getId());
+                                userDto.setUsername(user.getUsername());
+                                userDto.setFullName(user.getFullName());
+                                return userDto;
+                            })
+                            .collect(Collectors.toList());
+                    dto.setAssignedUsers(assignedUsers);
+                } else {
+                    dto.setAssignedUsers(new ArrayList<>());
+                }
+
+                // Also set the isBlocked property
+                dto.setIsBlocked(story.getIsBlock());
+
                 return dto;
             }).collect(Collectors.toList());
             return ResponseEntity.ok(dtos);
@@ -610,10 +750,10 @@ public class UserStoryController {
 
     @PostMapping("/userstory/{id}/assign")
     public ResponseEntity<?> assignUserToStory(
-            @PathVariable Integer id,
+            @PathVariable Long id,
             @RequestBody Map<String, Long> payload) {
         try {
-            Optional<UserStory> userStoryOpt = userStoryRepository.findById(id);
+            Optional<UserStory> userStoryOpt = userStoryRepository.findById(id.intValue());
             if (!userStoryOpt.isPresent()) {
                 return ResponseEntity.notFound().build();
             }
@@ -623,37 +763,29 @@ public class UserStoryController {
 
             if (userId != null) {
                 // Check if user is a member of the project
-                boolean isProjectMember = projectMemberRepository.existsByProjectIdAndUserIdAndIsDeleteFalse(
+                ProjectMember projectMember = projectMemberRepository.findByProjectIdAndUserIdAndIsDeleteFalse(
                         userStory.getProject().getId(), userId);
 
-                if (!isProjectMember) {
+                if (projectMember == null) {
                     return ResponseEntity.badRequest().body("User is not a member of this project");
                 }
 
                 // Check if user is already assigned
                 boolean isAlreadyAssigned = userStory.getAssignedUsers().stream()
-                        .anyMatch(user -> user.getId().equals(userId));
+                        .anyMatch(member -> member.getUser().getId().equals(userId));
 
                 if (isAlreadyAssigned) {
                     return ResponseEntity.badRequest().body("User is already assigned to this story");
                 }
 
-                // Get existing user from repository
-                Optional<User> userOpt = userRepository.findById(userId);
-                if (!userOpt.isPresent()) {
-                    return ResponseEntity.badRequest().body("User not found");
-                }
-
-                // Add user to assigned users
-                User user = userOpt.get();
-                userStory.getAssignedUsers().add(user);
+                // Add project member to assigned users
+                userStory.getAssignedUsers().add(projectMember);
                 userStoryRepository.save(userStory);
 
                 // Record activity for user assignment
-                Long actorUserId = payload.getOrDefault("actorUserId", userId); // Use the userId as actor if not
-                                                                                // specified
+                Long actorUserId = payload.getOrDefault("actorUserId", userId);
                 String action = "user_assigned";
-                String details = "User " + user.getUsername() + " assigned to user story";
+                String details = "User " + projectMember.getUser().getUsername() + " assigned to user story";
 
                 activityService.recordUserStoryActivity(
                         userStory.getProject().getId(),
@@ -671,24 +803,25 @@ public class UserStoryController {
 
     @DeleteMapping("/userstory/{id}/assign/{userId}")
     public ResponseEntity<?> removeUserFromStory(
-            @PathVariable Integer id,
+            @PathVariable Long id,
             @PathVariable Long userId) {
         try {
-            Optional<UserStory> userStoryOpt = userStoryRepository.findById(id);
+            Optional<UserStory> userStoryOpt = userStoryRepository.findById(id.intValue());
             if (!userStoryOpt.isPresent()) {
                 return ResponseEntity.notFound().build();
             }
 
             UserStory userStory = userStoryOpt.get();
 
-            // Find the user to be removed
-            Optional<User> userOpt = userRepository.findById(userId);
-            if (!userOpt.isPresent()) {
-                return ResponseEntity.badRequest().body("User not found");
+            // Find the project member to remove
+            ProjectMember projectMember = projectMemberRepository.findByProjectIdAndUserIdAndIsDeleteFalse(
+                    userStory.getProject().getId(), userId);
+            if (projectMember == null) {
+                return ResponseEntity.badRequest().body("User is not a member of this project");
             }
-            User user = userOpt.get();
 
-            boolean wasRemoved = userStory.getAssignedUsers().removeIf(u -> u.getId().equals(userId));
+            boolean wasRemoved = userStory.getAssignedUsers()
+                    .removeIf(member -> member.getId().equals(projectMember.getId()));
             userStoryRepository.save(userStory);
 
             if (wasRemoved) {
@@ -710,7 +843,7 @@ public class UserStoryController {
 
                 // Record activity for user removal
                 String action = "user_unassigned";
-                String details = "User " + user.getUsername() + " removed from user story";
+                String details = "User " + projectMember.getUser().getUsername() + " removed from user story";
 
                 activityService.recordUserStoryActivity(
                         userStory.getProject().getId(),
@@ -727,18 +860,19 @@ public class UserStoryController {
     }
 
     @GetMapping("/userstory/{id}/assigned-users")
-    public ResponseEntity<List<UserDTO>> getAssignedUsers(@PathVariable Integer id) {
+    public ResponseEntity<?> getAssignedUsers(@PathVariable Long id) {
         try {
-            Optional<UserStory> userStoryOpt = userStoryRepository.findById(id);
+            Optional<UserStory> userStoryOpt = userStoryRepository.findById(id.intValue());
             if (!userStoryOpt.isPresent()) {
                 return ResponseEntity.notFound().build();
             }
 
             UserStory userStory = userStoryOpt.get();
             List<UserDTO> assignedUsers = userStory.getAssignedUsers().stream()
-                    .map(user -> {
+                    .map(member -> {
+                        User user = member.getUser();
                         UserDTO dto = new UserDTO();
-                        dto.setId(user.getId());
+                        dto.setId(user.getId().longValue());
                         dto.setUsername(user.getUsername());
                         dto.setFullName(user.getFullName());
                         return dto;
@@ -747,7 +881,7 @@ public class UserStoryController {
 
             return ResponseEntity.ok(assignedUsers);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest().body("Failed to get assigned users: " + e.getMessage());
         }
     }
 
@@ -766,7 +900,7 @@ public class UserStoryController {
             List<UserDTO> availableAssignees = projectMembers.stream()
                     .map(member -> {
                         UserDTO dto = new UserDTO();
-                        dto.setId(member.getUser().getId());
+                        dto.setId(member.getUser().getId().longValue());
                         dto.setUsername(member.getUser().getUsername());
                         dto.setFullName(member.getUser().getFullName());
                         return dto;
@@ -1080,9 +1214,10 @@ public class UserStoryController {
 
             UserStory userStory = userStoryOpt.get();
             List<UserDTO> watchers = userStory.getWatchers().stream()
-                    .map(user -> {
+                    .map(member -> {
+                        User user = member.getUser();
                         UserDTO dto = new UserDTO();
-                        dto.setId(user.getId());
+                        dto.setId(user.getId().longValue());
                         dto.setUsername(user.getUsername());
                         dto.setFullName(user.getFullName());
                         return dto;
@@ -1123,7 +1258,8 @@ public class UserStoryController {
                     return ResponseEntity.badRequest().body("User not found");
                 }
 
-                User watcher = userOpt.get();
+                ProjectMember watcher = projectMemberRepository.findByProjectIdAndUserIdAndIsDeleteFalse(
+                        userStory.getProject().getId(), watcherId);
 
                 // Add user to watchers
                 userStory.getWatchers().add(watcher);
@@ -1150,7 +1286,7 @@ public class UserStoryController {
                         userStory.getId(),
                         userId,
                         "watcher_added",
-                        "User " + watcher.getUsername() + " started watching this story");
+                        "User " + watcher.getUser().getUsername() + " started watching this story");
             }
 
             return ResponseEntity.ok().build();
@@ -1335,6 +1471,28 @@ public class UserStoryController {
 
         public void setUserId(Integer userId) {
             this.userId = userId;
+        }
+    }
+
+    // Request class for creating user story with assignees
+    public static class CreateUserStoryRequest {
+        private UserStory userStory;
+        private List<Integer> userIds;
+
+        public UserStory getUserStory() {
+            return userStory;
+        }
+
+        public void setUserStory(UserStory userStory) {
+            this.userStory = userStory;
+        }
+
+        public List<Integer> getUserIds() {
+            return userIds;
+        }
+
+        public void setUserIds(List<Integer> userIds) {
+            this.userIds = userIds;
         }
     }
 }

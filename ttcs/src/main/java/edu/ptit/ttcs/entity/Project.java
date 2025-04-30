@@ -34,7 +34,7 @@ public class Project extends BaseEntity {
     private String logoUrl;
 
     @Column(name = "is_deleted")
-    private Boolean isDeleted;
+    private Boolean isDeleted = false;
 
     @OneToMany(mappedBy = "project")
     private Set<ProjectMember> projectMembers = new HashSet<>();

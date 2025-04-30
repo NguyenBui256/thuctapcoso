@@ -1,6 +1,6 @@
 package edu.ptit.ttcs.service;
 
-import edu.ptit.ttcs.dto.KanbanSwimlandDTO;
+import edu.ptit.ttcs.entity.dto.KanbanSwimlandDTO;
 import edu.ptit.ttcs.entity.KanbanSwimland;
 import edu.ptit.ttcs.entity.Project;
 import edu.ptit.ttcs.entity.User;

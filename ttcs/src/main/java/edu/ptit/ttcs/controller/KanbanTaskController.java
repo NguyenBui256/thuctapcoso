@@ -1,6 +1,6 @@
 package edu.ptit.ttcs.controller;
 
-import edu.ptit.ttcs.dto.KanbanTaskDTO;
+import edu.ptit.ttcs.entity.dto.KanbanTaskDTO;
 import edu.ptit.ttcs.service.KanbanTaskService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;

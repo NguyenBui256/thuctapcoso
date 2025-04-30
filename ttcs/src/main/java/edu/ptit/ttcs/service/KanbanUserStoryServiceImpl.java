@@ -1,9 +1,9 @@
 package edu.ptit.ttcs.service;
 
-import edu.ptit.ttcs.dto.UserStoryDTO;
-import edu.ptit.ttcs.dto.TaskDTO;
-import edu.ptit.ttcs.dto.CommentDTO;
-import edu.ptit.ttcs.dto.ActivityDTO;
+import edu.ptit.ttcs.entity.dto.UserStoryDTO;
+import edu.ptit.ttcs.entity.dto.TaskDTO;
+import edu.ptit.ttcs.entity.dto.CommentDTO;
+import edu.ptit.ttcs.entity.dto.ActivityDTO;
 import org.springframework.stereotype.Service;
 
 import java.util.List;

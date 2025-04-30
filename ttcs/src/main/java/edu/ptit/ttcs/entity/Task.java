@@ -24,8 +24,8 @@ public class Task {
     private Project project;
 
     @ManyToMany
-    @JoinTable(name = "task_assignee", joinColumns = @JoinColumn(name = "task_id"), inverseJoinColumns = @JoinColumn(name = "user_id"))
-    private List<User> assignees = new ArrayList<>();
+    @JoinTable(name = "task_assignee", joinColumns = @JoinColumn(name = "task_id"), inverseJoinColumns = @JoinColumn(name = "project_member_id"))
+    private List<ProjectMember> assignees = new ArrayList<>();
 
     @ManyToOne
     @JoinColumn(name = "user_story_id")
@@ -55,8 +55,8 @@ public class Task {
     private ProjectSettingStatus status;
 
     @ManyToMany
-    @JoinTable(name = "task_watcher", joinColumns = @JoinColumn(name = "task_id"), inverseJoinColumns = @JoinColumn(name = "user_id"))
-    private List<User> watchers = new ArrayList<>();
+    @JoinTable(name = "task_watcher", joinColumns = @JoinColumn(name = "task_id"), inverseJoinColumns = @JoinColumn(name = "project_member_id"))
+    private List<ProjectMember> watchers = new ArrayList<>();
 
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL)
     private List<Comment> comments = new ArrayList<>();

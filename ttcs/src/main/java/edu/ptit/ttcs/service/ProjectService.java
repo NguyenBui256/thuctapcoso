@@ -107,6 +107,7 @@ public class ProjectService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Project project = projectMapper.toEntity(createProjectDTO);
+        project.setIsDeleted(false);
         log.info("Project CREATED AT: {}", project.getCreatedAt());
         project = projectRepository.save(project);
         log.info("Project created: {}", project.getId());
@@ -153,6 +154,7 @@ public class ProjectService {
         project.setDescription(createProjectDTO.getDescription());
         project.setCreatedBy(creator);
         project.setCreatedAt(LocalDateTime.now());
+        project.setIsDeleted(false);
         project = projectRepository.save(project);
 
         // Create default project roles

@@ -150,4 +150,15 @@ public class ProjectMemberController {
             return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
         }
     }
+
+    @GetMapping("/v1/user/{userId}/projects/member")
+    public ResponseEntity<ApiResponse<List<ProjectMemberDTO>>> getUserProjectsAsMember(
+            @PathVariable Long userId) {
+        try {
+            List<ProjectMemberDTO> projects = projectMemberService.getUserProjects(userId);
+            return ResponseEntity.ok(new ApiResponse<>("success", "User projects retrieved successfully", projects));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
+        }
+    }
 }
