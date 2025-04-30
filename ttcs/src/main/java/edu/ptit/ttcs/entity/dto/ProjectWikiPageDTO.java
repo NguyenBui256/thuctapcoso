@@ -32,8 +32,12 @@ public class ProjectWikiPageDTO {
         dto.setProjectId(entity.getProject() != null ? entity.getProject().getId() : null);
         dto.setTitle(entity.getTitle());
         dto.setContent(entity.getContent());
-        dto.setCreatedBy(entity.getCreatedBy() != null ? UserDTO.fromEntity(entity.getCreatedBy()) : null);
-        dto.setUpdatedBy(entity.getUpdatedBy() != null ? UserDTO.fromEntity(entity.getUpdatedBy()) : null);
+        dto.setCreatedBy(entity.getCreatedBy() != null && entity.getCreatedBy().getUser() != null
+                ? UserDTO.fromEntity(entity.getCreatedBy().getUser())
+                : null);
+        dto.setUpdatedBy(entity.getUpdatedBy() != null && entity.getUpdatedBy().getUser() != null
+                ? UserDTO.fromEntity(entity.getUpdatedBy().getUser())
+                : null);
         dto.setCreatedAt(entity.getCreatedAt());
         dto.setUpdatedAt(entity.getUpdatedAt());
         dto.setEditCount(entity.getEditCount());
@@ -47,4 +51,4 @@ public class ProjectWikiPageDTO {
 
         return dto;
     }
-} 
+}

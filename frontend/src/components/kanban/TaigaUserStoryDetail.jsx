@@ -543,6 +543,9 @@ export default function TaigaUserStoryDetail() {
                 // Record activity before deletion (might not be stored if story is deleted)
                 await recordActivity('user_story_deleted', 'User story was deleted');
 
+                // Trigger làm mới hoạt động
+                triggerActivitiesRefresh();
+
                 await axios.delete(`/api/kanban/board/userstory/${userStoryId}`);
                 alert('User story deleted successfully');
                 // Navigate back to the kanban board after deletion

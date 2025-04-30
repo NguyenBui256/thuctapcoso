@@ -13,6 +13,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import edu.ptit.ttcs.entity.ProjectMember;
+import edu.ptit.ttcs.dao.ProjectMemberRepository;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -28,6 +31,9 @@ public class KanbanSwimlandService {
 
     @Autowired
     private UserDAO userDAO;
+
+    @Autowired
+    private ProjectMemberRepository projectMemberRepository;
 
     public List<KanbanSwimlandDTO> getSwimlandsByProject(Integer projectId) {
         List<KanbanSwimland> swimlands = kanbanSwimlandDAO.findByProjectIdOrderByOrder(projectId);
@@ -105,8 +111,16 @@ public class KanbanSwimlandService {
                         return systemUser;
                     });
 
-            swimland.setCreatedBy(currentUser);
-            swimland.setUpdatedBy(currentUser);
+            // Fix: Use findByUserAndIsDeleteFalse instead of findByUserId
+            List<ProjectMember> projectMembers = projectMemberRepository.findByUserAndIsDeleteFalse(currentUser);
+            ProjectMember currentProjectMember = projectMembers.isEmpty() ? null : projectMembers.get(0);
+
+            if (currentProjectMember == null) {
+                throw new RuntimeException("Project member not found with user id " + currentUser.getId());
+            }
+
+            swimland.setCreatedBy(currentProjectMember);
+            swimland.setUpdatedBy(currentProjectMember);
         } else {
             // Nếu đang cập nhật entity đã tồn tại, chỉ cập nhật updated_at và updated_by
             swimland.setUpdatedAt(LocalDateTime.now());
@@ -117,11 +131,20 @@ public class KanbanSwimlandService {
             // Tìm đối tượng User từ username
             User currentUser = userDAO.findByUsername(currentUsername)
                     .orElseGet(() -> {
-                        // Nếu không tìm thấy user, sử dụng một user mặc định hoặc giữ nguyên
-                        return swimland.getUpdatedBy() != null ? swimland.getUpdatedBy() : swimland.getCreatedBy();
+                        // Nếu không tìm thấy user, sử dụng một user mặc định hoặc null
+                        User systemUser = new User();
+                        systemUser.setId(1L);
+                        return systemUser;
                     });
 
-            swimland.setUpdatedBy(currentUser);
+            // Fix: Use findByUserAndIsDeleteFalse instead of using swimland's project
+            // member directly
+            List<ProjectMember> projectMembers = projectMemberRepository.findByUserAndIsDeleteFalse(currentUser);
+            ProjectMember currentProjectMember = projectMembers.isEmpty()
+                    ? (swimland.getUpdatedBy() != null ? swimland.getUpdatedBy() : swimland.getCreatedBy())
+                    : projectMembers.get(0);
+
+            swimland.setUpdatedBy(currentProjectMember);
         }
 
         if (dto.getOrder() != null) {

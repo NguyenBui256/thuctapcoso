@@ -26,10 +26,12 @@ public abstract class BaseEntity {
     @CreatedBy
     @ManyToOne
     @JoinColumn(name = "created_by", updatable = false)
+    @JsonIgnore
     private ProjectMember createdBy;
 
     @LastModifiedBy
     @ManyToOne
     @JoinColumn(name = "updated_by")
+    @JsonIgnore
     private ProjectMember updatedBy;
 }
