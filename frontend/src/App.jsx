@@ -12,6 +12,7 @@ const WikiPage = lazy(() => import('./pages/Wiki/WikiPage'));
 const MainLayout = lazy(() => import ('./pages/MainLayout.jsx'))
 const BacklogPage = lazy(() => import('./pages/scrum/BacklogPage'));
 const SprintPage = lazy(() => import ('./pages/scrum/SprintPage.jsx'))
+const IssuePage = lazy(() => import ('./pages/issue/IssuePage.jsx'))
 
 import { ERROR_TYPE } from './pages/ErrorPage.jsx';
 import React from 'react';
@@ -42,6 +43,7 @@ function App() {
           <Route path="wiki" element={<WikiPage />} />
           <Route path="backlog" element={<BacklogPage/>}/>
           <Route path="sprint/:sprintId" element={<SprintPage/>}/>
+          <Route path='issues' elements={<IssuePage/>}/>
         </Route>
         <Route path="/account/settings" element={<AccountSettings />} />
       </Route>

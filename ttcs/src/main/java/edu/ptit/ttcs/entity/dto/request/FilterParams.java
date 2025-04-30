@@ -24,6 +24,12 @@ public class FilterParams {
 
     private List<Long> roles;
 
+    private List<Long> types;
+
+    private List<Long> severities;
+
+    private List<Long> priorities;
+
     private List<Long> excludeStatuses;
 
     private List<Long> excludeTags;
@@ -33,5 +39,11 @@ public class FilterParams {
     private List<Long> excludeCreatedBy;
 
     private List<Long> excludeRoles;
+
+    private List<Long> excludeTypes;
+
+    private List<Long> excludeSeverities;
+
+    private List<Long> excludePriorities;
 
 }

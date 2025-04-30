@@ -6,10 +6,7 @@ import edu.ptit.ttcs.entity.dto.response.UserStoryDTO;
 import edu.ptit.ttcs.service.UserStoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -23,28 +20,10 @@ public class UserStoryController {
     @GetMapping("/get")
     public ResponseEntity<List<UserStoryDTO>> get(@RequestParam long projectId,
                                                   @RequestParam(required = false) Long sprintId,
-                                                  @RequestParam(required = false) String keyword,
-                                                  @RequestParam(required = false) List<Long> statuses,
-                                                  @RequestParam(required = false) List<Long> assigns,
-                                                  @RequestParam(required = false) List<Long> createdBy,
-                                                  @RequestParam(required = false) List<Long> roles,
-                                                  @RequestParam(required = false) List<Long> excludeStatuses,
-                                                  @RequestParam(required = false) List<Long> excludeAssigns,
-                                                  @RequestParam(required = false) List<Long> excludeCreatedBy,
-                                                  @RequestParam(required = false) List<Long> excludeRoles){
+                                                  @ModelAttribute FilterParams filterParams) {
         return ResponseEntity.ok(userStoryService.get(projectId,
                 sprintId,
-                FilterParams.builder()
-                        .keyword(keyword)
-                        .statuses(statuses)
-                        .assigns(assigns)
-                        .roles(roles)
-                        .createdBy(createdBy)
-                        .excludeAssigns(excludeAssigns)
-                        .excludeCreatedBy(excludeCreatedBy)
-                        .excludeRoles(excludeRoles)
-                        .excludeStatuses(excludeStatuses)
-                        .build()));
+                filterParams));
     }
 
     @GetMapping("/get-filters")

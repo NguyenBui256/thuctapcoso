@@ -26,10 +26,10 @@ public abstract class BaseEntity {
     @CreatedBy
     @ManyToOne
     @JoinColumn(name = "created_by", updatable = false)
-    private User createdBy;
+    private ProjectMember createdBy;
 
     @LastModifiedBy
     @ManyToOne
     @JoinColumn(name = "updated_by")
-    private User updatedBy;
+    private ProjectMember updatedBy;
 }
