@@ -270,6 +270,9 @@ const TaskDetail = () => {
             await fetchTaskDetails();
             message.success('Gán nhiệm vụ thành công');
             setShowAssigneeDropdown(false);
+
+            // Tự động làm mới activities
+            triggerActivitiesRefresh();
         } catch (error) {
             console.error('Error assigning task:', error.response?.data || error.message);
             message.error('Không thể gán nhiệm vụ');
@@ -310,6 +313,9 @@ const TaskDetail = () => {
             console.log("Remove assignee successful, refreshing task data");
             await fetchTaskDetails();
             message.success('Đã xóa người được gán');
+
+            // Tự động làm mới activities
+            triggerActivitiesRefresh();
         } catch (error) {
             console.error('Error removing assignee:', error);
             if (error.response) {
@@ -352,6 +358,8 @@ const TaskDetail = () => {
             const currentUserId = getCurrentUserId();
             console.log(`Assigning task to current user (ID: ${currentUserId})`);
             await handleAssignUser(currentUserId);
+
+            // Không cần gọi trigger ở đây vì đã gọi trong handleAssignUser
         } catch (error) {
             console.error('Error self-assigning task:', error.response?.data || error.message);
         }
@@ -369,6 +377,9 @@ const TaskDetail = () => {
             await fetchTaskDetails();
             message.success('Đã thêm người theo dõi');
             setShowWatcherDropdown(false);
+
+            // Tự động làm mới activities
+            triggerActivitiesRefresh();
         } catch (error) {
             console.error('Error adding watcher:', error.response?.data || error.message);
             message.error('Không thể thêm người theo dõi');
@@ -385,6 +396,9 @@ const TaskDetail = () => {
             console.log("Remove watcher successful, refreshing task data");
             await fetchTaskDetails();
             message.success('Đã xóa người theo dõi');
+
+            // Tự động làm mới activities
+            triggerActivitiesRefresh();
         } catch (error) {
             console.error('Error removing watcher:', error.response?.data || error.message);
             message.error('Không thể xóa người theo dõi');
@@ -407,11 +421,19 @@ const TaskDetail = () => {
         } else {
             await handleAddWatcher(currentUserId);
         }
+
+        // Không cần gọi trigger ở đây vì đã gọi trong handleRemoveWatcher/handleAddWatcher
     };
 
     const handleDeleteTask = async () => {
         if (window.confirm('Bạn có chắc chắn muốn xóa nhiệm vụ này không?')) {
             try {
+                // Ghi lại hoạt động trước khi xóa
+                await recordActivity('task_deleted', 'Task was deleted');
+
+                // Tự động làm mới activities
+                triggerActivitiesRefresh();
+
                 await axios.delete(`/api/tasks/${taskId}`);
                 navigate(-1);
             } catch (error) {

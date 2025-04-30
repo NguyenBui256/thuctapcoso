@@ -187,16 +187,16 @@ public class UserStoryController {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
             }
 
-            // Set the current user as the creator
+            // Get user ID for creator
+            Long creatorUserId = null;
+
             if (currentUser != null) {
-                userStory.setCreatedBy(currentUser);
+                creatorUserId = currentUser.getId();
             } else if (requestMap.containsKey("createdBy")) {
                 // Fallback to request parameter if current user is null
                 Map<String, Object> createdByMap = (Map<String, Object>) requestMap.get("createdBy");
                 if (createdByMap != null && createdByMap.containsKey("id")) {
-                    User createdBy = new User();
-                    createdBy.setId(((Number) createdByMap.get("id")).longValue());
-                    userStory.setCreatedBy(createdBy);
+                    creatorUserId = ((Number) createdByMap.get("id")).longValue();
                 }
             }
 
@@ -232,18 +232,6 @@ public class UserStoryController {
                 userStory.setDesignPoints(((Number) requestMap.get("designPoints")).intValue());
             }
 
-            // Extract user IDs if present
-            if (requestMap.containsKey("userIds")) {
-                List<Object> userIdsList = (List<Object>) requestMap.get("userIds");
-                if (userIdsList != null) {
-                    for (Object userIdObj : userIdsList) {
-                        if (userIdObj instanceof Number) {
-                            userIds.add(((Number) userIdObj).intValue());
-                        }
-                    }
-                }
-            }
-
             // Set creation and update timestamps
             LocalDateTime now = LocalDateTime.now();
             userStory.setCreatedAt(now);
@@ -275,13 +263,27 @@ public class UserStoryController {
                 userStory.setTags(new HashSet<>());
             }
 
-            // Get the createdBy user from database if it exists
-            if (userStory.getCreatedBy() != null) {
-                Optional<User> existingUser = userRepository.findById(userStory.getCreatedBy().getId());
-                if (existingUser.isPresent()) {
-                    userStory.setCreatedBy(existingUser.get());
+            // Get creator ProjectMember if creator user ID is available
+            if (creatorUserId != null) {
+                ProjectMember creatorMember = projectMemberRepository.findByProjectIdAndUserIdAndIsDeleteFalse(
+                        userStory.getProject().getId(), creatorUserId);
+
+                if (creatorMember != null) {
+                    userStory.setCreatedBy(creatorMember);
                 } else {
-                    return ResponseEntity.badRequest().body("Creator user not found");
+                    return ResponseEntity.badRequest().body("Creator user is not a member of this project");
+                }
+            }
+
+            // Extract user IDs if present
+            if (requestMap.containsKey("userIds")) {
+                List<Object> userIdsList = (List<Object>) requestMap.get("userIds");
+                if (userIdsList != null) {
+                    for (Object userIdObj : userIdsList) {
+                        if (userIdObj instanceof Number) {
+                            userIds.add(((Number) userIdObj).intValue());
+                        }
+                    }
                 }
             }
 
@@ -315,7 +317,7 @@ public class UserStoryController {
             activityService.recordUserStoryActivity(
                     savedUserStory.getProject().getId(),
                     savedUserStory.getId(),
-                    currentUser != null ? currentUser.getId() : 1L,
+                    creatorUserId,
                     "user_story_created",
                     "User story was created");
 
@@ -544,8 +546,8 @@ public class UserStoryController {
                 // Set the created date and created by information
                 dto.setCreatedAt(story.getCreatedAt());
                 if (story.getCreatedBy() != null) {
-                    dto.setCreatedByFullName(story.getCreatedBy().getFullName());
-                    dto.setCreatedByUsername(story.getCreatedBy().getUsername());
+                    dto.setCreatedByFullName(story.getCreatedBy().getUser().getFullName());
+                    dto.setCreatedByUsername(story.getCreatedBy().getUser().getUsername());
                 }
 
                 // Add assigned users information
@@ -597,8 +599,8 @@ public class UserStoryController {
             dto.setDesignPoints(story.getDesignPoints());
             dto.setDueDate(story.getDueDate());
             dto.setCreatedAt(story.getCreatedAt());
-            dto.setCreatedByFullName(story.getCreatedBy().getFullName());
-            dto.setCreatedByUsername(story.getCreatedBy().getUsername());
+            dto.setCreatedByFullName(story.getCreatedBy().getUser().getFullName());
+            dto.setCreatedByUsername(story.getCreatedBy().getUser().getUsername());
             dto.setAssignedUserId(story.getAssignedTo() != null ? story.getAssignedTo().getId() : null);
 
             // Set blocked state directly
@@ -1098,8 +1100,8 @@ public class UserStoryController {
             responseDTO.setDueDate(savedUserStory.getDueDate());
             responseDTO.setCreatedAt(savedUserStory.getCreatedAt());
             if (savedUserStory.getCreatedBy() != null) {
-                responseDTO.setCreatedByFullName(savedUserStory.getCreatedBy().getFullName());
-                responseDTO.setCreatedByUsername(savedUserStory.getCreatedBy().getUsername());
+                responseDTO.setCreatedByFullName(savedUserStory.getCreatedBy().getUser().getFullName());
+                responseDTO.setCreatedByUsername(savedUserStory.getCreatedBy().getUser().getUsername());
             }
             if (savedUserStory.getAssignedTo() != null) {
                 responseDTO.setAssignedUserId(savedUserStory.getAssignedTo().getId());
