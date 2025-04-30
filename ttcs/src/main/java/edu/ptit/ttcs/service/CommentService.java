@@ -1,7 +1,7 @@
 package edu.ptit.ttcs.service;
 
-import edu.ptit.ttcs.dto.request.CommentRequestDTO;
-import edu.ptit.ttcs.dto.response.CommentResponseDTO;
+import edu.ptit.ttcs.entity.dto.request.CommentRequestDTO;
+import edu.ptit.ttcs.entity.dto.response.CommentResponseDTO;
 
 import java.util.List;
 

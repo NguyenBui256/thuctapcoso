@@ -154,16 +154,25 @@ const CreateUserStoryModal = ({
                 frontPoints: parseInt(frontPoints),
                 designPoints: parseInt(designPoints),
                 dueDate: dueDate ? new Date(dueDate).toISOString() : null,
-                assignedUsers: assignee ? [{
-                    id: parseInt(assignee)
-                }] : [],
+                assignedUsers: [],
                 watchers: [],
                 tags: []
             };
 
-            console.log('Sending user story data:', userStoryData);
+            // Create the assign request separately
+            const assignRequest = {
+                userIds: assignee ? [parseInt(assignee)] : []
+            };
 
-            const response = await axios.post('/api/kanban/board/userstory', userStoryData);
+            console.log('Sending user story data:', userStoryData);
+            console.log('Sending assign request:', assignRequest);
+
+            const response = await axios.post('/api/kanban/board/userstory', userStoryData, {
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                data: assignRequest
+            });
 
             if (onUserStoryCreated) {
                 onUserStoryCreated(response.data);

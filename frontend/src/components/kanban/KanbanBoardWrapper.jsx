@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import axios from '../../common/axios-customize';
 import CreateUserStoryModal from './CreateUserStoryModal';
+import KanbanFilter from './KanbanFilter';
 
 const KanbanBoardWrapper = () => {
     const { projectId } = useParams();
@@ -10,6 +11,7 @@ const KanbanBoardWrapper = () => {
     const [columns, setColumns] = useState([]);
     const [swimlanes, setSwimlanes] = useState([]);
     const [userStories, setUserStories] = useState([]);
+    const [filteredUserStories, setFilteredUserStories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
@@ -22,6 +24,10 @@ const KanbanBoardWrapper = () => {
     const [expandedColumns, setExpandedColumns] = useState({});
     const [draggingItemId, setDraggingItemId] = useState(null);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const [activities, setActivities] = useState([]);
+    const [selectedUserStory, setSelectedUserStory] = useState(null);
+    const [activeFilters, setActiveFilters] = useState({});
+    const [filterMode, setFilterMode] = useState('include');
 
     useEffect(() => {
         const fetchData = async () => {
@@ -44,6 +50,7 @@ const KanbanBoardWrapper = () => {
                     setSwimlanes([]);
                     setColumns([]);
                     setUserStories([]);
+                    setFilteredUserStories([]);
                     setLoading(false);
                     return;
                 }
@@ -81,8 +88,10 @@ const KanbanBoardWrapper = () => {
                         return story;
                     });
                     setUserStories(fixedUserStories);
+                    setFilteredUserStories(fixedUserStories);
                 } else {
                     setUserStories(fetchedUserStories);
+                    setFilteredUserStories(fetchedUserStories);
                 }
 
                 setSwimlanes(fetchedSwimlanes);
@@ -98,6 +107,100 @@ const KanbanBoardWrapper = () => {
 
         fetchData();
     }, [projectId, refreshTrigger]);
+
+    // Apply filters when either the stories, active filters, or filter mode changes
+    useEffect(() => {
+        if (!userStories.length) return;
+
+        const applyFilters = () => {
+            // If no active filters and no search query, show all stories
+            if (Object.values(activeFilters).every(filters => filters.length === 0) && !searchQuery) {
+                setFilteredUserStories(userStories);
+                return;
+            }
+
+            // Filter the stories based on active filters, mode, and search query
+            const filtered = userStories.filter(story => {
+                // First check if the story matches the search query
+                if (searchQuery) {
+                    const query = searchQuery.toLowerCase();
+                    const matchesQuery =
+                        (story.name && story.name.toLowerCase().includes(query)) ||
+                        (story.description && story.description.toLowerCase().includes(query)) ||
+                        (story.id && story.id.toString().includes(query));
+
+                    // If we're in exclude mode, we want stories that DON'T match the query
+                    if (!matchesQuery) return false;
+                }
+
+                // Then check if it matches the filter criteria
+                return Object.entries(activeFilters).every(([category, filters]) => {
+                    // If no filters in this category, pass the check
+                    if (!filters || filters.length === 0) return true;
+
+                    // Check if story matches any filter in the category
+                    let matches = false;
+
+                    switch (category) {
+                        case 'assignedTo':
+                            // Check for unassigned stories
+                            if (filters.some(f => f.id === 'unassigned')) {
+                                if (!story.assignedUsers || story.assignedUsers.length === 0) {
+                                    matches = true;
+                                }
+                            }
+
+                            // Check against each assigned user
+                            if (story.assignedUsers && story.assignedUsers.length > 0) {
+                                matches = story.assignedUsers.some(user =>
+                                    filters.some(f => f.id === user.id)
+                                ) || matches;
+                            }
+                            break;
+
+                        case 'createdBy':
+                            matches = filters.some(f =>
+                                story.createdByUsername === f.username ||
+                                (story.createdByUsername && f.id === story.createdByUsername)
+                            );
+                            break;
+
+                        case 'epic':
+                            if (filters.some(f => f.id === 'no-epic')) {
+                                if (!story.epicId) {
+                                    matches = true;
+                                }
+                            }
+                            matches = filters.some(f => f.id === story.epicId) || matches;
+                            break;
+
+                        case 'role':
+                            // This would require role information in the story data
+                            // For now, let's assume a story matches a role if any of its
+                            // assigned users have that role
+                            matches = true; // Placeholder
+                            break;
+
+                        default:
+                            matches = true;
+                    }
+
+                    // If exclude mode, invert the match
+                    return filterMode === 'include' ? matches : !matches;
+                });
+            });
+
+            setFilteredUserStories(filtered);
+        };
+
+        applyFilters();
+    }, [userStories, activeFilters, filterMode, searchQuery]);
+
+    const handleFilterChange = (selectedFilters, mode, query) => {
+        setActiveFilters(selectedFilters);
+        setFilterMode(mode);
+        setSearchQuery(query || '');
+    };
 
     const handleCreateSwimland = async (e) => {
         e.preventDefault();
@@ -157,86 +260,67 @@ const KanbanBoardWrapper = () => {
             // Add the position parameter for exact placement
             const position = destination.index;
 
+            // Update the task status
+            await axios.put(`/api/tasks/${userStoryId}/status/${newStatusId}`, {
+                position: position
+            });
+
             // Optimistically update the UI while preserving exact position
             const updatedUserStories = [...userStories];
             const storyIndex = updatedUserStories.findIndex(story => story.id === userStoryId);
 
             if (storyIndex !== -1) {
                 const movedStory = { ...updatedUserStories[storyIndex] };
-
-                // Remove the story from its current position
                 updatedUserStories.splice(storyIndex, 1);
-
-                // Update status and swimlane
                 movedStory.statusId = newStatusId;
                 movedStory.swimlaneId = newSwimlaneId;
 
-                // Insert at the exact position in the destination
                 const storiesInDestination = updatedUserStories.filter(
                     story => story.statusId === newStatusId && story.swimlaneId === newSwimlaneId
                 );
 
                 if (position === 0) {
-                    // Place at beginning of destination stories
                     const insertAt = updatedUserStories.findIndex(
                         story => story.statusId === newStatusId && story.swimlaneId === newSwimlaneId
                     );
-
                     if (insertAt === -1) {
-                        // No stories in destination yet, just append
                         updatedUserStories.push(movedStory);
                     } else {
                         updatedUserStories.splice(insertAt, 0, movedStory);
                     }
                 } else if (position >= storiesInDestination.length) {
-                    // Place at end of destination stories
                     const lastStoryIndex = updatedUserStories.findIndex(
                         story => story.statusId === newStatusId &&
                             story.swimlaneId === newSwimlaneId &&
                             storiesInDestination[storiesInDestination.length - 1]?.id === story.id
                     );
-
                     if (lastStoryIndex === -1) {
-                        // No stories or couldn't find last one, just append
                         updatedUserStories.push(movedStory);
                     } else {
                         updatedUserStories.splice(lastStoryIndex + 1, 0, movedStory);
                     }
                 } else {
-                    // Place at specific position
-                    const targetStoryId = storiesInDestination[position]?.id;
-                    const targetIndex = updatedUserStories.findIndex(
-                        story => story.id === targetStoryId
+                    const insertAt = updatedUserStories.findIndex(
+                        story => story.id === storiesInDestination[position].id
                     );
-
-                    if (targetIndex === -1) {
-                        // Fallback if we can't find the target position
-                        updatedUserStories.push(movedStory);
-                    } else {
-                        updatedUserStories.splice(targetIndex, 0, movedStory);
-                    }
+                    updatedUserStories.splice(insertAt, 0, movedStory);
                 }
+
+                setUserStories(updatedUserStories);
+                // Filters will be reapplied automatically via the useEffect
             }
 
-            setUserStories(updatedUserStories);
-
-            // Update backend with the position information
-            await axios.put(`/api/kanban/board/userstory/${userStoryId}/position`, {
-                statusId: newStatusId,
-                swimlaneId: newSwimlaneId,
-                position: position
-            });
-
+            // Refresh activities for the moved story
+            await fetchActivities(userStoryId);
         } catch (error) {
-            console.error('Error updating user story position:', error);
-            // On error, refresh from server
-            const userStoriesResponse = await axios.get(`/api/kanban/board/userstory/project/${projectId}`);
-            setUserStories(userStoriesResponse.data || []);
+            console.error('Error updating task status:', error);
+            // Revert the UI state if the API call fails
+            setRefreshTrigger(prev => prev + 1);
         }
     };
 
     const getUserStoriesForColumn = (columnStatus, swimlaneId) => {
-        return userStories.filter(story =>
+        return filteredUserStories.filter(story =>
             story.statusId === columnStatus && story.swimlaneId === swimlaneId
         );
     };
@@ -272,10 +356,27 @@ const KanbanBoardWrapper = () => {
                         {/* Additional content based on zoom level */}
                         {zoomLevel !== 'compact' && (
                             <div className="mt-2">
-                                <div className="flex items-center mt-1">
-                                    <div className="w-6 h-6 bg-gray-100 rounded-full mr-2"></div>
-                                    <span className="text-xs text-gray-500">Not assigned</span>
-                                </div>
+                                {story.assignedUsers && story.assignedUsers.length > 0 ? (
+                                    <div className="flex items-center mt-1">
+                                        {story.assignedUsers.slice(0, 2).map((user, idx) => (
+                                            <div key={idx} className="w-6 h-6 bg-purple-200 rounded-full mr-1 flex items-center justify-center">
+                                                <span className="text-[10px] text-purple-800 font-bold">
+                                                    {user.fullName ? user.fullName.charAt(0).toUpperCase() : '?'}
+                                                </span>
+                                            </div>
+                                        ))}
+                                        {story.assignedUsers.length > 2 && (
+                                            <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
+                                                <span className="text-[10px] text-gray-600">+{story.assignedUsers.length - 2}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center mt-1">
+                                        <div className="w-6 h-6 bg-gray-100 rounded-full mr-2"></div>
+                                        <span className="text-xs text-gray-500">Not assigned</span>
+                                    </div>
+                                )}
 
                                 {zoomLevel === 'expanded' && story.description && (
                                     <p className="text-xs text-gray-600 mt-2 line-clamp-2">{story.description}</p>
@@ -289,7 +390,7 @@ const KanbanBoardWrapper = () => {
     };
 
     const countStoriesInColumn = (columnStatus) => {
-        return userStories.filter(story => story.statusId === columnStatus).length;
+        return filteredUserStories.filter(story => story.statusId === columnStatus).length;
     };
 
     const handleOpenUserStoryModal = (status, swimlaneId) => {
@@ -464,6 +565,22 @@ const KanbanBoardWrapper = () => {
         }
     }, []);
 
+    // Add new function to fetch activities
+    const fetchActivities = async (userStoryId) => {
+        try {
+            const response = await axios.get(`/api/kanban/board/userstory/${userStoryId}/activities`);
+            setActivities(response.data);
+        } catch (error) {
+            console.error('Error fetching activities:', error);
+        }
+    };
+
+    // Add new function to handle user story selection
+    const handleUserStorySelect = async (userStory) => {
+        setSelectedUserStory(userStory);
+        await fetchActivities(userStory.id);
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen">
@@ -496,6 +613,7 @@ const KanbanBoardWrapper = () => {
         return (
             <div className="p-4 bg-gray-50 min-h-screen">
                 <h1 className="text-2xl font-bold mb-6">Kanban</h1>
+                <KanbanFilter projectId={projectId} onFilterChange={handleFilterChange} />
                 <div className="flex items-center justify-center p-8">
                     <div className="bg-white p-8 rounded-lg shadow-md text-center max-w-md w-full">
                         <h3 className="text-xl font-semibold mb-3">No Swimlanes</h3>
@@ -518,28 +636,28 @@ const KanbanBoardWrapper = () => {
         <div className="flex flex-col h-full bg-gray-100">
             <div className="pl-4 pr-0 w-full">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg text-teal-600 font-medium">Kanban</h2>
+                <div className="flex flex-col mb-4">
+                    <h2 className="text-lg text-teal-600 font-medium mb-2">Kanban</h2>
 
-                    <div className="flex items-center space-x-2">
-                        <button className="flex items-center border border-gray-300 rounded px-2 py-1 text-xs">
-                            <span className="text-teal-600 mr-1">!</span>
-                            <span>Filters</span>
-                        </button>
+                    {/* Add the KanbanFilter component below the Kanban title */}
+                    <KanbanFilter projectId={projectId} onFilterChange={handleFilterChange} />
 
-                        <div className="relative">
-                            <input
-                                type="text"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="subject or reference"
-                                className="border border-gray-300 rounded px-2 py-1 text-xs w-40 pr-6"
-                            />
-                            <button className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400">
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                                </svg>
-                            </button>
+                    <div className="flex items-center justify-between mt-2">
+                        <div className="flex items-center space-x-2">
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    placeholder="subject or reference"
+                                    className="border border-gray-300 rounded px-2 py-1 text-xs w-40 pr-6"
+                                />
+                                <button className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400">
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
 
                         <div className="flex items-center ml-auto">
@@ -616,26 +734,6 @@ const KanbanBoardWrapper = () => {
                                         </button>
                                     )}
                                 </div>
-
-                                {/* Vertical label for specific columns (always visible) */}
-                                {/* {(column.id === 3 || column.id === 5) && (
-                                    <div className="absolute h-full" style={{ right: '-5px', zIndex: 20, top: '0' }}>
-                                        {column.id === 3 && (
-                                            <div className="bg-yellow-100 h-full w-4 flex items-center justify-center">
-                                                <div className="transform -rotate-90 origin-center whitespace-nowrap text-[10px] text-yellow-800 font-medium">
-                                                    READY FOR TEST
-                                                </div>
-                                            </div>
-                                        )}
-                                        {column.id === 5 && (
-                                            <div className="bg-gray-100 h-full w-4 flex items-center justify-center">
-                                                <div className="transform -rotate-90 origin-center whitespace-nowrap text-[10px] text-gray-700 font-medium">
-                                                    ARCHIVED (ARCHIVED)
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                )} */}
                             </div>
                         ))}
                     </div>

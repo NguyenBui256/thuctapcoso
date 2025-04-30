@@ -13,7 +13,7 @@ import {
     CheckIcon,
     ChevronDownIcon
 } from '@heroicons/react/24/outline';
-import { EyeOff, Save } from 'lucide-react';
+import { EyeOff, Save, Plus, ChevronDown, X, Clock, Users, Lock, List, Trash2, Eye } from 'lucide-react';
 import axios from '../../common/axios-customize';
 import { Modal, message, Checkbox, DatePicker, TimePicker } from 'antd';
 import dayjs from 'dayjs';
@@ -173,14 +173,22 @@ const TaskDetail = () => {
 
     useEffect(() => {
         if (taskDetails.assignees && taskDetails.assignees.length > 0) {
+            console.log('Assigned users from API:', taskDetails.assignees);
+            // Kiểm tra cấu trúc của dữ liệu
+            console.log('Sample assignee object structure:', taskDetails.assignees[0]);
             setAssignedUsers(taskDetails.assignees);
         } else if (taskDetails.assignedTo && taskDetails.assignedToName) {
             // Handle legacy single assignee
+            console.log('Legacy single assignee:', taskDetails.assignedTo, taskDetails.assignedToName);
             setAssignedUsers([{
                 id: taskDetails.assignedTo,
                 fullName: taskDetails.assignedToName,
                 username: taskDetails.assignedToName.toLowerCase().replace(/\s+/g, '.')
             }]);
+        } else {
+            // Không có người được gán
+            console.log('No assignees found for this task');
+            setAssignedUsers([]);
         }
     }, [taskDetails]);
 
@@ -271,16 +279,48 @@ const TaskDetail = () => {
     const handleRemoveAssignee = async (userId) => {
         try {
             console.log(`Attempting to remove assignee ${userId} from task ${taskId}`);
-            // Gọi API để xóa người dùng khỏi assignees
-            await axios.delete(`/api/tasks/${taskId}/assignees/${userId}`);
 
-            // Refresh task data
+            // Đảm bảo userId là số nguyên
+            const numericUserId = parseInt(userId);
+            if (isNaN(numericUserId)) {
+                console.error('Invalid user ID:', userId);
+                message.error('User ID không hợp lệ');
+                return;
+            }
+
+            // Lấy danh sách assignees hiện tại (loại bỏ người cần xóa)
+            const updatedAssignees = assignedUsers
+                .filter(user => user.id !== numericUserId)
+                .map(user => user.id);
+
+            console.log('Current assignees:', assignedUsers);
+            console.log('Updated assignees list:', updatedAssignees);
+
+            // Gọi API để cập nhật toàn bộ danh sách assignees thay vì xóa một người
+            const response = await axios.post(`/api/tasks/${taskId}/assignees`, {
+                userIds: updatedAssignees
+            });
+
+            console.log('Update assignees API response:', response);
+
+            // Cập nhật UI ngay lập tức
+            setAssignedUsers(prevUsers => prevUsers.filter(user => user.id !== numericUserId));
+
+            // Refresh task data từ server để đảm bảo đồng bộ
             console.log("Remove assignee successful, refreshing task data");
             await fetchTaskDetails();
             message.success('Đã xóa người được gán');
         } catch (error) {
-            console.error('Error removing assignee:', error.response?.data || error.message);
+            console.error('Error removing assignee:', error);
+            if (error.response) {
+                console.error('Response data:', error.response.data);
+                console.error('Response status:', error.response.status);
+                console.error('Response headers:', error.response.headers);
+            }
             message.error('Không thể xóa người được gán');
+
+            // Refresh data để hiển thị trạng thái hiện tại từ server
+            await fetchTaskDetails();
         }
     };
 
@@ -696,22 +736,33 @@ const TaskDetail = () => {
     }
 
     return (
-        <div className="bg-gray-100 min-h-screen">
-            {/* Top Navigation */}
-            <div className="bg-white border-b border-gray-200 py-2 px-4 flex items-center space-x-3">
-                <button
-                    onClick={handleGoBack}
-                    className="flex items-center text-gray-600 hover:text-gray-900"
-                >
-                    <ArrowLeftIcon className="w-4 h-4 mr-1" />
-                    <span>Back</span>
-                </button>
-                <div className="text-sm text-gray-500 ml-4">Task #{taskId}</div>
-                <div className="flex-grow"></div>
-                <div className="flex items-center space-x-2">
+        <div className="flex flex-col bg-gray-50 border border-gray-200 rounded shadow-sm">
+            {/* Header - Updated to match UserStoryDetail */}
+            <div className="flex justify-between items-center p-4 border-b border-gray-200">
+                <div className="flex items-center">
+                    <span className="text-blue-500 font-bold mr-2">#{taskId}</span>
+                    {editMode ? (
+                        <input
+                            type="text"
+                            value={editedSubject}
+                            onChange={(e) => setEditedSubject(e.target.value)}
+                            className="font-bold border border-gray-300 rounded px-2 py-1 mr-2"
+                        />
+                    ) : (
+                        <span className="font-bold">{taskDetails.subject || 'Untitled Task'}</span>
+                    )}
+                    <span className="ml-2 text-red-500 cursor-pointer" onClick={() => setShowDueDatePicker(true)}>
+                        <Clock size={16} className="inline" />
+                        <span className="ml-1">
+                            {taskDetails.dueDate ? dayjs(taskDetails.dueDate).format('YYYY-MM-DD') : 'Set due date'}
+                        </span>
+                    </span>
+                    <span className="ml-4 text-gray-400 text-sm">TASK</span>
+                </div>
+                <div className="flex items-center">
                     <button
                         onClick={handleEditToggle}
-                        className="text-gray-700 font-semibold px-4 py-1"
+                        className="text-gray-700 font-semibold px-4 py-1 mr-2"
                     >
                         {editMode ? 'CANCEL' : 'EDIT'}
                     </button>
@@ -723,87 +774,106 @@ const TaskDetail = () => {
                             <Save size={16} className="mr-1" /> SAVE
                         </button>
                     )}
+                    <div className="relative">
+                        <button
+                            onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                            className={`${getStatusColor(taskDetails.statusId)} text-white px-3 py-1 rounded-sm ml-2 flex items-center`}
+                        >
+                            {getStatusName(taskDetails.statusId)} <ChevronDown size={16} />
+                        </button>
+
+                        {showStatusDropdown && (
+                            <div className="dropdown-menu dropdown-arrow-down absolute z-50 right-0 mt-1 w-48 bg-white border border-gray-200 rounded shadow-lg">
+                                {statuses.map(status => (
+                                    <div
+                                        key={status.id}
+                                        className={`flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer ${status.id === taskDetails.statusId ? 'bg-gray-100' : ''}`}
+                                        onClick={() => handleStatusChange(status.id)}
+                                    >
+                                        <div className={`w-3 h-3 rounded-full ${status.color} mr-2`}></div>
+                                        <span>{status.name}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
-            <div className="max-w-6xl mx-auto pt-4 px-4 pb-12 flex">
-                {/* Main Content */}
-                <div className="flex-1 mr-4">
-                    {/* Task Info */}
-                    <div className="bg-white rounded shadow mb-4 p-4">
-                        <div className="mb-3">
-                            <p className="text-sm text-gray-600">
-                                This task belongs to {taskDetails.userStoryId ? (
-                                    <button
-                                        onClick={() => navigate(`/projects/${taskDetails.projectId}/userstory/${taskDetails.userStoryId}`)}
-                                        className="text-teal-500 hover:underline font-medium"
-                                    >
-                                        US #{taskDetails.userStoryId}: {taskDetails.userStoryName || 'User Story'}
-                                    </button>
-                                ) : (
-                                    <span className="text-gray-400 italic">No User Story</span>
-                                )}
-                            </p>
+            {/* Main content */}
+            <div className="flex">
+                {/* Left content area */}
+                <div className="flex-grow p-4 border-r border-gray-200">
+                    {/* User Story link if this task belongs to a User Story */}
+                    {taskDetails.userStoryId && (
+                        <div className="mb-6">
+                            <a
+                                href={`/projects/${taskDetails.projectId}/userstory/${taskDetails.userStoryId}`}
+                                className="text-blue-500 flex items-center"
+                            >
+                                <span className="mr-2">🔗</span>
+                                US #{taskDetails.userStoryId}: {taskDetails.userStoryName || 'User Story'}
+                            </a>
                         </div>
+                    )}
 
-                        {editMode ? (
-                            <input
-                                type="text"
-                                value={editedSubject}
-                                onChange={(e) => setEditedSubject(e.target.value)}
-                                className="w-full font-bold border border-gray-300 rounded px-2 py-1 mb-2"
-                                placeholder="Task subject"
-                            />
-                        ) : (
-                            <div className="flex flex-wrap items-center mb-4">
-                                <span className="bg-gray-100 text-gray-600 text-xs rounded px-2 py-1 mr-2 mb-1">
-                                    {taskDetails.subject || 'Untitled Task'}
-                                </span>
-                                <button
-                                    onClick={handleAddTag}
-                                    className="text-gray-500 text-sm hover:text-gray-700"
-                                >
-                                    Add tag +
+                    {/* Tags section */}
+                    <div className="mb-6">
+                        <div className="bg-gray-100 py-2 px-4 text-sm font-semibold">
+                            TAGS
+                        </div>
+                        <div className="flex mt-2 space-x-2">
+                            {taskDetails.tags && taskDetails.tags.length > 0 ? (
+                                taskDetails.tags.map(tag => (
+                                    <button key={tag.id} className="bg-green-500 text-white px-3 py-1 rounded-sm flex items-center text-sm">
+                                        {tag.name} <X size={14} className="ml-1" />
+                                    </button>
+                                ))
+                            ) : (
+                                <button className="bg-white border border-gray-300 px-3 py-1 rounded-sm flex items-center text-sm">
+                                    Add tag <Plus size={14} className="ml-1" />
                                 </button>
-                            </div>
-                        )}
-
-                        <div className="flex justify-between items-center text-sm text-gray-500 mb-1">
-                            <div>Created by {taskDetails.createdByFullName || 'Unknown'}</div>
-                            <div>{new Date(taskDetails.createdAt).toLocaleString()}</div>
+                            )}
                         </div>
                     </div>
 
-                    {/* Description */}
-                    <div className="bg-white rounded shadow mb-4 p-4">
+                    {/* Description area */}
+                    <div className="mb-6 min-h-32">
                         {editMode ? (
                             <textarea
                                 value={editedDescription}
                                 onChange={(e) => setEditedDescription(e.target.value)}
-                                className="w-full border border-gray-300 rounded p-2 min-h-[100px]"
-                                placeholder="Add a description..."
+                                className="w-full h-32 border border-gray-300 rounded p-2"
+                                placeholder="Enter a description for this task..."
                             />
                         ) : (
-                            <p className="text-gray-700 text-sm">
-                                {taskDetails.description || 'No description provided.'}
-                            </p>
+                            taskDetails.description || <span className="text-gray-400 italic">Empty space is so boring... go on, be descriptive...</span>
                         )}
                     </div>
 
-                    {/* Attachments */}
-                    <div className="bg-white rounded shadow mb-4">
-                        <div className="p-4 flex justify-between items-center">
-                            <h3 className="text-sm font-medium text-gray-700">0 Attachments</h3>
-                            <button className="bg-[#8fecd3] text-black w-6 h-6 rounded flex items-center justify-center">
-                                <PlusIcon className="w-4 h-4" />
+                    {/* Created by info */}
+                    <div className="text-right text-sm text-gray-500 mb-8">
+                        <span>Created by {taskDetails.createdByFullName || 'Unknown'}</span>
+                        <br />
+                        <span>{dayjs(taskDetails.createdAt).format('YYYY-MM-DD HH:mm')}</span>
+                    </div>
+
+                    {/* Attachments section */}
+                    <div className="mb-6">
+                        <div className="flex justify-between items-center mb-2 py-2 bg-gray-100">
+                            <div className="px-4 font-semibold">
+                                {taskDetails.attachments?.length || 0} Attachments
+                            </div>
+                            <button className="mr-2 bg-blue-100 hover:bg-blue-200 p-1 rounded">
+                                <Plus size={16} className="text-blue-500" />
                             </button>
                         </div>
-                        <div className="mx-4 mb-4 border border-dashed border-gray-300 p-4 text-center text-gray-500 bg-gray-50 rounded">
-                            <p className="text-sm">Drop attachments here!</p>
+                        <div className="border border-dashed border-gray-300 py-8 text-center text-gray-400">
+                            Drop attachments here!
                         </div>
                     </div>
 
-                    {/* Comments and Activities tabs section */}
+                    {/* Comments and Activities section */}
                     <div className="mt-8 border-t border-gray-200 pt-4">
                         <div className="flex border-b border-gray-200">
                             <button
@@ -839,7 +909,7 @@ const TaskDetail = () => {
                                                             <span className="text-gray-500 text-sm ml-2">@{comment.username}</span>
                                                         </div>
                                                         <span className="text-gray-500 text-sm">
-                                                            {new Date(comment.createdAt).toLocaleString()}
+                                                            {dayjs(comment.createdAt).format('YYYY-MM-DD HH:mm')}
                                                         </span>
                                                     </div>
                                                     <p className="mt-1 text-gray-700">{comment.content}</p>
@@ -881,7 +951,7 @@ const TaskDetail = () => {
                                                 <div className="flex-grow">
                                                     <div className="flex flex-col">
                                                         <span className="text-teal-500 font-medium">{activity.userFullName || 'Unknown user'}</span>
-                                                        <span className="text-gray-500 text-sm">{new Date(activity.timestamp).toLocaleString()}</span>
+                                                        <span className="text-gray-500 text-sm">{dayjs(activity.timestamp).format('YYYY-MM-DD HH:mm')}</span>
                                                     </div>
                                                     <div className="mt-2">
                                                         <span className="text-gray-700 font-medium mr-1">{activity.action}</span>
@@ -899,85 +969,41 @@ const TaskDetail = () => {
                     </div>
                 </div>
 
-                {/* Sidebar */}
-                <div className="w-72">
-                    <div className="bg-white rounded shadow p-4 mb-4">
-                        <div className="mb-1 flex justify-between items-center">
-                            <h2 className="font-medium">{taskDetails.subject || 'Task'}</h2>
-                            <div className="relative">
-                                <button
-                                    onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                                    className={`${getStatusColor(taskDetails.statusId)} text-white px-3 py-1 rounded-sm ml-2 flex items-center`}
-                                >
-                                    {getStatusName(taskDetails.statusId)} <ChevronDownIcon size={16} />
-                                </button>
-
-                                {showStatusDropdown && (
-                                    <div className="dropdown-menu dropdown-arrow-down absolute z-50 right-0 mt-1 w-40 bg-white border border-gray-200 rounded shadow-lg">
-                                        {statuses.map(status => (
-                                            <div
-                                                key={status.id}
-                                                className={`flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer ${status.id === taskDetails.statusId ? 'bg-gray-100' : ''}`}
-                                                onClick={() => handleStatusChange(status.id)}
-                                            >
-                                                <div className={`w-3 h-3 rounded-full ${status.color} mr-2`}></div>
-                                                <span>{status.name}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="mt-4 flex justify-end">
-                            <button
-                                onClick={handleDeleteTask}
-                                className="px-3 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
-                            >
-                                Delete Task
-                            </button>
-                        </div>
-                    </div>
-
-                    {taskDetails.userStoryId && (
-                        <div className="bg-white rounded shadow p-4 mb-4">
-                            <h3 className="text-xs font-medium text-gray-500 uppercase mb-2">USER STORY</h3>
-                            <button
-                                onClick={() => navigate(`/projects/${taskDetails.projectId}/userstory/${taskDetails.userStoryId}`)}
-                                className="text-blue-500 hover:text-blue-700 text-sm flex items-center"
-                            >
-                                <DocumentTextIcon className="w-4 h-4 mr-1" />
-                                <span>US #{taskDetails.userStoryId}: {taskDetails.userStoryName}</span>
-                            </button>
-                        </div>
-                    )}
-
-                    {/* ASSIGNED section - updated to match TaigaUserStoryDetail style */}
-                    <div className="bg-white rounded shadow p-4 mb-4">
-                        <h3 className="text-xs font-medium text-gray-500 uppercase mb-2">ASSIGNED</h3>
+                {/* Right sidebar */}
+                <div className="w-64 p-4 bg-white">
+                    <div className="mb-6">
+                        <div className="text-gray-500 text-sm mb-2">ASSIGNED</div>
                         <div className="space-y-2">
-                            {assignedUsers.length > 0 ? (
-                                assignedUsers.map(user => (
-                                    <div key={user.id} className="flex items-center justify-between">
-                                        <div className="flex items-center">
-                                            <div className="w-8 h-8 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2">
-                                                {user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : 'U'}
+                            {assignedUsers && assignedUsers.length > 0 ? (
+                                assignedUsers.map(user => {
+                                    console.log('Rendering assignee:', user);
+                                    // Đảm bảo truyền đúng ID cho việc xóa
+                                    const userId = user.id;
+                                    return (
+                                        <div key={userId} className="flex items-center justify-between">
+                                            <div className="flex items-center">
+                                                <div className="w-8 h-8 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2">
+                                                    {user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'}
+                                                </div>
+                                                <div>
+                                                    <div className="font-medium">{user.fullName || user.username}</div>
+                                                    <div className="text-xs text-gray-500">@{user.username}</div>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <div className="font-medium">{user.fullName}</div>
-                                                <div className="text-xs text-gray-500">@{user.username || 'username'}</div>
-                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    console.log('Removing assignee with ID:', userId);
+                                                    handleRemoveAssignee(userId);
+                                                }}
+                                                className="text-gray-400 hover:text-gray-600"
+                                            >
+                                                <X size={16} />
+                                            </button>
                                         </div>
-                                        <button
-                                            onClick={() => handleRemoveAssignee(user.id)}
-                                            className="text-gray-400 hover:text-gray-600"
-                                        >
-                                            <XMarkIcon className="h-4 w-4" />
-                                        </button>
-                                    </div>
-                                ))
+                                    );
+                                })
                             ) : (
-                                <div className="text-gray-500 text-sm italic">No assignees yet</div>
+                                <div className="text-sm text-gray-500">No users assigned</div>
                             )}
 
                             <div className="relative">
@@ -988,10 +1014,10 @@ const TaskDetail = () => {
                                     }}
                                     className="text-gray-500 flex items-center text-sm"
                                 >
-                                    <PlusIcon className="w-3 h-3 mr-1" /> Add assigned
+                                    <Plus size={14} className="mr-1" /> Add assigned
                                 </button>
                                 {showAssigneeDropdown && (
-                                    <div className="dropdown-menu dropdown-arrow-down z-10 w-full bg-white border border-gray-200 rounded shadow-lg">
+                                    <div className="dropdown-menu dropdown-arrow-down absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded shadow-lg">
                                         <div className="px-4 py-2 text-right">
                                             <button
                                                 onClick={() => {
@@ -1015,25 +1041,24 @@ const TaskDetail = () => {
                                                 Reload users
                                             </button>
                                         </div>
-                                        {availableAssignees.length > 0 ? (
-                                            availableAssignees
-                                                .filter(user => !assignedUsers.some(assigned => assigned.id === user.id))
-                                                .map(user => (
-                                                    <div
-                                                        key={user.id}
-                                                        onClick={() => handleAssignUser(user.id)}
-                                                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center"
-                                                    >
-                                                        <div className="w-6 h-6 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2 text-xs">
-                                                            {user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : 'U'}
-                                                        </div>
-                                                        <div>
-                                                            <div className="font-medium">{user.fullName}</div>
-                                                            <div className="text-xs text-gray-500">@{user.username || 'username'}</div>
-                                                        </div>
+                                        {availableAssignees
+                                            .filter(user => !assignedUsers.some(assigned => assigned.id === user.id))
+                                            .map(user => (
+                                                <div
+                                                    key={user.id}
+                                                    onClick={() => handleAssignUser(user.id)}
+                                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center"
+                                                >
+                                                    <div className="w-6 h-6 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2 text-xs">
+                                                        {user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'}
                                                     </div>
-                                                ))
-                                        ) : (
+                                                    <div>
+                                                        <div className="font-medium">{user.fullName}</div>
+                                                        <div className="text-xs text-gray-500">@{user.username}</div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        {availableAssignees.length === 0 && (
                                             <div className="px-4 py-2 text-gray-500 text-sm">No available users to add</div>
                                         )}
                                         {availableAssignees.length > 0 &&
@@ -1057,32 +1082,31 @@ const TaskDetail = () => {
                         </div>
                     </div>
 
-                    {/* WATCHERS section - updated to match TaigaUserStoryDetail style */}
-                    <div className="bg-white rounded shadow p-4 mb-4">
-                        <h3 className="text-xs font-medium text-gray-500 uppercase mb-2">WATCHERS</h3>
+                    <div className="mb-6">
+                        <div className="text-gray-500 text-sm mb-2">WATCHERS</div>
                         <div className="space-y-2">
-                            {watchers.length > 0 ? (
+                            {watchers && watchers.length > 0 ? (
                                 watchers.map(user => (
                                     <div key={user.id} className="flex items-center justify-between">
                                         <div className="flex items-center">
                                             <div className="w-8 h-8 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2">
-                                                {user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : 'U'}
+                                                {user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'}
                                             </div>
                                             <div>
-                                                <div className="font-medium">{user.fullName}</div>
-                                                <div className="text-xs text-gray-500">@{user.username || 'username'}</div>
+                                                <div className="font-medium">{user.fullName || user.username}</div>
+                                                <div className="text-xs text-gray-500">@{user.username}</div>
                                             </div>
                                         </div>
                                         <button
                                             onClick={() => handleRemoveWatcher(user.id)}
                                             className="text-gray-400 hover:text-gray-600"
                                         >
-                                            <XMarkIcon className="h-4 w-4" />
+                                            <X size={16} />
                                         </button>
                                     </div>
                                 ))
                             ) : (
-                                <div className="text-gray-500 text-sm italic">No watchers yet</div>
+                                <div className="text-sm text-gray-500">No watchers</div>
                             )}
 
                             <div className="relative">
@@ -1094,10 +1118,10 @@ const TaskDetail = () => {
                                     }}
                                     className="text-gray-500 flex items-center text-sm"
                                 >
-                                    <PlusIcon className="w-3 h-3 mr-1" /> Add watchers
+                                    <Plus size={14} className="mr-1" /> Add watchers
                                 </button>
                                 {showWatcherDropdown && (
-                                    <div className="dropdown-menu dropdown-arrow-down z-10 w-full bg-white border border-gray-200 rounded shadow-lg">
+                                    <div className="dropdown-menu dropdown-arrow-down absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded shadow-lg">
                                         <div className="px-4 py-2 text-right">
                                             <button
                                                 onClick={() => {
@@ -1121,35 +1145,26 @@ const TaskDetail = () => {
                                                 Reload users
                                             </button>
                                         </div>
-                                        {availableAssignees.length > 0 ? (
-                                            availableAssignees
-                                                .filter(user => !watchers.some(watcher => watcher.id === user.id))
-                                                .map(user => (
-                                                    <div
-                                                        key={user.id}
-                                                        onClick={() => handleAddWatcher(user.id)}
-                                                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center"
-                                                    >
-                                                        <div className="w-6 h-6 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2 text-xs">
-                                                            {user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : 'U'}
-                                                        </div>
-                                                        <div>
-                                                            <div className="font-medium">{user.fullName}</div>
-                                                            <div className="text-xs text-gray-500">@{user.username || 'username'}</div>
-                                                        </div>
+                                        {availableAssignees
+                                            .filter(user => !watchers.some(watcher => watcher.id === user.id))
+                                            .map(user => (
+                                                <div
+                                                    key={user.id}
+                                                    onClick={() => handleAddWatcher(user.id)}
+                                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center"
+                                                >
+                                                    <div className="w-6 h-6 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2 text-xs">
+                                                        {user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'}
                                                     </div>
-                                                ))
-                                        ) : (
-                                            <div className="px-4 py-2 text-gray-500 text-sm">No available users to add</div>
-                                        )}
-                                        {availableAssignees.length > 0 &&
-                                            availableAssignees.filter(user => !watchers.some(watcher => watcher.id === user.id)).length === 0 && (
-                                                <div className="px-4 py-2 text-gray-500 text-sm">All users are already watchers</div>
-                                            )}
+                                                    <div>
+                                                        <div className="font-medium">{user.fullName}</div>
+                                                        <div className="text-xs text-gray-500">@{user.username}</div>
+                                                    </div>
+                                                </div>
+                                            ))}
                                     </div>
                                 )}
                             </div>
-
                             <div className="flex items-center justify-end text-sm mt-2">
                                 <button
                                     className="text-gray-500 flex items-center hover:text-blue-500"
@@ -1157,11 +1172,11 @@ const TaskDetail = () => {
                                 >
                                     {isCurrentUserWatching() ? (
                                         <>
-                                            <EyeOff className="w-4 h-4 mr-1" /> Unwatch
+                                            <EyeOff size={14} className="mr-1" /> Unwatch
                                         </>
                                     ) : (
                                         <>
-                                            <EyeIcon className="w-4 h-4 mr-1" /> Watch
+                                            <Eye size={14} className="mr-1" /> Watch
                                         </>
                                     )}
                                 </button>
@@ -1169,198 +1184,129 @@ const TaskDetail = () => {
                         </div>
                     </div>
 
-                    {/* DUE DATE section */}
-                    {taskDetails.dueDate && (
-                        <div className="bg-white rounded shadow p-4 mb-4">
-                            <h3 className="text-xs font-medium text-gray-500 uppercase mb-2">DUE DATE</h3>
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center">
-                                    <ClockIcon className="w-5 h-5 text-gray-400 mr-2" />
-                                    <span>{dayjs(taskDetails.dueDate).format('YYYY-MM-DD')}</span>
-                                </div>
-                                <div className="relative">
-                                    <button
-                                        onClick={() => setShowQuickDateSelect(!showQuickDateSelect)}
-                                        className="text-gray-500 hover:text-gray-700"
-                                    >
-                                        <ChevronDownIcon className="w-4 h-4" />
-                                    </button>
-                                    {showQuickDateSelect && (
-                                        <div className="absolute right-0 mt-2 w-48 bg-white rounded shadow-lg">
-                                            <div className="py-1">
-                                                <button
-                                                    onClick={() => handleQuickDateSelect(1)}
-                                                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                                >
-                                                    Tomorrow
-                                                </button>
-                                                <button
-                                                    onClick={() => handleQuickDateSelect(7)}
-                                                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                                >
-                                                    Next week
-                                                </button>
-                                                <button
-                                                    onClick={() => handleQuickDateSelect(14)}
-                                                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                                >
-                                                    In 2 weeks
-                                                </button>
-                                                <button
-                                                    onClick={() => handleQuickDateSelect(30)}
-                                                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                                >
-                                                    In a month
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDueDateChange(null)}
-                                                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                                >
-                                                    Remove due date
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                            {showDueDatePicker && (
-                                <div className="mt-4">
-                                    <DatePicker
-                                        value={editedDueDate ? dayjs(editedDueDate) : null}
-                                        onChange={(date) => setEditedDueDate(date)}
-                                        className="w-full"
-                                    />
-                                    <div className="mt-2 flex justify-end">
-                                        <button
-                                            onClick={() => setShowDueDatePicker(false)}
-                                            className="px-3 py-1 text-gray-500 hover:text-gray-700"
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button
-                                            onClick={handleSaveDueDate}
-                                            className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-                                        >
-                                            Save
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
+                    {/* Points display for tasks - This is different from UserStory */}
+                    <div className="mb-6">
+                        <div className="flex justify-between items-center mb-2">
+                            <div className="text-gray-500 text-sm">POINTS</div>
                         </div>
-                    )}
-
-                    {/* Block Status */}
-                    <div className="bg-white rounded shadow p-4 mb-4">
-                        <h3 className="text-xs font-medium text-gray-500 uppercase mb-2">BLOCK STATUS</h3>
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center">
-                                <LockClosedIcon className={`w-5 h-5 mr-2 ${isBlocked ? 'text-red-500' : 'text-gray-400'}`} />
-                                <span className={isBlocked ? 'text-red-500' : 'text-gray-700'}>
-                                    {isBlocked ? 'Blocked' : 'Not Blocked'}
-                                </span>
+                        <div className="space-y-2">
+                            <div className="flex justify-between items-center">
+                                <div>Points</div>
+                                {editMode ? (
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={editedPoints}
+                                        onChange={(e) => setEditedPoints(parseInt(e.target.value) || 0)}
+                                        className="w-16 text-right border border-gray-300 rounded px-2 py-1"
+                                    />
+                                ) : (
+                                    <div className="text-gray-500">{taskDetails.points || '?'}</div>
+                                )}
                             </div>
-                            <button
-                                onClick={handleToggleBlocked}
-                                className={`px-3 py-1 rounded text-sm ${isBlocked ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'} hover:bg-opacity-80`}
-                            >
-                                {isBlocked ? 'Unblock' : 'Block'}
-                            </button>
                         </div>
                     </div>
 
-
-                    <div className="flex space-x-2">
+                    {/* Action buttons */}
+                    <div className="flex justify-end space-x-2 mt-8">
                         <button
-                            onClick={() => setShowDueDatePicker(!showDueDatePicker)}
-                            className="w-8 h-8 bg-gray-100 rounded flex items-center justify-center text-gray-500 hover:bg-gray-200"
+                            className="bg-red-500 p-2 rounded text-white"
+                            onClick={() => setShowDueDatePicker(true)}
                         >
-                            <ClockIcon className="w-4 h-4" />
+                            <Clock size={16} />
                         </button>
-                        <button className="w-8 h-8 bg-gray-100 rounded flex items-center justify-center text-gray-500 hover:bg-gray-200">
-                            <UserIcon className="w-4 h-4" />
+                        <button className="bg-gray-100 p-2 rounded text-gray-500 hover:bg-gray-200">
+                            <Users size={16} />
                         </button>
-                        <button className="w-8 h-8 bg-gray-100 rounded flex items-center justify-center text-gray-500 hover:bg-gray-200">
-                            <DocumentTextIcon className="w-4 h-4" />
-                        </button>
-                        <button className="w-8 h-8 bg-gray-100 rounded flex items-center justify-center text-gray-500 hover:bg-gray-200">
+                        <button className="bg-gray-100 p-2 rounded text-gray-500 hover:bg-gray-200">
                             <PaperClipIcon className="w-4 h-4" />
                         </button>
                         <button
+                            className={`p-2 rounded ${isBlocked ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-500'} hover:${isBlocked ? 'bg-red-600' : 'bg-gray-200'}`}
                             onClick={handleToggleBlocked}
-                            className={`w-8 h-8 rounded flex items-center justify-center ${isBlocked
-                                ? 'bg-red-100 text-red-500 hover:bg-red-200'
-                                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                                }`}
+                            title={isBlocked ? 'Unblock this task' : 'Block this task'}
                         >
-                            <LockClosedIcon className={`w-4 h-4 ${isBlocked ? 'text-red-500' : 'text-gray-500'}`} />
+                            <Lock size={16} />
+                        </button>
+                        <button className="bg-gray-100 p-2 rounded text-gray-500 hover:bg-gray-200">
+                            <List size={16} />
                         </button>
                         <button
-                            onClick={debugInfo}
-                            className="w-auto px-2 h-8 bg-gray-100 rounded flex items-center justify-center text-gray-500 hover:bg-gray-200"
+                            className="bg-red-500 p-2 rounded text-white hover:bg-red-600"
+                            onClick={handleDeleteTask}
+                            title="Delete this task"
                         >
-                            Debug Info
+                            <Trash2 size={16} />
                         </button>
-                    </div>
 
-                    {/* Due Date Picker Modal */}
-                    {showDueDatePicker && (
-                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                            <div className="bg-white rounded-lg p-6 w-96">
-                                <h3 className="text-lg font-medium mb-4">Set Due Date</h3>
-                                <div className="space-y-4">
-                                    <div className="flex space-x-2">
-                                        <button
-                                            onClick={() => handleQuickDateSelect(1)}
-                                            className="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200"
-                                        >
-                                            Tomorrow
-                                        </button>
-                                        <button
-                                            onClick={() => handleQuickDateSelect(7)}
-                                            className="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200"
-                                        >
-                                            Next Week
-                                        </button>
-                                        <button
-                                            onClick={() => handleQuickDateSelect(14)}
-                                            className="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200"
-                                        >
-                                            In 2 Weeks
-                                        </button>
-                                    </div>
-                                    <div>
-                                        <DatePicker
-                                            value={editedDueDate ? dayjs(editedDueDate) : null}
-                                            onChange={(date) => setEditedDueDate(date)}
-                                            className="w-full"
-                                        />
-                                    </div>
-                                    <div className="flex justify-end space-x-2">
-                                        <button
-                                            onClick={() => {
-                                                setShowDueDatePicker(false);
-                                                setEditedDueDate(null);
-                                            }}
-                                            className="px-3 py-1 text-gray-500 hover:text-gray-700"
-                                        >
-                                            Remove
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                handleSaveDueDate();
-                                                setShowDueDatePicker(false);
-                                            }}
-                                            className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-                                        >
-                                            Save
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                    </div>
                 </div>
             </div>
+
+            {/* Due Date Modal */}
+            {showDueDatePicker && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-semibold">Set due date</h3>
+                            <button
+                                onClick={() => setShowDueDatePicker(false)}
+                                className="text-gray-500 hover:text-gray-700"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="mb-4 relative">
+                            <DatePicker
+                                value={editedDueDate ? dayjs(editedDueDate) : null}
+                                onChange={(date) => setEditedDueDate(date)}
+                                className="w-full"
+                            />
+                        </div>
+
+                        <div className="flex space-x-2 mb-4">
+                            <button
+                                onClick={() => handleQuickDateSelect(7)}
+                                className="bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded text-sm"
+                            >
+                                In one week
+                            </button>
+                            <button
+                                onClick={() => handleQuickDateSelect(14)}
+                                className="bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded text-sm"
+                            >
+                                In two weeks
+                            </button>
+                            <button
+                                onClick={() => handleQuickDateSelect(30)}
+                                className="bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded text-sm"
+                            >
+                                In one month
+                            </button>
+                        </div>
+
+                        <div className="flex justify-between items-center mt-4">
+                            <button
+                                onClick={() => {
+                                    setEditedDueDate(null);
+                                    handleDueDateChange(null);
+                                }}
+                                className="text-gray-500"
+                            >
+                                <X size={16} className="inline mr-1" /> Clear
+                            </button>
+                            <button
+                                onClick={handleSaveDueDate}
+                                className="bg-teal-400 hover:bg-teal-500 text-white px-6 py-2 rounded font-medium"
+                                disabled={!editedDueDate}
+                            >
+                                SAVE
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

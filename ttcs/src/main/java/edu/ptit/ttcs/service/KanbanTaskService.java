@@ -1,6 +1,6 @@
 package edu.ptit.ttcs.service;
 
-import edu.ptit.ttcs.dto.KanbanTaskDTO;
+import edu.ptit.ttcs.entity.dto.KanbanTaskDTO;
 import edu.ptit.ttcs.entity.KanbanTask;
 import edu.ptit.ttcs.entity.Project;
 import edu.ptit.ttcs.entity.User;

@@ -11,7 +11,7 @@ export default function TaigaUserStoryDetail() {
     const { userStoryId } = useParams();
     const navigate = useNavigate();
     const [userStory, setUserStory] = useState(null);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [assignedUsers, setAssignedUsers] = useState([]);
     const [showDueDateModal, setShowDueDateModal] = useState(false);
@@ -77,8 +77,10 @@ export default function TaigaUserStoryDetail() {
 
     const fetchUserStoryTasks = useCallback(async () => {
         try {
+            console.log('Fetching tasks for userStory ID:', userStoryId);
             const response = await axios.get(`/api/tasks/userstory/${userStoryId}`);
-            setUserStoryTasks(response.data);
+            console.log('Tasks data:', response.data);
+            setUserStoryTasks(response.data || []);
         } catch (error) {
             console.error('Error fetching tasks:', error);
             message.error('Failed to load tasks');
@@ -105,7 +107,7 @@ export default function TaigaUserStoryDetail() {
     const fetchActivities = useCallback(async () => {
         try {
             setLoading(true);
-            const response = await axios.get(`/api/kanban/board/user-story/${userStoryId}/activities`);
+            const response = await axios.get(`/api/kanban/board/userstory/${userStoryId}/activities`);
             setActivities(response.data);
         } catch (error) {
             console.error('Error fetching activities:', error);
@@ -117,22 +119,34 @@ export default function TaigaUserStoryDetail() {
     }, [userStoryId]);
 
     const fetchUserStory = async () => {
-        try {
-            const response = await axios.get(`/api/kanban/board/userstory/${userStoryId}`);
-            setUserStory(response.data);
+        setLoading(true);
+        setError(null);
 
-            // Initialize editable fields
-            setEditedName(response.data.name || '');
-            setEditedDescription(response.data.description || '');
-            setEditedUxPoints(response.data.uxPoints || 0);
-            setEditedBackPoints(response.data.backPoints || 0);
-            setEditedFrontPoints(response.data.frontPoints || 0);
-            setEditedDesignPoints(response.data.designPoints || 0);
+        try {
+            // Use userstory endpoint instead of user-story (no hyphen)
+            const response = await axios.get(`/api/kanban/board/userstory/${userStoryId}`);
+            const userStoryData = response.data;
+            console.log('User story data:', userStoryData); // Debug log
+
+            if (!userStoryData) {
+                throw new Error('No user story data received');
+            }
+
+            setUserStory(userStoryData);
+
+            // Initialize editable fields with safe fallbacks
+            setEditedName(userStoryData.name || '');
+            setEditedDescription(userStoryData.description || '');
+            setEditedUxPoints(userStoryData.uxPoints || 0);
+            setEditedBackPoints(userStoryData.backPoints || 0);
+            setEditedFrontPoints(userStoryData.frontPoints || 0);
+            setEditedDesignPoints(userStoryData.designPoints || 0);
 
             // Fetch available assignees
             try {
                 const assigneesResponse = await axios.get(`/api/kanban/board/userstory/${userStoryId}/available-assignees`);
-                setAvailableAssignees(assigneesResponse.data);
+                console.log('Available assignees:', assigneesResponse.data);
+                setAvailableAssignees(assigneesResponse.data || []);
             } catch (error) {
                 console.error('Error fetching assignees:', error);
                 setAvailableAssignees([]);
@@ -141,7 +155,8 @@ export default function TaigaUserStoryDetail() {
             // Fetch assigned users
             try {
                 const assignedUsersResponse = await axios.get(`/api/kanban/board/userstory/${userStoryId}/assigned-users`);
-                setAssignedUsers(assignedUsersResponse.data);
+                console.log('Assigned users response:', assignedUsersResponse.data);
+                setAssignedUsers(assignedUsersResponse.data || []);
             } catch (error) {
                 console.error('Error fetching assigned users:', error);
                 setAssignedUsers([]);
@@ -150,27 +165,23 @@ export default function TaigaUserStoryDetail() {
             // Fetch watchers
             try {
                 const watchersResponse = await axios.get(`/api/kanban/board/userstory/${userStoryId}/watchers`);
-                setWatchers(watchersResponse.data);
+                setWatchers(watchersResponse.data || []);
             } catch (error) {
                 console.error('Error fetching watchers:', error);
                 setWatchers([]);
             }
 
             // Fetch tasks, comments and activities
-            fetchUserStoryTasks();
-            fetchComments();
-            fetchActivities();
+            await Promise.all([
+                fetchUserStoryTasks(),
+                fetchComments(),
+                fetchActivities()
+            ]);
         } catch (err) {
-            setError('Failed to load user story');
             console.error('Error fetching user story:', err);
-            // Initialize with empty values on error
-            setUserStory({});
-            setAvailableAssignees([]);
-            setAssignedUsers([]);
-            setWatchers([]);
-            setUserStoryTasks([]);
-            setComments([]);
-            setActivities([]);
+            if (err.name !== 'CanceledError') {
+                setError('Failed to load user story: ' + (err.message || 'Unknown error'));
+            }
         } finally {
             setLoading(false);
         }
@@ -192,25 +203,22 @@ export default function TaigaUserStoryDetail() {
         setActivitiesRefreshTrigger(prev => prev + 1);
     };
 
-    // Add a new function to record activities after actions
+    // Update the recordActivity function
     const recordActivity = async (action, details) => {
-        if (!userStory || !userStory.id || !userStory.projectId) return;
+        if (!userStory || !userStory.id) return;
 
         try {
-            // Get current user ID - in a real app, this would come from auth context
-            const userId = 1; // Default to user ID 1 for demonstration
+            // Get current user ID from localStorage or auth context
+            const userId = getCurrentUserId();
 
             const activityData = {
-                projectId: userStory.projectId,
                 action: action,
-                details: details
+                details: details,
+                userId: userId
             };
 
-            await axios.post(
-                `/api/v1/userstories/${userStory.id}/activities`,
-                activityData,
-                { headers: { 'User-Id': userId } }
-            );
+            // Use the correct endpoint format
+            await axios.post(`/api/kanban/board/userstory/${userStoryId}/activities`, activityData);
 
             // Refresh activities if activities tab is active
             if (activeTab === 'activities') {
@@ -218,6 +226,7 @@ export default function TaigaUserStoryDetail() {
             }
         } catch (err) {
             console.error('Error recording activity:', err);
+            message.error('Failed to record activity');
         }
     };
 
@@ -352,8 +361,8 @@ export default function TaigaUserStoryDetail() {
     const handleSaveChanges = async () => {
         try {
             // Store original values for activity details
-            const originalName = userStory.name;
-            const originalDescription = userStory.description;
+            const originalName = userStory.name || '';
+            const originalDescription = userStory.description || '';
             const originalUxPoints = userStory.uxPoints || 0;
             const originalBackPoints = userStory.backPoints || 0;
             const originalFrontPoints = userStory.frontPoints || 0;
@@ -409,12 +418,15 @@ export default function TaigaUserStoryDetail() {
                 await recordActivity('points_updated', `Points updated from ${oldTotal} to ${newTotal}`);
             }
 
+            // Show success message
+            message.success('User story updated successfully');
+
             // Trigger làm mới hoạt động
             triggerActivitiesRefresh();
 
         } catch (err) {
             console.error('Error updating user story:', err);
-            alert('Failed to update user story. Please try again.');
+            message.error('Failed to update user story. Please try again.');
         }
     };
 
@@ -423,35 +435,38 @@ export default function TaigaUserStoryDetail() {
         try {
             // Store original status for activity
             const originalStatusId = userStory.statusId;
-            const statusNames = {
-                1: 'New',
-                2: 'Ready',
-                3: 'In Progress',
-                4: 'Ready for Test',
-                5: 'Done',
-                6: 'Archived'
-            };
+            const originalStatus = statuses.find(s => s.id === originalStatusId);
+            const newStatus = statuses.find(s => s.id === statusId);
 
-            const updatedData = {
-                ...userStory,
+            console.log(`Changing status from ${originalStatusId} to ${statusId}`);
+
+            // Use PATCH endpoint specifically for status updates
+            await axios.put(`/api/kanban/board/userstory/${userStoryId}/status`, {
                 statusId: statusId
-            };
+            });
 
-            const response = await axios.put(`/api/kanban/board/userstory/${userStoryId}`, updatedData);
-            setUserStory(response.data);
+            // Update local state
+            setUserStory(prevState => ({
+                ...prevState,
+                statusId: statusId
+            }));
+
             setShowStatusDropdown(false);
 
             // Record activity for status change
             await recordActivity(
                 'status_updated',
-                `Status changed from ${statusNames[originalStatusId] || originalStatusId} to ${statusNames[statusId] || statusId}`
+                `Status changed from ${originalStatus?.name || originalStatusId} to ${newStatus?.name || statusId}`
             );
 
             // Trigger làm mới hoạt động
             triggerActivitiesRefresh();
+
+            // Show success message
+            message.success(`Status updated to ${newStatus?.name || statusId}`);
         } catch (err) {
             console.error('Error updating status:', err);
-            alert('Failed to update status. Please try again.');
+            message.error('Failed to update status. Please try again.');
         }
     };
 
@@ -609,7 +624,7 @@ export default function TaigaUserStoryDetail() {
         }
     };
 
-    // Thêm function để tạo task mới
+    // Update the task creation function
     const handleCreateTask = async () => {
         if (!newTaskTitle.trim()) {
             message.error('Task title is required');
@@ -628,7 +643,9 @@ export default function TaigaUserStoryDetail() {
                 assigneeIds: newTaskAssignee ? [newTaskAssignee] : [] // Convert single assignee to array for API
             };
 
-            await axios.post('/api/tasks', taskData);
+            console.log('Creating task with data:', taskData);
+            const response = await axios.post('/api/tasks', taskData);
+            console.log('Task created successfully, response:', response.data);
 
             // Refresh tasks list
             await fetchUserStoryTasks();
@@ -676,27 +693,70 @@ export default function TaigaUserStoryDetail() {
         }
     };
 
+    // Add a function to get the task status name from ID
+    const getTaskStatusName = (statusId) => {
+        if (!statusId) return 'New';
+        const foundStatus = taskStatuses.find(s => s.id === statusId);
+        return foundStatus ? foundStatus.name : 'New';
+    };
+
+    // Add a function to get the task status color from ID
+    const getTaskStatusColor = (statusId) => {
+        if (!statusId) return 'bg-gray-300';
+        const status = taskStatuses.find(s => s.id === statusId);
+        return status ? status.color : 'bg-gray-300';
+    };
+
+    // Update the loading display
     if (loading) {
-        return <div>Loading...</div>;
+        return (
+            <div className="flex items-center justify-center p-8 h-64">
+                <div className="text-center">
+                    <div className="w-12 h-12 border-4 border-t-blue-500 border-gray-200 rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading user story details...</p>
+                </div>
+            </div>
+        );
     }
 
-    if (error || !userStory) {
-        return <div>{error || 'User story not found'}</div>;
+    // Only show error if we're not loading and there's actually an error
+    if (!loading && error) {
+        return (
+            <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded">
+                <p className="font-bold mb-2">Error</p>
+                <p>{error}</p>
+                <button
+                    className="mt-4 bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded"
+                    onClick={() => window.history.back()}
+                >
+                    Go Back
+                </button>
+            </div>
+        );
     }
 
+    // If we don't have user story data but we're not in an error state,
+    // show the loading indicator to avoid flashing "not found" message
+    if (!userStory) {
+        return (
+            <div className="flex items-center justify-center p-8 h-64">
+                <div className="text-center">
+                    <div className="w-12 h-12 border-4 border-t-blue-500 border-gray-200 rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading user story details...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Ensure safe access to user story properties
     const getStatusName = (statusId) => {
-        switch (statusId) {
-            case 1: return 'NEW';
-            case 2: return 'READY';
-            case 3: return 'IN PROGRESS';
-            case 4: return 'READY FOR TEST';
-            case 5: return 'DONE';
-            case 6: return 'ARCHIVED';
-            default: return 'UNKNOWN';
-        }
+        if (!statusId) return 'UNKNOWN';
+        const foundStatus = statuses.find(s => s.id === statusId);
+        return foundStatus ? foundStatus.name : 'UNKNOWN';
     };
 
     const getStatusColor = (statusId) => {
+        if (!statusId) return 'bg-gray-300';
         const status = statuses.find(s => s.id === statusId);
         return status ? status.color : 'bg-gray-300';
     };
@@ -956,25 +1016,34 @@ export default function TaigaUserStoryDetail() {
                             {userStoryTasks.length === 0 ? (
                                 <div className="text-gray-500 text-center py-4">No tasks yet</div>
                             ) : (
-                                userStoryTasks.map(task => (
-                                    <div key={task.id} className="flex justify-between items-center border-b pb-2">
-                                        <div className="flex items-center">
-                                            <span className="text-gray-400 mr-2">::</span>
-                                            <a href={`/task/${task.id}`} className="text-blue-500 mr-2 hover:underline">#{task.id}</a>
-                                            <span>{task.subject}</span>
-                                        </div>
-                                        <div className="flex items-center">
-                                            <button className="bg-gray-100 text-gray-500 px-2 py-1 rounded-sm text-sm flex items-center">
-                                                {task.status || 'New'} <ChevronDown size={14} className="ml-1" />
-                                            </button>
-                                            <div className="ml-2 w-6 h-6 bg-gray-200 rounded-sm flex items-center justify-center text-xs">
-                                                {task.assignedToName ?
-                                                    task.assignedToName.split(' ').map(n => n[0]).join('')
-                                                    : 'NA'}
+                                userStoryTasks.map(task => {
+                                    // Use the statusId to get the name
+                                    const statusName = getTaskStatusName(task.statusId);
+                                    const statusColor = getTaskStatusColor(task.statusId);
+
+                                    return (
+                                        <div key={task.id} className="flex justify-between items-center border-b pb-2">
+                                            <div className="flex items-center">
+                                                <span className="text-gray-400 mr-2">::</span>
+                                                <a href={`/task/${task.id}`} className="text-blue-500 mr-2 hover:underline">#{task.id}</a>
+                                                <span>{task.subject || "Unnamed Task"}</span>
+                                            </div>
+                                            <div className="flex items-center">
+                                                <button className={`${statusColor} text-white px-2 py-1 rounded-sm text-sm flex items-center`}>
+                                                    {statusName} <ChevronDown size={14} className="ml-1" />
+                                                </button>
+                                                <div className="ml-2 w-6 h-6 bg-gray-200 rounded-sm flex items-center justify-center text-xs">
+                                                    {task.assignedToName ?
+                                                        task.assignedToName.substring(0, 2).toUpperCase() :
+                                                        task.assignees && task.assignees.length > 0 ?
+                                                            task.assignees[0].fullName.substring(0, 2).toUpperCase() :
+                                                            'NA'
+                                                    }
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))
+                                    );
+                                })
                             )}
                         </div>
                     </div>
@@ -1080,25 +1149,30 @@ export default function TaigaUserStoryDetail() {
                     <div className="mb-6">
                         <div className="text-gray-500 text-sm mb-2">ASSIGNED</div>
                         <div className="space-y-2">
-                            {assignedUsers.map(user => (
-                                <div key={user.id} className="flex items-center justify-between">
-                                    <div className="flex items-center">
-                                        <div className="w-8 h-8 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2">
-                                            {user.fullName.split(' ').map(n => n[0]).join('')}
+                            {assignedUsers && assignedUsers.length > 0 ? (
+                                assignedUsers.map(user => (
+                                    <div key={user.id} className="flex items-center justify-between">
+                                        <div className="flex items-center">
+                                            <div className="w-8 h-8 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2">
+                                                {user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'}
+                                            </div>
+                                            <div>
+                                                <div className="font-medium">{user.fullName || user.username}</div>
+                                                <div className="text-xs text-gray-500">@{user.username}</div>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <div className="font-medium">{user.fullName}</div>
-                                            <div className="text-xs text-gray-500">@{user.username}</div>
-                                        </div>
+                                        <button
+                                            onClick={() => handleRemoveAssignee(user.id)}
+                                            className="text-gray-400 hover:text-gray-600"
+                                        >
+                                            <X size={16} />
+                                        </button>
                                     </div>
-                                    <button
-                                        onClick={() => handleRemoveAssignee(user.id)}
-                                        className="text-gray-400 hover:text-gray-600"
-                                    >
-                                        <X size={16} />
-                                    </button>
-                                </div>
-                            ))}
+                                ))
+                            ) : (
+                                <div className="text-sm text-gray-500">No users assigned</div>
+                            )}
+
                             <div className="relative">
                                 <button
                                     onClick={() => setShowAssigneeDropdown(!showAssigneeDropdown)}
@@ -1410,6 +1484,7 @@ export default function TaigaUserStoryDetail() {
                     </div>
                 </div>
             )}
+
         </div>
     );
 }

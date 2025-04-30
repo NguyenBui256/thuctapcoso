@@ -5,8 +5,10 @@ import edu.ptit.ttcs.entity.User;
 import edu.ptit.ttcs.entity.dto.CreateProjectDTO;
 import edu.ptit.ttcs.entity.dto.PageResponse;
 import edu.ptit.ttcs.entity.dto.ProjectDTO;
+import edu.ptit.ttcs.entity.dto.ProjectMemberDTO;
 import edu.ptit.ttcs.mapper.ProjectMapper;
 import edu.ptit.ttcs.service.ProjectService;
+import edu.ptit.ttcs.service.ProjectMemberService;
 import edu.ptit.ttcs.service.UserService;
 import edu.ptit.ttcs.util.ApiResponse;
 import edu.ptit.ttcs.util.SecurityUtils;
@@ -27,6 +29,7 @@ public class ProjectController {
     private final ProjectService projectService;
     private final UserService userService;
     private final ProjectMapper projectMapper;
+    private final ProjectMemberService projectMemberService;
 
     @PostMapping
     public ResponseEntity<Project> createProject(@RequestBody CreateProjectDTO createProjectDTO) {
@@ -103,5 +106,26 @@ public class ProjectController {
             @RequestBody CreateProjectDTO projectDTO) {
         Project project = projectService.duplicateProject(id, projectDTO);
         return ResponseEntity.ok(projectMapper.toDTO(project));
+    }
+
+    @GetMapping("/members/{projectId}")
+    public ResponseEntity<List<ProjectMemberDTO>> getProjectMembers(@PathVariable Long projectId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
+        User currentUser = userService.getUserByLogin(username);
+        Long userId = currentUser.getId();
+
+        List<ProjectMemberDTO> members = projectMemberService.getProjectMembers(projectId, userId);
+        return ResponseEntity.ok(members);
+    }
+
+    @GetMapping("/user/{userId}/projects/member")
+    public ResponseEntity<ApiResponse<List<ProjectMemberDTO>>> getUserProjectsAsMember(@PathVariable Long userId) {
+        try {
+            List<ProjectMemberDTO> projects = projectMemberService.getUserProjects(userId);
+            return ResponseEntity.ok(new ApiResponse<>("success", "User projects retrieved successfully", projects));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
+        }
     }
 }

@@ -2,6 +2,7 @@ package edu.ptit.ttcs.dto;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class UserStoryResponseDTO {
     private Integer id;
@@ -20,6 +21,7 @@ public class UserStoryResponseDTO {
     private String createdByUsername;
     private Long assignedUserId;
     private Boolean isBlocked;
+    private List<UserDTO> assignedUsers;
 
     // Getters and Setters
     public Integer getId() {
@@ -148,6 +150,14 @@ public class UserStoryResponseDTO {
 
     public void setIsBlocked(Boolean isBlocked) {
         this.isBlocked = isBlocked;
+    }
+
+    public List<UserDTO> getAssignedUsers() {
+        return assignedUsers;
+    }
+
+    public void setAssignedUsers(List<UserDTO> assignedUsers) {
+        this.assignedUsers = assignedUsers;
     }
 
     // Add methods with alternative naming for Jackson serialization

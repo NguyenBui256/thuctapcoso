@@ -1,6 +1,6 @@
 package edu.ptit.ttcs.controller;
 
-import edu.ptit.ttcs.dto.KanbanSwimlandDTO;
+import edu.ptit.ttcs.entity.dto.KanbanSwimlandDTO;
 import edu.ptit.ttcs.service.KanbanSwimlandService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
