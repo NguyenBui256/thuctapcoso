@@ -14,7 +14,7 @@ import java.util.Map;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/task")
-public class TaskController {
+public class TaskController1 {
 
     private final TaskService taskService;
 

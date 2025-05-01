@@ -9,8 +9,6 @@ import edu.ptit.ttcs.entity.dto.response.PjStatusDTO;
 import edu.ptit.ttcs.mapper.ProjectMapper;
 import edu.ptit.ttcs.service.ProjectService;
 import edu.ptit.ttcs.service.UserService;
-import edu.ptit.ttcs.util.ApiResponse;
-import edu.ptit.ttcs.util.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,7 +19,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/projects")
 @RequiredArgsConstructor
-public class ProjectController {
+public class ProjectController1 {
 
     private final ProjectService projectService;
     private final UserService userService;
