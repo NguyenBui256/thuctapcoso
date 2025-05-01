@@ -34,11 +34,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @RestController
-@RequestMapping("/api/tasks")
-@CrossOrigin(origins = "http://localhost:5173", methods = { RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT,
-        RequestMethod.PATCH, RequestMethod.DELETE, RequestMethod.OPTIONS }, allowedHeaders = { "Content-Type",
-                "Authorization", "User-Id" }, exposedHeaders = { "Content-Type", "Authorization", "User-Id" })
-public class TaskController {
+@RequiredArgsConstructor
+@RequestMapping("/api/v1/task")
+public class TaskController1 {
 
     @Autowired
     private TaskRepository taskRepository;

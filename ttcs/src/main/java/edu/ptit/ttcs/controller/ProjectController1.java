@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/projects")
 @RequiredArgsConstructor
-public class ProjectController {
+public class ProjectController1 {
 
     private final ProjectService projectService;
     private final UserService userService;

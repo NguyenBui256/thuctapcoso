@@ -91,12 +91,9 @@ class UserStoryBlockResponse {
 }
 
 @RestController
-@RequestMapping("/api/kanban/board")
-@CrossOrigin(origins = "http://localhost:5173", methods = {
-        RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT,
-        RequestMethod.PATCH, RequestMethod.DELETE, RequestMethod.OPTIONS
-})
-public class UserStoryController {
+@RequiredArgsConstructor
+@RequestMapping("/api/v1/user_story")
+public class UserStoryController1 {
 
     @Autowired
     private UserStoryRepository userStoryRepository;
