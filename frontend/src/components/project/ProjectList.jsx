@@ -1,7 +1,7 @@
-import React, {useEffect, useState} from 'react';
-import {useNavigate} from 'react-router-dom';
-import {FiLock} from 'react-icons/fi';
-import {fetchProjectsByUserId} from '../../utils/api';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { FiLock } from 'react-icons/fi';
+import { fetchAllUserProjects } from '../../utils/api';
 
 const ProjectList = () => {
     const [projects, setProjects] = useState([]);
@@ -20,17 +20,17 @@ const ProjectList = () => {
     const fetchProjects = async () => {
         try {
             setLoading(true);
-            
-            // Use fetchProjectsByUserId from api utils instead of getAllProjects
-            const projectsData = await fetchProjectsByUserId();
-            console.log('Projects data:', projectsData);
-            
-            // Since fetchProjectsByUserId doesn't support pagination yet, we'll handle it client-side
+
+            // Use fetchAllUserProjects to get ALL projects the user is member of
+            const projectsData = await fetchAllUserProjects();
+            console.log('All user projects data:', projectsData);
+
+            // Since fetchAllUserProjects doesn't support pagination yet, we'll handle it client-side
             const startIdx = currentPage * pageSize;
             const endIdx = startIdx + pageSize;
             const paginatedProjects = projectsData.slice(startIdx, endIdx);
             const calculatedTotalPages = Math.ceil(projectsData.length / pageSize);
-            
+
             setProjects(paginatedProjects);
             setTotalPages(calculatedTotalPages);
         } catch (err) {
@@ -88,24 +88,24 @@ const ProjectList = () => {
                             <div>
                                 {projects.map((project) => (
                                     <div
-                                        key={project.id}
+                                        key={project.projectId}
                                         className="bg-white border-b last:border-b-0 hover:bg-gray-50 transition-colors cursor-pointer"
-                                        onClick={() => navigate(`/projects/${project.id}`)}
+                                        onClick={() => navigate(`/projects/${project.projectId}`)}
                                     >
                                         <div className="flex items-center p-4">
-                                            <div className={`w-12 h-12 ${getIconColor(project.id)} rounded flex items-center justify-center mr-4`}>
+                                            <div className={`w-12 h-12 ${getIconColor(project.projectId)} rounded flex items-center justify-center mr-4`}>
                                                 <span className="text-lg font-semibold">
-                                                    {project.name.substring(0, 2).toLowerCase()}
+                                                    {project.projectName ? project.projectName.substring(0, 2).toLowerCase() : '??'}
                                                 </span>
                                             </div>
                                             <div className="flex-grow">
                                                 <div className="flex items-center">
-                                                    <h2 className="text-md font-semibold text-gray-800">{project.name}</h2>
-                                                    {!project.isPublic && (
+                                                    <h2 className="text-md font-semibold text-gray-800">{project.projectName || 'Unnamed Project'}</h2>
+                                                    {project.isPublic === false && (
                                                         <FiLock className="ml-2 text-gray-500" size={14} />
                                                     )}
                                                 </div>
-                                                <p className="text-sm text-gray-500">{project.description}</p>
+                                                <p className="text-sm text-gray-500">{project.projectDescription}</p>
                                             </div>
                                         </div>
                                     </div>

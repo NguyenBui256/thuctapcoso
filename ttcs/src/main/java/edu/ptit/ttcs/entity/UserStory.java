@@ -34,11 +34,15 @@ public class UserStory extends BaseEntity {
     private String description;
 
     @Column(name = "due_date")
-    private LocalDateTime dueDate;
+    private LocalDate dueDate;
 
     @ManyToOne
     @JoinColumn(name = "status_id")
     private ProjectSettingStatus status;
+
+    @ManyToOne
+    @JoinColumn(name = "swimlane_id")
+    private KanbanSwimland swimlane;
 
     @Column(name = "is_block")
     private Boolean isBlock;

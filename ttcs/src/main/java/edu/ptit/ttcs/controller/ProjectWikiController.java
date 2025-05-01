@@ -24,48 +24,48 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProjectWikiController {
 
     private final ProjectWikiService wikiService;
-    
+
     @GetMapping
-    public ResponseEntity<List<ProjectWikiPageDTO>> getWikiPages(
+    public ResponseEntity<ApiResponse<List<ProjectWikiPageDTO>>> getWikiPages(
             @PathVariable Long userId,
             @PathVariable Long projectId) {
         try {
             List<ProjectWikiPageDTO> wikiPages = wikiService.getWikiPages(projectId, userId);
-            return ResponseEntity.ok(wikiPages);
+            return ResponseEntity.ok(new ApiResponse<>("success", "Wiki pages retrieved successfully", wikiPages));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(null);
+            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
         }
     }
-    
+
     @GetMapping("/{wikiPageId}")
-    public ResponseEntity<ProjectWikiPageDTO> getWikiPage(
+    public ResponseEntity<ApiResponse<ProjectWikiPageDTO>> getWikiPage(
             @PathVariable Long userId,
             @PathVariable Long projectId,
             @PathVariable Long wikiPageId) {
         try {
             ProjectWikiPageDTO wikiPage = wikiService.getWikiPageById(projectId, wikiPageId, userId);
-            return ResponseEntity.ok(wikiPage);
+            return ResponseEntity.ok(new ApiResponse<>("success", "Wiki page retrieved successfully", wikiPage));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(null);
+            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
         }
     }
-    
+
     @PostMapping
-    public ResponseEntity<ProjectWikiPageDTO> createWikiPage(
+    public ResponseEntity<ApiResponse<ProjectWikiPageDTO>> createWikiPage(
             @PathVariable Long userId,
             @PathVariable Long projectId,
             @RequestBody ProjectWikiPageRequestDTO request) {
         try {
             request.validate();
             ProjectWikiPageDTO wikiPage = wikiService.createWikiPage(projectId, request, userId);
-            return ResponseEntity.ok(wikiPage);
+            return ResponseEntity.ok(new ApiResponse<>("success", "Wiki page created successfully", wikiPage));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(null);
+            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
         }
     }
-    
+
     @PutMapping("/{wikiPageId}")
-    public ResponseEntity<ProjectWikiPageDTO> updateWikiPage(
+    public ResponseEntity<ApiResponse<ProjectWikiPageDTO>> updateWikiPage(
             @PathVariable Long userId,
             @PathVariable Long projectId,
             @PathVariable Long wikiPageId,
@@ -73,22 +73,22 @@ public class ProjectWikiController {
         try {
             request.validate();
             ProjectWikiPageDTO wikiPage = wikiService.updateWikiPage(projectId, wikiPageId, request, userId);
-            return ResponseEntity.ok(wikiPage);
+            return ResponseEntity.ok(new ApiResponse<>("success", "Wiki page updated successfully", wikiPage));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(null);
+            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
         }
     }
-    
+
     @DeleteMapping("/{wikiPageId}")
-    public ResponseEntity<Void> deleteWikiPage(
+    public ResponseEntity<ApiResponse<Void>> deleteWikiPage(
             @PathVariable Long userId,
             @PathVariable Long projectId,
             @PathVariable Long wikiPageId) {
         try {
             wikiService.deleteWikiPage(projectId, wikiPageId, userId);
-            return ResponseEntity.ok(null);
+            return ResponseEntity.ok(new ApiResponse<>("success", "Wiki page deleted successfully", null));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(null);
+            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
         }
     }
-} 
+}

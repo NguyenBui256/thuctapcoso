@@ -27,11 +27,30 @@ const WikiPage = () => {
           `/projects/${projectId}/wiki`,
           true
         );
-        if (response) {
+        if (response && response.ok) {
           const jsonResponse = await response.json();
-          const pagesData = jsonResponse.data || [];
-          const safePages = Array.isArray(pagesData) ? pagesData : [];
-          setWikiPages(safePages);
+          console.log("Wiki pages complete response:", jsonResponse);
+
+          // Extract the wiki pages array from the nested response structure
+          let pagesArray = [];
+
+          // Handle the nested structure jsonResponse.data.data
+          if (jsonResponse.data && jsonResponse.data.data && Array.isArray(jsonResponse.data.data)) {
+            console.log("Found pages in jsonResponse.data.data", jsonResponse.data.data);
+            pagesArray = jsonResponse.data.data;
+          }
+          // Fallback to direct data if available (different API format)
+          else if (jsonResponse.data && Array.isArray(jsonResponse.data)) {
+            console.log("Found pages in jsonResponse.data", jsonResponse.data);
+            pagesArray = jsonResponse.data;
+          }
+          // No pages found
+          else {
+            console.warn("Could not find wiki pages array in response. Response structure:", jsonResponse);
+          }
+
+          console.log("Final extracted pages array:", pagesArray);
+          setWikiPages(pagesArray);
         } else {
           setError('Failed to fetch wiki pages list');
         }
@@ -46,7 +65,7 @@ const WikiPage = () => {
     if (userId && projectId) {
       fetchWikiPages();
     }
-  }, [projectId, userId]);
+  }, [projectId, userId, location.search]);
 
   // Effect to handle URL parameters and set view mode / selected page
   useEffect(() => {
@@ -57,7 +76,7 @@ const WikiPage = () => {
     if (view === 'all') {
       setViewMode('all');
       setSelectedPage(null);
-    } else if (pageId) {
+    } else if (pageId && pageId !== 'undefined') {
       const existingPage = wikiPages.find(p => p.id.toString() === pageId);
       if (existingPage) {
         setSelectedPage(existingPage);
@@ -77,8 +96,14 @@ const WikiPage = () => {
 
   // Fetch a specific wiki page
   const fetchWikiPage = async (pageId) => {
+    if (!pageId || pageId === 'undefined') {
+      setError('Invalid page ID');
+      setSelectedPage(null);
+      return;
+    }
+
     if (selectedPage && selectedPage.id.toString() === pageId) return; // Already selected
-    
+
     setLoading(true); // Set loading specific to fetching a page
     try {
       console.log('Fetching specific page:', pageId);
@@ -91,8 +116,8 @@ const WikiPage = () => {
         const data = await response.json();
         const pageData = data.data || data;
         setSelectedPage(pageData);
-        setViewMode('single'); 
-        setError(null); 
+        setViewMode('single');
+        setError(null);
       } else {
         setError(`Failed to load page ${pageId}`);
         setSelectedPage(null);
@@ -118,21 +143,26 @@ const WikiPage = () => {
   };
 
   const handleDeletePage = async (pageId) => {
+    if (!pageId || pageId === 'undefined') {
+      setError('Cannot delete page: Invalid page ID');
+      return;
+    }
+
     try {
       console.log('Deleting page with ID:', pageId);
-      
+
       const response = await fetchWithAuth(
         `${BASE_API_URL}/v1/user/${userId}/project/${projectId}/wiki/${pageId}`,
         `/projects/${projectId}/wiki`,
         true,
         { method: 'DELETE' }
       );
-      
+
       if (response && response.ok) {
         console.log('Page deleted successfully');
         const remainingPages = wikiPages.filter(page => page.id !== pageId);
         setWikiPages(remainingPages);
-        
+
         if (selectedPage && selectedPage.id === pageId) {
           if (remainingPages.length > 0) {
             handlePageSelect(remainingPages[0].id);
@@ -154,12 +184,17 @@ const WikiPage = () => {
   };
 
   const handleUpdatePage = async (updatedPage) => {
+    if (!updatedPage || !updatedPage.id) {
+      setError('Cannot update page: Invalid page ID');
+      return;
+    }
+
     try {
       const pageRequest = {
         title: updatedPage.title,
         content: updatedPage.content || ''
       };
-      
+
       const response = await fetchWithAuth(
         `${BASE_API_URL}/v1/user/${userId}/project/${projectId}/wiki/${updatedPage.id}`,
         `/projects/${projectId}/wiki`,
@@ -170,7 +205,7 @@ const WikiPage = () => {
           body: JSON.stringify(pageRequest)
         }
       );
-      
+
       if (response && response.ok) {
         const jsonResponse = await response.json();
         const updatedData = jsonResponse.data || jsonResponse;
@@ -192,7 +227,7 @@ const WikiPage = () => {
         title: newPage.title,
         content: newPage.content || ''
       };
-      
+
       const response = await fetchWithAuth(
         `${BASE_API_URL}/v1/user/${userId}/project/${projectId}/wiki`,
         `/projects/${projectId}/wiki`,
@@ -203,7 +238,7 @@ const WikiPage = () => {
           body: JSON.stringify(pageRequest)
         }
       );
-      
+
       if (response && response.ok) {
         const jsonResponse = await response.json();
         const createdData = jsonResponse.data || jsonResponse;
@@ -236,17 +271,17 @@ const WikiPage = () => {
   return (
     <div className="flex h-full w-full">
       {/* Wiki Sidebar */}
-      <WikiSidebar 
+      <WikiSidebar
         className="flex-shrink-0 w-64 h-full flex-col overflow-y-auto border-r border-gray-200 bg-white"
-        pages={wikiPages || []} 
+        pages={wikiPages || []}
         selectedPageId={selectedPage?.id}
-        onSelectPage={handlePageSelect} 
-        onDeletePage={handleDeletePage} 
+        onSelectPage={handlePageSelect}
+        onDeletePage={handleDeletePage}
         onCreatePage={handleCreatePage}
         onViewAllPages={toggleViewMode}
         viewMode={viewMode}
       />
-      
+
       {/* Main Wiki Content Area - Remove horizontal padding */}
       <div className="flex-1 h-full overflow-y-auto">
         {error && (
@@ -259,7 +294,7 @@ const WikiPage = () => {
             {loading && wikiPages.length === 0 ? (
               <div className="text-center text-gray-500">Loading pages...</div>
             ) : (
-              <WikiPagesTable pages={wikiPages} projectId={projectId} />
+              <WikiPagesTable pages={wikiPages} projectId={projectId} loading={loading} />
             )}
           </div>
         ) : (
@@ -267,9 +302,9 @@ const WikiPage = () => {
             {loading && !selectedPage ? ( // Show loading only if no page is selected yet
               <div className="text-center text-gray-500">Loading page...</div>
             ) : selectedPage ? (
-              <WikiContent 
-                page={selectedPage} 
-                onUpdatePage={handleUpdatePage} 
+              <WikiContent
+                page={selectedPage}
+                onUpdatePage={handleUpdatePage}
                 onDeletePage={handleDeletePage}
               />
             ) : (

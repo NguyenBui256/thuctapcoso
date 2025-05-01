@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { getCurrentUserId } from '../../utils/AuthUtils';
 
-const WikiPagesTable = ({ pages, projectId }) => {
+const WikiPagesTable = ({ pages, projectId, loading = false }) => {
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     try {
@@ -12,6 +12,8 @@ const WikiPagesTable = ({ pages, projectId }) => {
       return dateString;
     }
   };
+
+  console.log("WikiPagesTable received pages:", pages);
 
   return (
     <div className="bg-white rounded-md shadow-sm">
@@ -44,12 +46,18 @@ const WikiPagesTable = ({ pages, projectId }) => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {pages.length > 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan="6" className="px-6 py-4 text-center text-sm text-gray-500">
+                  Loading wiki pages...
+                </td>
+              </tr>
+            ) : pages && pages.length > 0 ? (
               pages.map((page) => (
                 <tr key={page.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4">
-                    <Link 
-                      to={`/projects/${projectId}/wiki?page=${page.id}`} 
+                    <Link
+                      to={`/projects/${projectId}/wiki?page=${page.id}`}
                       className="text-taiga-primary hover:text-taiga-secondary break-words"
                     >
                       {page.title}
@@ -62,10 +70,10 @@ const WikiPagesTable = ({ pages, projectId }) => {
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-8 w-8">
                         {page.createdBy?.avatarUrl ? (
-                          <img 
-                            className="h-8 w-8 rounded-full" 
-                            src={page.createdBy.avatarUrl} 
-                            alt={page.createdBy.fullName} 
+                          <img
+                            className="h-8 w-8 rounded-full"
+                            src={page.createdBy.avatarUrl}
+                            alt={page.createdBy.fullName}
                           />
                         ) : (
                           <div className="h-8 w-8 rounded-full bg-taiga-primary/30 flex items-center justify-center text-taiga-secondary">
@@ -89,10 +97,10 @@ const WikiPagesTable = ({ pages, projectId }) => {
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-8 w-8">
                         {page.updatedBy?.avatarUrl ? (
-                          <img 
-                            className="h-8 w-8 rounded-full" 
-                            src={page.updatedBy.avatarUrl} 
-                            alt={page.updatedBy.fullName} 
+                          <img
+                            className="h-8 w-8 rounded-full"
+                            src={page.updatedBy.avatarUrl}
+                            alt={page.updatedBy.fullName}
                           />
                         ) : (
                           <div className="h-8 w-8 rounded-full bg-taiga-primary/30 flex items-center justify-center text-taiga-secondary">

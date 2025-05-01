@@ -41,7 +41,9 @@ export default function Navbar() {
                             </div>
                             <div className="flex items-center text-blue-500 hover:text-blue-700 cursor-pointer ml-2">
                                 <FiFolder className="text-lg mr-1" />
-                                <span className="font-medium">Dự án</span>
+                                <span className="font-medium">
+                                    <Link to='/projects'>Dự án</Link>
+                                </span>
                             </div>
                         </div>
 
@@ -75,12 +77,14 @@ export default function Navbar() {
                                     <FiChevronDown className="transition-transform duration-200 group-hover:transform group-hover:rotate-180" />
                                 </button>
 
-                                <div className="absolute -right-5 -mt-2 
-                                    transform origin-top-right transition-all duration-300 ease-in-out opacity-0 scale-95 invisible 
-                                    group-hover:opacity-100 group-hover:scale-100 group-hover:visible">
+                                <div className={`absolute -right-5 -mt-2 
+                                    transform origin-top-right transition-all duration-300 ease-in-out
+                                    ${isProfileOpen ? 'opacity-100 scale-100 visible' : 'opacity-0 scale-95 invisible group-hover:opacity-100 group-hover:scale-100 group-hover:visible'}`}
+                                    style={{ zIndex: 9999 }}
+                                >
                                     <div className="h-4">
                                     </div>
-                                    <div className="bg-white rounded-md shadow-lg z-10 border border-gray-200 ">
+                                    <div className="navbar-dropdown bg-white rounded-md shadow-lg border border-gray-200" style={{ zIndex: 9999, position: 'relative' }}>
                                         <div className="p-4 ">
                                             <div className="flex items-center">
                                                 <div className="w-12 h-12 rounded-full flex items-center justify-center">

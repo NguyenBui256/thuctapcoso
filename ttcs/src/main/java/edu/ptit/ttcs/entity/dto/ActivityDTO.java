@@ -13,6 +13,8 @@ public class ActivityDTO {
     private Long projectId;
     private String projectName;
     private Long issueId;
+    private Integer userStoryId;
+    private String userStoryName;
     private Long userId;
     private String username;
     private String userFullName;

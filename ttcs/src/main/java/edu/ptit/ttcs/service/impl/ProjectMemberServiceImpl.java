@@ -47,7 +47,7 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
                 // Check if already a member
-                if (projectMemberRepository.existsByProjectAndUserAndIsDeleteFalse(project, user)) {
+                if (projectMemberRepository.existsByProjectIdAndUserIdAndIsDeleteFalse(projectId, userId)) {
                         throw new IllegalArgumentException("User is already a member of this project");
                 }
 
@@ -116,9 +116,11 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-                ProjectMember projectMember = projectMemberRepository.findByProjectAndUser(project, user)
-                                .orElseThrow(() -> new IllegalArgumentException(
-                                                "User is not a member of this project"));
+                ProjectMember projectMember = projectMemberRepository
+                                .findByProjectIdAndUserIdAndIsDeleteFalse(projectId, userId);
+                if (projectMember == null) {
+                        throw new IllegalArgumentException("User is not a member of this project");
+                }
 
                 if (roleId != null) {
                         ProjectRole projectRole = projectRoleRepository.findById(roleId)
@@ -169,9 +171,11 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                         throw new IllegalArgumentException("Cannot remove the project owner");
                 }
 
-                ProjectMember projectMember = projectMemberRepository.findByProjectAndUser(project, user)
-                                .orElseThrow(() -> new IllegalArgumentException(
-                                                "User is not a member of this project"));
+                ProjectMember projectMember = projectMemberRepository
+                                .findByProjectIdAndUserIdAndIsDeleteFalse(projectId, userId);
+                if (projectMember == null) {
+                        throw new IllegalArgumentException("User is not a member of this project");
+                }
 
                 projectMember.setIsDelete(true);
                 projectMember.setUpdatedAt(LocalDateTime.now());
@@ -191,10 +195,12 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-                List<ProjectMember> memberships = projectMemberRepository.findByUser(user);
+                List<ProjectMember> memberships = projectMemberRepository.findByUserAndIsDeleteFalse(user);
                 return memberships.stream()
                                 .filter(m -> !m.getIsDelete())
-                                .filter(m -> m.getProject() != null && !m.getProject().getIsDeleted())
+                                .filter(m -> m.getProject() != null &&
+                                                (m.getProject().getIsDeleted() == null
+                                                                || !m.getProject().getIsDeleted()))
                                 .map(this::mapToDTO)
                                 .collect(Collectors.toList());
         }
@@ -207,9 +213,11 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-                ProjectMember projectMember = projectMemberRepository.findByProjectAndUser(project, user)
-                                .orElseThrow(() -> new IllegalArgumentException(
-                                                "User is not a member of this project"));
+                ProjectMember projectMember = projectMemberRepository
+                                .findByProjectIdAndUserIdAndIsDeleteFalse(projectId, userId);
+                if (projectMember == null) {
+                        throw new IllegalArgumentException("User is not a member of this project");
+                }
 
                 return mapToDTO(projectMember);
         }
@@ -228,9 +236,11 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-                ProjectMember projectMember = projectMemberRepository.findByProjectAndUser(project, user)
-                                .orElseThrow(() -> new IllegalArgumentException(
-                                                "User is not a member of this project"));
+                ProjectMember projectMember = projectMemberRepository
+                                .findByProjectIdAndUserIdAndIsDeleteFalse(projectId, userId);
+                if (projectMember == null) {
+                        throw new IllegalArgumentException("User is not a member of this project");
+                }
 
                 projectMember.setTotalPoint(projectMember.getTotalPoint() + points);
                 projectMember.setUpdatedAt(LocalDateTime.now());
@@ -245,11 +255,22 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                                 "Updated points for user " + user.getUsername() + " by " + points);
         }
 
+        @Override
+        public List<ProjectMemberDTO> getProjectMembersList(Long projectId) {
+                Project project = projectRepository.findById(projectId)
+                                .orElseThrow(() -> new IllegalArgumentException("Project not found"));
+
+                List<ProjectMember> members = projectMemberRepository.findByProjectAndIsDeleteFalse(project);
+                return members.stream()
+                                .map(this::mapToDTO)
+                                .collect(Collectors.toList());
+        }
+
         private ProjectMemberDTO mapToDTO(ProjectMember member) {
                 ProjectMemberDTO dto = new ProjectMemberDTO();
                 dto.setId(member.getId());
                 dto.setProjectId(member.getProject() != null ? member.getProject().getId() : null);
-                dto.setUserId(member.getUser() != null ? Long.valueOf(member.getUser().getId()) : null);
+                dto.setUserId(member.getUser() != null ? member.getUser().getId() : null);
                 dto.setUsername(member.getUser() != null ? member.getUser().getUsername() : null);
                 dto.setUserFullName(member.getUser() != null ? member.getUser().getFullName() : null);
                 dto.setProjectRoleId(member.getProjectRole() != null ? member.getProjectRole().getId() : null);
@@ -258,6 +279,11 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                 dto.setIsAdmin(member.getIsAdmin());
                 dto.setJoinedAt(member.getCreatedAt());
                 dto.setAvatar(member.getUser().getAvatar());
+
+                // Add the project name to make it easier to display in the UI
+                dto.setProjectName(member.getProject() != null ? member.getProject().getName() : null);
+                dto.setProjectDescription(member.getProject() != null ? member.getProject().getDescription() : null);
+
                 return dto;
         }
 }

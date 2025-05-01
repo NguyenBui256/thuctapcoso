@@ -20,6 +20,8 @@ public class ProjectMemberDTO {
     private Boolean isAdmin;
     private LocalDateTime joinedAt;
     private String avatar;
+    private String projectName;
+    private String projectDescription;
 
     public void validate() {
         if (projectId == null) {

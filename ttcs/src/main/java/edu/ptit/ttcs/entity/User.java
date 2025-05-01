@@ -33,8 +33,8 @@ public class User extends BaseEntity {
     @Column(name = "password", nullable = false, columnDefinition = "text")
     private String password;
 
-    @ManyToOne
-    @JoinColumn(name = "role_id")
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "role_id", foreignKey = @ForeignKey(name = "FK_users_role"))
     private Role role;
 
 }

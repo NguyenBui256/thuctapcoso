@@ -26,7 +26,7 @@ function sendApi(provider, code) {
       }
     }
     )
-    .catch(err => {
+    .catch(() => {
       alert("Something wrong, please try again!")
       window.location.assign('/login')
     })

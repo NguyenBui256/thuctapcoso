@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class JwtRedisService{
+public class JwtRedisService {
 
     private final RedisTemplate<String, String> redisTemplate;
 
@@ -19,11 +19,10 @@ public class JwtRedisService{
 
     public boolean isRefreshTokenValid(String username, String token) {
         String tokenId = jwtService.extractId(token);
-        try{
-            String curTokenId = (String)redisTemplate.opsForHash().get(username, REFRESH_TOKEN_ID_NAME);
+        try {
+            String curTokenId = (String) redisTemplate.opsForHash().get(username, REFRESH_TOKEN_ID_NAME);
             return tokenId.equals(curTokenId);
-        }
-        catch (Exception e){
+        } catch (Exception e) {
             log.info("Redis isn't working");
             return false;
         }
@@ -31,22 +30,19 @@ public class JwtRedisService{
 
     public void setNewRefreshToken(String username, String token) {
         String tokenId = jwtService.extractId(token);
-        try{
+        try {
             redisTemplate.opsForHash().put(username, REFRESH_TOKEN_ID_NAME, tokenId);
-        }
-        catch (Exception e){
+        } catch (Exception e) {
             log.info("Redis isn't working");
         }
     }
 
     public void deleteRefreshToken(String username) {
-        try{
+        try {
             redisTemplate.opsForHash().delete(username, REFRESH_TOKEN_ID_NAME);
-        }
-        catch (Exception e){
+        } catch (Exception e) {
             log.info("Redis isn't working");
         }
     }
-
 
 }

@@ -17,12 +17,15 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import edu.ptit.ttcs.dao.ProjectMemberRepository;
+
 @Component
 @RequiredArgsConstructor
 public class ProjectMapper {
 
     private final ModuleRepository moduleRepository;
     private final UserRepository userRepository;
+    private final ProjectMemberRepository projectMemberRepository;
 
     public Project toEntity(CreateProjectDTO dto) {
         Project project = new Project();
@@ -34,7 +37,8 @@ public class ProjectMapper {
         project.setUpdatedAt(LocalDateTime.now());
         User user = userRepository.findById(dto.getOwnerId())
                 .orElseThrow(() -> new RuntimeException("User not found."));
-        project.setCreatedBy(user);
+        project.setCreatedBy(projectMemberRepository.findById(dto.getOwnerId())
+                .orElseThrow(() -> new RuntimeException("Project member not found.")));
         project.setIsDeleted(false);
 
         // Map project type to module
@@ -86,7 +90,8 @@ public class ProjectMapper {
         dto.setLogoUrl(project.getLogoUrl());
         dto.setCreatedAt(project.getCreatedAt());
         dto.setUpdatedAt(project.getUpdatedAt());
-        dto.setOwnerUsername(project.getCreatedBy() != null ? project.getCreatedBy().getUsername() : "Unknown");
+        dto.setOwnerUsername(
+                project.getCreatedBy() != null ? project.getCreatedBy().getUser().getUsername() : "Unknown");
 
         // Set module ID from the first module (assuming one module per project)
         if (!project.getModules().isEmpty()) {

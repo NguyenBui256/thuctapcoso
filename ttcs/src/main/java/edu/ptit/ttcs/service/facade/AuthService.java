@@ -53,12 +53,13 @@ public class AuthService {
 
     public AuthResponse register(RegistrationDTO dto, boolean oauth) {
         if (!oauth) {
-            User existedUser = userService.getUserByLogin(dto.getUsername(), dto.getEmail());
+            // Check for existing username or email
+            if (userService.existByEmail(dto.getEmail())) {
+                throw new RequestException("Email đã tồn tại");
+            }
+            User existedUser = userService.getUserByLogin(dto.getUsername());
             if (existedUser != null) {
-                if (existedUser.getUsername().equals(dto.getUsername())) {
-                    throw new RequestException("Username đã tồn tại");
-                } else
-                    throw new RequestException("Email đã tồn tại");
+                throw new RequestException("Username đã tồn tại");
             }
         } else {
             List<User> prefUsers = userService.getAllUsersHasUsernameStartWith(dto.getUsername());
@@ -86,7 +87,20 @@ public class AuthService {
             user.setAvatar(dto.getAvatar());
         else
             user.setAvatar(userService.getRandomUserDefaultAvatar());
-        user = userService.saveUser(user);
+
+        // Set audit fields
+        user.setCreatedAt(LocalDateTime.now());
+        user.setUpdatedAt(LocalDateTime.now());
+
+        try {
+            user = userService.saveUser(user);
+        } catch (Exception e) {
+            if (e.getMessage() != null && e.getMessage().contains("Duplicate entry")) {
+                throw new RequestException("Username hoặc email đã tồn tại");
+            }
+            throw new RequestException("Có lỗi xảy ra khi đăng ký: " + e.getMessage());
+        }
+
         String refreshToken = jwtService.generateRefreshToken(user, new HashMap<>());
         jwtRedisService.setNewRefreshToken(user.getUsername(), refreshToken);
         return new AuthResponse(
