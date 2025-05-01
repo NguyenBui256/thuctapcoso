@@ -6,12 +6,10 @@ import edu.ptit.ttcs.entity.Permission;
 import edu.ptit.ttcs.entity.Project;
 import edu.ptit.ttcs.entity.ProjectRole;
 import edu.ptit.ttcs.entity.dto.ProjectRoleDTO;
-import edu.ptit.ttcs.entity.dto.ProjectRoleDTO;
 import edu.ptit.ttcs.service.ActivityService;
 import edu.ptit.ttcs.service.ProjectRoleService;
 import edu.ptit.ttcs.service.ProjectService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

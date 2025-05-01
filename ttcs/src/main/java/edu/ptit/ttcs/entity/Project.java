@@ -1,5 +1,6 @@
 package edu.ptit.ttcs.entity;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -37,6 +38,7 @@ public class Project extends BaseEntity {
     private Boolean isDeleted = false;
 
     @OneToMany(mappedBy = "project")
+    @JsonManagedReference("project-members")
     private Set<ProjectMember> projectMembers = new HashSet<>();
 
     @OneToMany(mappedBy = "project")

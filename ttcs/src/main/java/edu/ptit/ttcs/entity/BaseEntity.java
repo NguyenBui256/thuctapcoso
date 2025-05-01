@@ -1,5 +1,7 @@
 package edu.ptit.ttcs.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -26,10 +28,12 @@ public abstract class BaseEntity {
     @CreatedBy
     @ManyToOne
     @JoinColumn(name = "created_by", updatable = false)
-    private User createdBy;
+    @JsonIgnore
+    private ProjectMember createdBy;
 
     @LastModifiedBy
     @ManyToOne
     @JoinColumn(name = "updated_by")
-    private User updatedBy;
+    @JsonIgnore
+    private ProjectMember updatedBy;
 }

@@ -257,15 +257,7 @@ const KanbanBoardWrapper = () => {
             const newStatusId = parseInt(columnId);
             const newSwimlaneId = parseInt(swimlaneId);
 
-            // Add the position parameter for exact placement
-            const position = destination.index;
-
-            // Update the task status
-            await axios.put(`/api/tasks/${userStoryId}/status/${newStatusId}`, {
-                position: position
-            });
-
-            // Optimistically update the UI while preserving exact position
+            // Optimistically update the UI immediately for a smoother experience
             const updatedUserStories = [...userStories];
             const storyIndex = updatedUserStories.findIndex(story => story.id === userStoryId);
 
@@ -275,46 +267,66 @@ const KanbanBoardWrapper = () => {
                 movedStory.statusId = newStatusId;
                 movedStory.swimlaneId = newSwimlaneId;
 
+                // Insert at destination index
+                const insertIndex = destination.index;
+
+                // Find all stories that are already in the destination
                 const storiesInDestination = updatedUserStories.filter(
                     story => story.statusId === newStatusId && story.swimlaneId === newSwimlaneId
                 );
 
-                if (position === 0) {
-                    const insertAt = updatedUserStories.findIndex(
+                // Decide where to insert the story
+                if (storiesInDestination.length === 0) {
+                    // If no stories in destination, just add it
+                    updatedUserStories.push(movedStory);
+                } else if (insertIndex === 0) {
+                    // If inserting at the beginning of destination column
+                    const firstDestinationStoryIndex = updatedUserStories.findIndex(
                         story => story.statusId === newStatusId && story.swimlaneId === newSwimlaneId
                     );
-                    if (insertAt === -1) {
-                        updatedUserStories.push(movedStory);
-                    } else {
-                        updatedUserStories.splice(insertAt, 0, movedStory);
-                    }
-                } else if (position >= storiesInDestination.length) {
-                    const lastStoryIndex = updatedUserStories.findIndex(
-                        story => story.statusId === newStatusId &&
-                            story.swimlaneId === newSwimlaneId &&
-                            storiesInDestination[storiesInDestination.length - 1]?.id === story.id
+                    updatedUserStories.splice(firstDestinationStoryIndex, 0, movedStory);
+                } else if (insertIndex >= storiesInDestination.length) {
+                    // If inserting at the end of destination column
+                    const lastDestinationStoryIndex = updatedUserStories.findIndex(
+                        story => story.id === storiesInDestination[storiesInDestination.length - 1].id
                     );
-                    if (lastStoryIndex === -1) {
-                        updatedUserStories.push(movedStory);
-                    } else {
-                        updatedUserStories.splice(lastStoryIndex + 1, 0, movedStory);
-                    }
+                    updatedUserStories.splice(lastDestinationStoryIndex + 1, 0, movedStory);
                 } else {
-                    const insertAt = updatedUserStories.findIndex(
-                        story => story.id === storiesInDestination[position].id
+                    // If inserting in the middle of destination column
+                    const targetStoryIndex = updatedUserStories.findIndex(
+                        story => story.id === storiesInDestination[insertIndex].id
                     );
-                    updatedUserStories.splice(insertAt, 0, movedStory);
+                    updatedUserStories.splice(targetStoryIndex, 0, movedStory);
                 }
 
+                // Update UI immediately
                 setUserStories(updatedUserStories);
-                // Filters will be reapplied automatically via the useEffect
+                // Also update filtered user stories to maintain consistency
+                setFilteredUserStories(prev => {
+                    const filteredIndex = prev.findIndex(story => story.id === userStoryId);
+                    if (filteredIndex === -1) return prev;
+
+                    const newFilteredStories = [...prev];
+                    newFilteredStories[filteredIndex] = {
+                        ...newFilteredStories[filteredIndex],
+                        statusId: newStatusId,
+                        swimlaneId: newSwimlaneId
+                    };
+                    return newFilteredStories;
+                });
             }
 
-            // Refresh activities for the moved story
-            await fetchActivities(userStoryId);
+            // Then send the API request asynchronously
+            await axios.put(`/api/kanban/board/userstory/${userStoryId}/status/${newStatusId}`, {
+                statusId: newStatusId,
+                order: destination.index
+            });
+
+            // Refresh activities for the moved story without waiting
+            fetchActivities(userStoryId);
         } catch (error) {
-            console.error('Error updating task status:', error);
-            // Revert the UI state if the API call fails
+            console.error('Error updating user story status:', error);
+            // Revert only if the API call fails
             setRefreshTrigger(prev => prev + 1);
         }
     };

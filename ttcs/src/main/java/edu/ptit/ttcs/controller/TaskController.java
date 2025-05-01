@@ -131,19 +131,19 @@ public class TaskController {
      * @param userId User ID
      * @return List of tasks
      */
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<List<TaskDTO>> getTasksByUser(@PathVariable Integer userId) {
-        Optional<User> userOptional = userRepository.findById(userId.longValue());
-        if (!userOptional.isPresent()) {
-            return ResponseEntity.notFound().build();
-        }
-
-        List<Task> tasks = taskRepository.findByUser(userOptional.get());
-        List<TaskDTO> taskDTOs = tasks.stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(taskDTOs);
-    }
+//    @GetMapping("/user/{userId}")
+//    public ResponseEntity<List<TaskDTO>> getTasksByUser(@PathVariable Integer userId) {
+//        Optional<User> userOptional = userRepository.findById(userId.longValue());
+//        if (!userOptional.isPresent()) {
+//            return ResponseEntity.notFound().build();
+//        }
+//
+////        List<Task> tasks = taskRepository.findByUser(userOptional.get());
+//        List<TaskDTO> taskDTOs = tasks.stream()
+//                .map(this::convertToDTO)
+//                .collect(Collectors.toList());
+//        return ResponseEntity.ok(taskDTOs);
+//    }
 
     /**
      * Create new task
@@ -1046,12 +1046,6 @@ public class TaskController {
             dto.setUserStoryName(task.getUserStory().getName());
         }
 
-        // Set assignee info if available
-        if (task.getUser() != null) {
-            dto.setAssignedTo(task.getUser().getId().intValue());
-            dto.setAssignedToName(task.getUser().getFullName());
-        }
-
         // Set assignees info if available
         if (task.getAssignees() != null && !task.getAssignees().isEmpty()) {
             List<TaskDTO.UserDTO> assigneeDTOs = task.getAssignees().stream()
@@ -1145,17 +1139,6 @@ public class TaskController {
             ProjectSettingStatus status = new ProjectSettingStatus();
             status.setId(taskRequestDTO.getStatusId());
             task.setStatus(status);
-        }
-
-        // Set user (assignee) - Giữ lại để tương thích ngược
-        if (taskRequestDTO.getUserId() != null) {
-            Optional<User> userOptional = userRepository.findById(taskRequestDTO.getUserId().longValue());
-            if (!userOptional.isPresent()) {
-                throw new Exception("Assigned user not found");
-            }
-            task.setUser(userOptional.get());
-        } else {
-            task.setUser(null);
         }
 
         // Set user story first, as it's needed for project reference

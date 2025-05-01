@@ -1,5 +1,6 @@
 package edu.ptit.ttcs.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -25,5 +26,6 @@ public class ProjectSettingTag {
     private Project project;
 
     @ManyToMany(mappedBy = "tags")
+    @JsonIgnore
     private List<Issue> issues = new ArrayList<>();
 }

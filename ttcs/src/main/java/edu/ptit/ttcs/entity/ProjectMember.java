@@ -1,5 +1,6 @@
 package edu.ptit.ttcs.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -16,6 +17,7 @@ public class ProjectMember extends BaseEntity {
 
     @ManyToOne
     @JoinColumn(name = "project_id")
+    @JsonBackReference("project-members")
     private Project project;
 
     @ManyToOne
@@ -24,6 +26,7 @@ public class ProjectMember extends BaseEntity {
 
     @ManyToOne
     @JoinColumn(name = "project_role_id")
+    @JsonBackReference("role-members")
     private ProjectRole projectRole;
 
     @Column(name = "total_point")

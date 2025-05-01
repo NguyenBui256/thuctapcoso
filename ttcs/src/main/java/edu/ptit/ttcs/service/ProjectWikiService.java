@@ -18,6 +18,7 @@ import edu.ptit.ttcs.entity.dto.ProjectWikiPageDTO;
 import edu.ptit.ttcs.entity.dto.ProjectWikiPageRequestDTO;
 import edu.ptit.ttcs.dao.ProjectRepository;
 import edu.ptit.ttcs.dao.UserRepository;
+import edu.ptit.ttcs.entity.ProjectMember;
 
 @Service
 @RequiredArgsConstructor
@@ -60,12 +61,19 @@ public class ProjectWikiService {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
+                // Find ProjectMember for this user and project
+                ProjectMember projectMember = projectMemberRepository.findByProjectIdAndUserIdAndIsDeleteFalse(
+                                project.getId(), user.getId());
+                if (projectMember == null) {
+                        throw new IllegalArgumentException("User is not a member of this project");
+                }
+
                 ProjectWikiPage wikiPage = new ProjectWikiPage();
                 wikiPage.setProject(project);
                 wikiPage.setTitle(request.getTitle());
                 wikiPage.setContent(request.getContent());
-                wikiPage.setCreatedBy(user);
-                wikiPage.setUpdatedBy(user);
+                wikiPage.setCreatedBy(projectMember);
+                wikiPage.setUpdatedBy(projectMember);
                 wikiPage.setCreatedAt(LocalDateTime.now());
                 wikiPage.setUpdatedAt(LocalDateTime.now());
                 wikiPage.setIsDelete(false);
@@ -88,9 +96,16 @@ public class ProjectWikiService {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
+                // Find ProjectMember for this user and project
+                ProjectMember projectMember = projectMemberRepository.findByProjectIdAndUserIdAndIsDeleteFalse(
+                                projectId, user.getId());
+                if (projectMember == null) {
+                        throw new IllegalArgumentException("User is not a member of this project");
+                }
+
                 wikiPage.setTitle(request.getTitle());
                 wikiPage.setContent(request.getContent());
-                wikiPage.setUpdatedBy(user);
+                wikiPage.setUpdatedBy(projectMember);
                 wikiPage.setUpdatedAt(LocalDateTime.now());
                 wikiPage.setEditCount(wikiPage.getEditCount() + 1);
 

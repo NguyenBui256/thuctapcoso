@@ -16,8 +16,8 @@ public class Task {
     private Integer id;
 
     @ManyToOne
-    @JoinColumn(name = "user_id")
-    private User user;
+    @JoinColumn(name = "assigned_member_id")
+    private ProjectMember assigned;
 
     @ManyToOne
     @JoinColumn(name = "project_id")
@@ -30,6 +30,10 @@ public class Task {
     @ManyToOne
     @JoinColumn(name = "user_story_id")
     private UserStory userStory;
+
+    @ManyToOne
+    @JoinColumn(name = "sprint_id")
+    private Sprint sprint;
 
     @Column(nullable = false)
     private String name;
@@ -64,63 +68,4 @@ public class Task {
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL)
     private List<TaskAttachment> taskAttachments = new ArrayList<>();
 
-    public Integer getId() {
-        return id;
-    }
-
-    public void setId(Integer id) {
-        this.id = id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public ProjectSettingStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(ProjectSettingStatus status) {
-        this.status = status;
-    }
-
-    public LocalDate getDueDate() {
-        return dueDate;
-    }
-
-    public void setDueDate(LocalDate dueDate) {
-        this.dueDate = dueDate;
-    }
-
-    public Boolean getIsBlocked() {
-        return isBlocked;
-    }
-
-    public void setIsBlocked(Boolean isBlocked) {
-        this.isBlocked = isBlocked;
-    }
-
-    public Integer getPoints() {
-        return points;
-    }
-
-    public void setPoints(Integer points) {
-        this.points = points;
-    }
-
-    public User getUser() {
-        return user;
-    }
-
-    public Project getProject() {
-        return project;
-    }
-
-    public void setProject(Project project) {
-        this.project = project;
-    }
 }
