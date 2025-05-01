@@ -129,7 +129,7 @@ public class ProjectService {
         for (ProjectRoleName roleName : ProjectRoleName.values()) {
             ProjectRole projectRole = new ProjectRole();
             projectRole.setProject(project);
-            projectRole.setName(roleName.name());
+            projectRole.setRoleName(roleName.name());
             projectRole.setCreatedBy(creatorMember);
             projectRole.setUpdatedBy(creatorMember);
             projectRole.setCreatedAt(LocalDateTime.now());
@@ -138,7 +138,7 @@ public class ProjectService {
             if (roleName == ProjectRoleName.PROJECT_MANAGER) {
                 toSetForAdminProjectRole = projectRole;
             }
-            log.info("ProjectRole {} - ID: {}", projectRole.getName(), projectRole.getId());
+            log.info("ProjectRole {} - ID: {}", projectRole.getRoleName(), projectRole.getId());
         }
 
         // Update the created project member with role
@@ -191,7 +191,7 @@ public class ProjectService {
             for (ProjectRoleName roleName : ProjectRoleName.values()) {
                 ProjectRole projectRole = new ProjectRole();
                 projectRole.setProject(project);
-                projectRole.setName(roleName.name());
+                projectRole.setRoleName(roleName.name());
                 projectRole.setCreatedBy(creatorMember);
                 projectRole.setUpdatedBy(creatorMember);
                 projectRole.setCreatedAt(LocalDateTime.now());

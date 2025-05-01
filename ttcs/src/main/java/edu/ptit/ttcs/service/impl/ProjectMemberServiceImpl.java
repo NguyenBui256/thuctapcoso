@@ -274,7 +274,7 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                 dto.setUsername(member.getUser() != null ? member.getUser().getUsername() : null);
                 dto.setUserFullName(member.getUser() != null ? member.getUser().getFullName() : null);
                 dto.setProjectRoleId(member.getProjectRole() != null ? member.getProjectRole().getId() : null);
-                dto.setRoleName(member.getProjectRole() != null ? member.getProjectRole().getName() : null);
+                dto.setRoleName(member.getProjectRole() != null ? member.getProjectRole().getRoleName() : null);
                 dto.setTotalPoint(member.getTotalPoint());
                 dto.setIsAdmin(member.getIsAdmin());
                 dto.setJoinedAt(member.getCreatedAt());

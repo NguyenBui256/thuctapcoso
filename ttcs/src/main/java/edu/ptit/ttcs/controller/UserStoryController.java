@@ -601,7 +601,7 @@ public class UserStoryController {
             dto.setCreatedAt(story.getCreatedAt());
             dto.setCreatedByFullName(story.getCreatedBy().getUser().getFullName());
             dto.setCreatedByUsername(story.getCreatedBy().getUser().getUsername());
-            dto.setAssignedUserId(story.getAssignedTo() != null ? story.getAssignedTo().getId() : null);
+//            dto.setAssignedUserId(story.getAssignedTo() != null ? story.getAssignedTo().getId() : null);
 
             // Set blocked state directly
             dto.setIsBlocked(story.getIsBlock());
@@ -1103,9 +1103,9 @@ public class UserStoryController {
                 responseDTO.setCreatedByFullName(savedUserStory.getCreatedBy().getUser().getFullName());
                 responseDTO.setCreatedByUsername(savedUserStory.getCreatedBy().getUser().getUsername());
             }
-            if (savedUserStory.getAssignedTo() != null) {
-                responseDTO.setAssignedUserId(savedUserStory.getAssignedTo().getId());
-            }
+//            if (savedUserStory.getAssignedTo() != null) {
+//                responseDTO.setAssignedUserId(savedUserStory.getAssignedTo().getId());
+//            }
 
             return ResponseEntity.ok(responseDTO);
         } catch (Exception e) {

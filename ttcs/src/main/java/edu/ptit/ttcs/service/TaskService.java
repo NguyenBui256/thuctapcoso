@@ -12,7 +12,6 @@ import edu.ptit.ttcs.util.ModelMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.ModelAttribute;
 
 import java.util.Collection;
 import java.util.List;
@@ -120,7 +119,7 @@ public class TaskService {
         dto.setUsername(member.getUser() != null ? member.getUser().getUsername() : null);
         dto.setUserFullName(member.getUser() != null ? member.getUser().getFullName() : null);
         dto.setProjectRoleId(member.getProjectRole() != null ? member.getProjectRole().getId() : null);
-        dto.setRoleName(member.getProjectRole() != null ? member.getProjectRole().getName() : null);
+        dto.setRoleName(member.getProjectRole() != null ? member.getProjectRole().getRoleName() : null);
         dto.setTotalPoint(member.getTotalPoint());
         dto.setIsAdmin(member.getIsAdmin());
         dto.setJoinedAt(member.getCreatedAt());
