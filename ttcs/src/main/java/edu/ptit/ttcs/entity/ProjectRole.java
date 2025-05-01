@@ -25,7 +25,7 @@ public class ProjectRole extends BaseEntity {
     private Project project;
 
     @Column(name = "role_name")
-    private String name;
+    private String roleName;
 
     @OneToMany(mappedBy = "projectRole")
     @JsonManagedReference("role-members")

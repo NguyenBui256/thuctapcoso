@@ -42,7 +42,7 @@ public class ProjectRoleServiceImpl implements ProjectRoleService {
 
                 ProjectRole projectRole = new ProjectRole();
                 projectRole.setProject(project);
-                projectRole.setName(roleName);
+                projectRole.setRoleName(roleName);
                 projectRole.setCreatedAt(LocalDateTime.now());
                 projectRole.setUpdatedAt(LocalDateTime.now());
 
@@ -112,7 +112,7 @@ public class ProjectRoleServiceImpl implements ProjectRoleService {
                         throw new IllegalArgumentException("You don't have permission to update project roles");
                 }
 
-                role.setName(roleName);
+                role.setRoleName(roleName);
                 role.setUpdatedAt(LocalDateTime.now());
 
                 // Update permissions if provided
@@ -165,7 +165,7 @@ public class ProjectRoleServiceImpl implements ProjectRoleService {
                                 null,
                                 requestUserId,
                                 "DELETE_ROLE",
-                                "Deleted role: " + role.getName());
+                                "Deleted role: " + role.getRoleName());
         }
 
         private ProjectRoleDTO mapToDTO(ProjectRole role) {
@@ -176,7 +176,7 @@ public class ProjectRoleServiceImpl implements ProjectRoleService {
                 ProjectRoleDTO dto = new ProjectRoleDTO();
                 dto.setId(role.getId());
                 dto.setProjectId(role.getProject() != null ? role.getProject().getId() : null);
-                dto.setRoleName(role.getName());
+                dto.setRoleName(role.getRoleName());
                 dto.setPermissionIds(permissionIds);
                 return dto;
         }

@@ -13,4 +13,5 @@ import java.util.List;
 public interface TaskRepository extends JpaRepository<Task, Integer>, JpaSpecificationExecutor<Task> {
 
 
+    List<Task> findByUserStory(UserStory userStory);
 }

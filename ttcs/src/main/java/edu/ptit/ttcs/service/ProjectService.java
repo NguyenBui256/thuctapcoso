@@ -119,78 +119,105 @@ public class ProjectService {
 
         ProjectRole toSetForAdminProjectRole = null;
 
+        // Create first project member for creator
+        ProjectMember creatorMember = new ProjectMember();
+        creatorMember.setProject(project);
+        creatorMember.setUser(creator);
+        creatorMember.setIsAdmin(true);
+        creatorMember.setCreatedAt(LocalDateTime.now());
+        creatorMember.setUpdatedAt(LocalDateTime.now());
+        creatorMember = projectMemberRepository.save(creatorMember);
+
         for (ProjectRoleName roleName : ProjectRoleName.values()) {
             ProjectRole projectRole = new ProjectRole();
             projectRole.setProject(project);
-            projectRole.setName(roleName.name());
-            projectRole.setCreatedBy(creator);
-            projectRole.setUpdatedBy(creator);
+            projectRole.setRoleName(roleName.name());
+            projectRole.setCreatedBy(creatorMember);
+            projectRole.setUpdatedBy(creatorMember);
             projectRole.setCreatedAt(LocalDateTime.now());
             projectRole.setUpdatedAt(LocalDateTime.now());
             projectRoleRepository.save(projectRole);
             if (roleName == ProjectRoleName.PROJECT_MANAGER) {
                 toSetForAdminProjectRole = projectRole;
             }
-            log.info("ProjectRole {} - ID: {}", projectRole.getName(), projectRole.getId());
+            log.info("ProjectRole {} - ID: {}", projectRole.getRoleName(), projectRole.getId());
         }
 
-        ProjectMember projectMember = new ProjectMember();
-        projectMember.setProject(project);
-        projectMember.setUser(creator);
-        projectMember.setIsAdmin(true);
-        projectMember.setCreatedBy(creator);
-        projectMember.setUpdatedBy(creator);
-        projectMember.setCreatedAt(LocalDateTime.now());
-        projectMember.setUpdatedAt(LocalDateTime.now());
-        projectMember.setProjectRole(toSetForAdminProjectRole);
-        projectMemberRepository.save(projectMember);
-        log.info("ProjectMember ID: {}", projectMember.getId());
+        // Update the created project member with role
+        creatorMember.setProjectRole(toSetForAdminProjectRole);
+        creatorMember.setCreatedBy(creatorMember);
+        creatorMember.setUpdatedBy(creatorMember);
+        creatorMember.setCreatedAt(LocalDateTime.now());
+        creatorMember.setUpdatedAt(LocalDateTime.now());
+        projectMemberRepository.save(creatorMember);
+        log.info("ProjectMember ID: {}", creatorMember.getId());
 
         return project;
     }
 
+    @Transactional
     public Project createProject(CreateProjectDTO createProjectDTO, Long currentUserId) {
-        // Get user from repository
-        User creator = userRepository.findById(currentUserId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        try {
+            // Get user from repository
+            User creator = userRepository.findById(currentUserId)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
 
-        Project project = new Project();
-        project.setName(createProjectDTO.getName());
-        project.setDescription(createProjectDTO.getDescription());
-        project.setCreatedBy(creator);
-        project.setCreatedAt(LocalDateTime.now());
-        project.setIsDeleted(false);
-        project = projectRepository.save(project);
+            log.info("Creating project for user ID: {}", currentUserId);
 
-        // Create default project roles
-        ProjectRole managerRole = null;
-        for (ProjectRoleName roleName : ProjectRoleName.values()) {
-            ProjectRole projectRole = new ProjectRole();
-            projectRole.setProject(project);
-            projectRole.setName(roleName.name());
-            projectRole.setCreatedBy(creator);
-            projectRole.setUpdatedBy(creator);
-            projectRole.setCreatedAt(LocalDateTime.now());
-            projectRole.setUpdatedAt(LocalDateTime.now());
-            projectRole = projectRoleRepository.save(projectRole);
-            if (roleName == ProjectRoleName.PROJECT_MANAGER) {
-                managerRole = projectRole;
+            Project project = new Project();
+            project.setName(createProjectDTO.getName());
+            project.setDescription(createProjectDTO.getDescription());
+            project.setIsPublic(createProjectDTO.getIsPublic());
+            project.setLogoUrl(createProjectDTO.getLogoUrl());
+            // Can't set createdBy until we have a ProjectMember
+            project.setCreatedAt(LocalDateTime.now());
+            project.setIsDeleted(false);
+            project = projectRepository.save(project);
+            log.info("Project created with ID: {}", project.getId());
+
+            // Create default project roles and first member
+            ProjectRole managerRole = null;
+
+            // Create project member first
+            ProjectMember creatorMember = new ProjectMember();
+            creatorMember.setProject(project);
+            creatorMember.setUser(creator);
+            creatorMember.setIsAdmin(true);
+            creatorMember.setCreatedAt(LocalDateTime.now());
+            creatorMember.setUpdatedAt(LocalDateTime.now());
+            creatorMember = projectMemberRepository.save(creatorMember);
+            log.info("Project member created with ID: {}", creatorMember.getId());
+
+            // Now we can set the project's createdBy
+            project.setCreatedBy(creatorMember);
+            project = projectRepository.save(project);
+
+            for (ProjectRoleName roleName : ProjectRoleName.values()) {
+                ProjectRole projectRole = new ProjectRole();
+                projectRole.setProject(project);
+                projectRole.setRoleName(roleName.name());
+                projectRole.setCreatedBy(creatorMember);
+                projectRole.setUpdatedBy(creatorMember);
+                projectRole.setCreatedAt(LocalDateTime.now());
+                projectRole.setUpdatedAt(LocalDateTime.now());
+                projectRole = projectRoleRepository.save(projectRole);
+                if (roleName == ProjectRoleName.PROJECT_MANAGER) {
+                    managerRole = projectRole;
+                }
             }
+
+            // Update member with role and creator info
+            creatorMember.setProjectRole(managerRole);
+            creatorMember.setCreatedBy(creatorMember);
+            creatorMember.setUpdatedBy(creatorMember);
+            projectMemberRepository.save(creatorMember);
+            log.info("Successfully set roles and updated project member");
+
+            return project;
+        } catch (Exception e) {
+            log.error("Error creating project: {}", e.getMessage(), e);
+            throw e;
         }
-
-        // Add creator as project member with PROJECT_MANAGER role
-        ProjectMember projectMember = new ProjectMember();
-        projectMember.setProject(project);
-        projectMember.setUser(creator);
-        projectMember.setIsAdmin(true);
-        projectMember.setCreatedBy(creator);
-        projectMember.setUpdatedBy(creator);
-        projectMember.setCreatedAt(LocalDateTime.now());
-        projectMember.setUpdatedAt(LocalDateTime.now());
-        projectMember.setProjectRole(managerRole);
-        projectMemberRepository.save(projectMember);
-
-        return project;
     }
 
     @Transactional
@@ -198,17 +225,32 @@ public class ProjectService {
         Project sourceProject = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Project not found"));
 
+        User currentUser = securityUtils.getCurrentUser();
+
         Project newProject = new Project();
         newProject.setName(projectDTO.getName());
         newProject.setDescription(projectDTO.getDescription());
         newProject.setIsPublic(projectDTO.getIsPublic());
         newProject.setLogoUrl(sourceProject.getLogoUrl());
-        newProject.setCreatedBy(securityUtils.getCurrentUser());
         newProject.setModules(new HashSet<>(sourceProject.getModules()));
         newProject.setCreatedAt(LocalDateTime.now());
         newProject.setUpdatedAt(LocalDateTime.now());
         newProject.setIsDeleted(false);
 
+        // Save without createdBy first
+        newProject = projectRepository.save(newProject);
+
+        // Create a ProjectMember for the current user
+        ProjectMember creatorMember = new ProjectMember();
+        creatorMember.setProject(newProject);
+        creatorMember.setUser(currentUser);
+        creatorMember.setIsAdmin(true);
+        creatorMember.setCreatedAt(LocalDateTime.now());
+        creatorMember.setUpdatedAt(LocalDateTime.now());
+        creatorMember = projectMemberRepository.save(creatorMember);
+
+        // Now set the createdBy and update
+        newProject.setCreatedBy(creatorMember);
         return projectRepository.save(newProject);
     }
 
