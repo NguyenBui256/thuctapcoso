@@ -7,10 +7,12 @@ import lombok.Setter;
 @Setter
 public class PjMemberDTO {
 
-    private int id;
+    private long id;
 
     private String fullName;
 
     private String avatar;
+
+    private long userId;
 
 }

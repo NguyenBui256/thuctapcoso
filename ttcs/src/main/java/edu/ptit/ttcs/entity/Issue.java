@@ -3,6 +3,7 @@ package edu.ptit.ttcs.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +21,8 @@ public class Issue {
 
     @Column(columnDefinition = "TEXT")
     private String description;
+
+    private LocalDate dueDate;
 
     @ManyToOne
     @JoinColumn(name = "status_id")

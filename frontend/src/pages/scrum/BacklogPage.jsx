@@ -37,7 +37,7 @@ export default function BacklogPage() {
     const changeFilters = (data) => {
         setFilters({
             statuses: data.statuses,
-            assigns: data.assignedTo,
+            assigns: data.assigns,
             roles: data.roles,
             createdBy: data.createdBy
         })

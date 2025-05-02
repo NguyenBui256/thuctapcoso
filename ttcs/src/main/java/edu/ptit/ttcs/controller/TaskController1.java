@@ -7,6 +7,7 @@ import edu.ptit.ttcs.dao.UserStoryRepository;
 import edu.ptit.ttcs.dao.ProjectMemberRepository;
 import edu.ptit.ttcs.dao.CommentRepository;
 import edu.ptit.ttcs.entity.dto.TaskDTO;
+import edu.ptit.ttcs.entity.dto.request.FilterParams;
 import edu.ptit.ttcs.entity.dto.request.TaskRequestDTO;
 import edu.ptit.ttcs.entity.ProjectSettingTag;
 import edu.ptit.ttcs.entity.Task;
@@ -17,7 +18,10 @@ import edu.ptit.ttcs.entity.ProjectSettingStatus;
 import edu.ptit.ttcs.entity.Comment;
 import edu.ptit.ttcs.entity.dto.CommentDTO;
 import edu.ptit.ttcs.entity.dto.ActivityDTO;
+import edu.ptit.ttcs.entity.dto.response.FilterData;
 import edu.ptit.ttcs.service.ActivityService;
+import edu.ptit.ttcs.service.TaskService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -38,26 +42,36 @@ import java.time.LocalDateTime;
 @RequestMapping("/api/v1/task")
 public class TaskController1 {
 
-    @Autowired
-    private TaskRepository taskRepository;
+    private final TaskService taskService;
 
-    @Autowired
-    private UserRepository userRepository;
+    private final TaskRepository taskRepository;
 
-    @Autowired
-    private UserStoryRepository userStoryRepository;
+    private final UserRepository userRepository;
 
-    @Autowired
-    private ProjectSettingTagRepository tagRepository;
+    private final UserStoryRepository userStoryRepository;
 
-    @Autowired
-    private ProjectMemberRepository projectMemberRepository;
+    private final ProjectSettingTagRepository tagRepository;
 
-    @Autowired
-    private CommentRepository commentRepository;
+    private final ProjectMemberRepository projectMemberRepository;
 
-    @Autowired
-    private ActivityService activityService;
+    private final CommentRepository commentRepository;
+
+    private final ActivityService activityService;
+
+    @GetMapping("/get_by_sprint")
+    public ResponseEntity<List<edu.ptit.ttcs.entity.dto.response.TaskDTO>> getBySprint(@RequestParam long projectId,
+                                                                                       @RequestParam long sprintId,
+                                                                                       @ModelAttribute FilterParams filterParams) {
+        return ResponseEntity.ok(taskService.getBySprint(projectId, sprintId,
+                filterParams));
+    }
+
+    @GetMapping("/get-filters")
+    public ResponseEntity<FilterData> getFilters(@RequestParam long projectId,
+                                                 @ModelAttribute FilterParams filterParams){
+        return ResponseEntity.ok(taskService.getFilterData(projectId,
+                filterParams));
+    }
 
     private Long getUserIdFromHeader() {
         try {
@@ -1037,7 +1051,6 @@ public class TaskController1 {
             dto.setStatusId(task.getStatus().getId().intValue());
             dto.setStatusName(task.getStatus().getName());
         }
-
         // Set user story info if available
         if (task.getUserStory() != null) {
             dto.setUserStoryId(task.getUserStory().getId());
