@@ -21,27 +21,9 @@ public class TaskController1 {
     @GetMapping("/get_by_sprint")
     public ResponseEntity<List<TaskDTO>> getBySprint(@RequestParam long projectId,
                                                      @RequestParam long sprintId,
-                                                     @RequestParam(required = false) String keyword,
-                                                     @RequestParam(required = false) List<Long> statuses,
-                                                     @RequestParam(required = false) List<Long> assigns,
-                                                     @RequestParam(required = false) List<Long> createdBy,
-                                                     @RequestParam(required = false) List<Long> roles,
-                                                     @RequestParam(required = false) List<Long> excludeStatuses,
-                                                     @RequestParam(required = false) List<Long> excludeAssigns,
-                                                     @RequestParam(required = false) List<Long> excludeCreatedBy,
-                                                     @RequestParam(required = false) List<Long> excludeRoles) {
+                                                     @ModelAttribute FilterParams filterParams) {
         return ResponseEntity.ok(taskService.getBySprint(projectId, sprintId,
-                FilterParams.builder()
-                        .keyword(keyword)
-                        .statuses(statuses)
-                        .assigns(assigns)
-                        .createdBy(createdBy)
-                        .roles(roles)
-                        .excludeStatuses(excludeStatuses)
-                        .excludeAssigns(excludeAssigns)
-                        .excludeCreatedBy(excludeCreatedBy)
-                        .excludeRoles(excludeRoles)
-                        .build()));
+                filterParams));
     }
 
     @PostMapping("/update_status/{taskId}")
@@ -56,25 +38,9 @@ public class TaskController1 {
 
     @GetMapping("/get-filters")
     public ResponseEntity<FilterData> getFilters(@RequestParam long projectId,
-                                                 @RequestParam(required = false) List<Long> statuses,
-                                                 @RequestParam(required = false) List<Long> assigns,
-                                                 @RequestParam(required = false) List<Long> createdBy,
-                                                 @RequestParam(required = false) List<Long> roles,
-                                                 @RequestParam(required = false) List<Long> excludeStatuses,
-                                                 @RequestParam(required = false) List<Long> excludeAssigns,
-                                                 @RequestParam(required = false) List<Long> excludeCreatedBy,
-                                                 @RequestParam(required = false) List<Long> excludeRoles){
+                                                 @ModelAttribute FilterParams filterParams){
         return ResponseEntity.ok(taskService.getFilterData(projectId,
-                FilterParams.builder()
-                        .statuses(statuses)
-                        .assigns(assigns)
-                        .roles(roles)
-                        .createdBy(createdBy)
-                        .excludeAssigns(excludeAssigns)
-                        .excludeCreatedBy(excludeCreatedBy)
-                        .excludeRoles(excludeRoles)
-                        .excludeStatuses(excludeStatuses)
-                        .build()));
+                filterParams));
     }
 
 

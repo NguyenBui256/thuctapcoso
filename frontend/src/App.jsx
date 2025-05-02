@@ -50,7 +50,7 @@ function App() {
           <Route path="wiki" element={<WikiPage />} />
           <Route path="backlog" element={<BacklogPage/>}/>
           <Route path="sprint/:sprintId" element={<SprintPage/>}/>
-          <Route path='issues' elements={<IssuePage/>}/>
+          <Route path='issues' element={<IssuePage/>}/>
         </Route>
         <Route path="/account/settings" element={<AccountSettings />} />
       </Route>
