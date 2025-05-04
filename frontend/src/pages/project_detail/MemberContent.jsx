@@ -17,6 +17,9 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
   const [leavingProject, setLeavingProject] = useState(false);
   const navigate = useNavigate();
 
+  const [leavingProject, setLeavingProject] = useState(false);
+  const navigate = useNavigate();
+
   // Check if current user is a project manager (has admin rights)
   const isProjectManager = currentUser?.isAdmin || false;
   

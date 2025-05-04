@@ -14,6 +14,7 @@ const WikiPage = lazy(() => import('./pages/Wiki/WikiPage'));
 const TeamPage = lazy(() => import('./pages/project_detail/TeamPage'));
 const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage'));
 const TeamPage = lazy(() => import('./pages/project_detail/TeamPage'));
+const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage'));
 const MainLayout = lazy(() => import ('./pages/MainLayout.jsx'))
 const BacklogPage = lazy(() => import('./pages/scrum/BacklogPage'));
 const SprintPage = lazy(() => import ('./pages/scrum/SprintPage.jsx'))
@@ -71,6 +72,7 @@ function App() {
           <Route path='issue/:issueId' element={<IssueDetail/>}/>
           <Route path="settings" element={<SettingsPage />} />
           <Route path="team" element={<TeamPage />} />
+          <Route path="settings" element={<SettingsPage />} />
         </Route>
         <Route path="/account/settings" element={<AccountSettings />} />
       </Route>

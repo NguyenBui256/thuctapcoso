@@ -159,6 +159,11 @@ public class ProjectService {
         projectMemberRepository.save(creatorMember);
         log.info("ProjectMember ID: {}", creatorMember.getId());
 
+        for(ProjectRole projectRole : projectRoleList) {
+            projectRole.setCreatedBy(projectMember);
+            projectRole.setUpdatedBy(projectMember);
+            projectRoleRepository.save(projectRole);
+        }
         return project;
     }
 
@@ -245,7 +250,7 @@ public class ProjectService {
         newProject.setDescription(projectDTO.getDescription());
         newProject.setIsPublic(projectDTO.getIsPublic());
         newProject.setLogoUrl(sourceProject.getLogoUrl());
-        newProject.setCreatedBy(creator);
+        newProject.setCreatedBy(securityUtils.getCurrentUser());
         newProject.setModules(new HashSet<>(sourceProject.getModules()));
         newProject.setCreatedAt(LocalDateTime.now());
         newProject.setUpdatedAt(LocalDateTime.now());
