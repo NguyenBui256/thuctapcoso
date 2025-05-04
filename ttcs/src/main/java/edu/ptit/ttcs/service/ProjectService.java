@@ -196,7 +196,7 @@ public class ProjectService {
             log.info("Project member created with ID: {}", creatorMember.getId());
 
             // Now we can set the project's createdBy
-            project.setCreatedBy(creatorMember);
+            project.setCreatedBy(creator);
             project = projectRepository.save(project);
 
             for (ProjectRoleName roleName : ProjectRoleName.values()) {
@@ -264,7 +264,7 @@ public class ProjectService {
         creatorMember = projectMemberRepository.save(creatorMember);
 
         // Now set the createdBy and update
-        newProject.setCreatedBy(creatorMember);
+        newProject.setCreatedBy(creator);
         return projectRepository.save(newProject);
     }
 
