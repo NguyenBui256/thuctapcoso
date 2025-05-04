@@ -37,8 +37,7 @@ public class ProjectMapper {
         project.setUpdatedAt(LocalDateTime.now());
         User user = userRepository.findById(dto.getOwnerId())
                 .orElseThrow(() -> new RuntimeException("User not found."));
-        project.setCreatedBy(projectMemberRepository.findById(dto.getOwnerId())
-                .orElseThrow(() -> new RuntimeException("Project member not found.")));
+        project.setCreatedBy(user);
         project.setIsDeleted(false);
 
         // Map project type to module
@@ -91,7 +90,7 @@ public class ProjectMapper {
         dto.setCreatedAt(project.getCreatedAt());
         dto.setUpdatedAt(project.getUpdatedAt());
         dto.setOwnerUsername(
-                project.getCreatedBy() != null ? project.getCreatedBy().getUser().getUsername() : "Unknown");
+                project.getCreatedBy() != null ? project.getCreatedBy().getUsername() : "Unknown");
 
         // Set module ID from the first module (assuming one module per project)
         if (!project.getModules().isEmpty()) {

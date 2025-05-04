@@ -129,13 +129,6 @@ public class UserStoryController {
         return userStoryRepository.findTasksByUserStoryId(userStoryId);
     }
 
-    /**
-     * Creates a new user story in the Kanban board
-     * 
-     * @param request The request containing the user story and the assignee
-     *                information
-     * @return ResponseEntity with the created user story
-     */
     @PostMapping("/userstory")
     public ResponseEntity<?> createUserStory(@RequestBody Map<String, Object> requestMap) {
         try {
