@@ -25,7 +25,4 @@ public class ProjectSettingTag {
     @JoinColumn(name = "project_id")
     private Project project;
 
-    @ManyToMany(mappedBy = "tags")
-    @JsonIgnore
-    private List<Issue> issues = new ArrayList<>();
 }

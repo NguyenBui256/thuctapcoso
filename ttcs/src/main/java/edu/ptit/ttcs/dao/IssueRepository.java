@@ -35,4 +35,6 @@ public interface IssueRepository extends JpaRepository<Issue, Long>, JpaSpecific
     void incrementPositionsByStatusId(@Param("statusId") Long statusId);
 
     Optional<Issue> findLastByProject(Project project);
+
+    Optional<Issue> findByProjectAndPosition(Project project, Integer position);
 }

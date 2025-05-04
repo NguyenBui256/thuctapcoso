@@ -8,7 +8,7 @@ import { FiFilter, FiSearch } from 'react-icons/fi'
 import { toast } from "react-toastify"
 import IssueRow from './IssueRow'
 
-export default function IssuePage(){
+export default function IssueList(){
     const {projectId} = useParams()
     const [issues, setIssues] = useState([])
     const [filters, setFilters] = useState({})
@@ -38,7 +38,7 @@ export default function IssuePage(){
             keywordQuery = `&keyword=${encodeURIComponent(search.trim())}`;
         }
         const filterQuery = queryString.toString() ? `&${queryString.toString()}` : '';
-        fetchWithAuth(`${BASE_API_URL}/v1/issue/get?projectId=${projectId}${keywordQuery}${filterQuery}&sortBy=${sort.by}&order=${sort.order}`)
+        fetchWithAuth(`${BASE_API_URL}/v1/issue/get-list?projectId=${projectId}${keywordQuery}${filterQuery}&sortBy=${sort.by}&order=${sort.order}`)
             .then(res => res.json())
             .then(res => setIssues(res.data))
     }
@@ -102,24 +102,23 @@ export default function IssuePage(){
         })
     }
 
-    const handleChangeStatus = (issue, newStatus) => {
-        console.log('Đổi status:', issue, newStatus);
-        // TODO: Gọi API cập nhật status ở đây
-    };
-
-    const handleChangeAssignee = (issue, newAssignee) => {
-        console.log('Đổi assignee:', issue, newAssignee);
-        // TODO: Gọi API cập nhật assignee ở đây
+    const handleUpdateIssue = (updatedIssue) => {
+        setIssues(prevIssues => 
+            prevIssues.map(issue => 
+                issue.id === updatedIssue.id ? updatedIssue : issue
+            )
+        );
+        toast.success("Updated successfully")
     };
 
     useEffect(() => {
         fetchIssues()
         fetchFilters()
-    }, [selectedFilters])
+    }, [selectedFilters, sort])
 
-    useEffect(() => {
-        fetchIssues();
-    }, [sort]);
+    // useEffect(() => {
+    //     fetchIssues();
+    // }, [sort]);
 
     const sortFields = [
         { key: 'type', label: 'LOẠI' },
@@ -234,8 +233,7 @@ export default function IssuePage(){
                                                     index={idx}
                                                     statuses={filters.statuses || []}
                                                     assigns={filters.assigns || []}
-                                                    onChangeStatus={handleChangeStatus}
-                                                    onChangeAssignee={handleChangeAssignee}
+                                                    onUpdate={handleUpdateIssue}
                                                     showTags={showTags}
                                                 />
                                             ))}

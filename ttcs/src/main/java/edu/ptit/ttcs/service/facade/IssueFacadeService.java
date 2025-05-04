@@ -21,10 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Collection;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Stream;
 
 @Service
@@ -47,12 +44,12 @@ public class IssueFacadeService {
 
     private final EpicRepository epicRepository;
 
-    public List<IssueDTO> get(long projectId,
-                              Long sprintId,
-                              Long epicId,
-                              String sortBy,
-                              String order,
-                              FilterParams filters
+    public List<IssueDTO> getList(long projectId,
+                                  Long sprintId,
+                                  Long epicId,
+                                  String sortBy,
+                                  String order,
+                                  FilterParams filters
                               ) {
         Project project = projectService.findById(projectId);
         Specification<Issue> specs = Specification.where(
@@ -298,6 +295,68 @@ public class IssueFacadeService {
         return toDTO(issue);
     }
 
+    @Transactional
+    public IssueDTO update(long issueId, AddIssueDTO dto) {
+        Issue issue = issueRepository.findById(issueId)
+                .orElseThrow(() -> new RequestException("Issue not found"));
+        User user = securityUtils.getCurrentUser();
+        ProjectMember member = projectMemberService.getByProjectAndUser(issue.getProject(), user);
+        if(member == null)
+            throw new RequestException("Member is not in project");
+        if(dto.getSubject() != null)
+            issue.setSubject(dto.getSubject());
+        if(dto.getDescription() != null)
+            issue.setDescription(dto.getDescription());
+        if(dto.getPriority() != null){
+            ProjectSettingPriority priority = projectSettingService.getPrioById(dto.getPriority().getId());
+            issue.setPriority(priority);
+        }
+        if(dto.getStatus() != null){
+            ProjectSettingStatus status = projectSettingService.getStatusById(dto.getStatus().getId());
+            issue.setStatus(status);
+        }
+        if(dto.getType() != null){
+            ProjectSettingType type = projectSettingService.getTypeById(dto.getType().getId());
+            issue.setType(type);
+        }
+        if(dto.getSeverity() != null){
+            ProjectSettingSeverity severity = projectSettingService.getSeverityById(dto.getSeverity().getId());
+            issue.setSeverity(severity);
+        }
+        if(dto.getDueDate() != null){
+            if(dto.getDueDate().isBefore(LocalDate.now()))
+                throw new RequestException("Due date cannot be before current date");
+            issue.setDueDate(dto.getDueDate());
+        }
+        if(dto.getAssignee() != null){
+            ProjectMember assignee = null;
+            try{
+                assignee = projectMemberService.getById(dto.getAssignee().getId());
+            }
+            catch(Exception ignored){}
+            if(assignee != null && !Objects.equals(assignee.getProject().getId(), issue.getProject().getId()))
+                throw new RequestException("Assignee is not in project");
+            issue.setAssignee(assignee);
+        }
+        if(dto.getTags() != null) {
+            List<ProjectSettingTag> allTags = projectSettingService.getAllTagByProject(issue.getProject());
+            List<ProjectSettingTag> selectTags = new ArrayList<>();
+            for(ProjectSettingTag tag : allTags) {
+                for(PjTagDTO td : dto.getTags()) {
+                    if(td.getId() == tag.getId()){
+                        selectTags.add(tag);
+                        break;
+                    }
+                }
+            }
+            issue.setTags(selectTags);
+        }
+        issue.setUpdatedBy(member);
+        issue.setUpdatedDate(LocalDateTime.now());
+        issue = issueRepository.save(issue);
+        return toDTO(issue);
+    }
+
     public IssueDTO toDTO(Issue issue){
         IssueDTO dto = ModelMapper.getInstance().map(issue, IssueDTO.class);
         dto.setType(projectSettingService.toDTO(issue.getType()));
@@ -307,5 +366,22 @@ public class IssueFacadeService {
         dto.setTags(issue.getTags().stream().map(projectSettingService::toDTO).toList());
         dto.setAssignee(projectMemberService.toDTO(issue.getAssignee()));
         return dto;
+    }
+
+    public IssueDTO get(long projectId, long issueId) {
+        Project project = projectService.findById(projectId);
+        Issue issue = issueRepository.findById(issueId)
+                .orElseThrow(() -> new RequestException("Issue not found"));
+        if(!issue.getProject().getId().equals(project.getId()))
+            throw new RequestException("Issue is not in project");
+        return toDTO(issue);
+    }
+
+    public void delete(long issueId) {
+        Issue issue = issueRepository.findById(issueId)
+                .orElseThrow(() -> new RequestException("Issue not found"));
+        User user = securityUtils.getCurrentUser();
+        projectMemberService.getByProjectAndUser(issue.getProject(), user);
+        issueRepository.delete(issue);
     }
 }
