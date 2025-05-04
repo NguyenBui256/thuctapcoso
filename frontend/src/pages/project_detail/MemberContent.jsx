@@ -3,6 +3,7 @@ import { FiX, FiUser, FiUserPlus, FiMail, FiTrash2, FiAward } from 'react-icons/
 import { getUserInitials } from '../../utils/helpers';
 import { fetchWithAuth } from '../../utils/AuthUtils';
 import { BASE_API_URL } from '../../common/constants';
+import { useNavigate } from 'react-router-dom';
 
 const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, projectId, sortOption, sortDirection }) => {
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -13,6 +14,8 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
   const [inviteSuccess, setInviteSuccess] = useState(false);
   const [projectRoles, setProjectRoles] = useState([]);
   const [rolesLoading, setRolesLoading] = useState(false);
+  const [leavingProject, setLeavingProject] = useState(false);
+  const navigate = useNavigate();
   
   // Check if current user is a project manager (has admin rights)
   const isProjectManager = currentUser?.isAdmin || false;
@@ -50,23 +53,25 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
       
       const data = await response.json();
       
+      // Process response based on data structure
+      let roles = [];
       if (Array.isArray(data)) {
-        setProjectRoles(data);
-        // Set default role to the first one if available
-        if (data.length > 0) {
-          setInviteRole(data[0].id.toString());
-        }
+        roles = data;
       } else if (data && Array.isArray(data.data)) {
-        setProjectRoles(data.data);
-        // Set default role to the first one if available
-        if (data.data.length > 0) {
-          setInviteRole(data.data[0].id.toString());
-        }
+        roles = data.data;
       } else {
-        console.error('Invalid API response format for roles');
+        throw new Error('Invalid API response format for roles');
+      }
+      
+      setProjectRoles(roles);
+      
+      // Set default role to the first one if available
+      if (roles.length > 0) {
+        setInviteRole(roles[0].id.toString());
       }
     } catch (error) {
       console.error('Error fetching project roles:', error);
+      setInviteError('Failed to load project roles. Please try again.');
     } finally {
       setRolesLoading(false);
     }
@@ -102,6 +107,12 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
     // Validate email
     if (!inviteEmail.trim() || !inviteEmail.includes('@')) {
       setInviteError('Please enter a valid email address');
+      return;
+    }
+    
+    // Validate role
+    if (!inviteRole) {
+      setInviteError('Please select a role');
       return;
     }
     
@@ -165,6 +176,52 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
     }
   };
 
+  // New function to handle leaving a project
+  const handleLeaveProject = async () => {
+    if (!window.confirm('Are you sure you want to leave this project?')) {
+      return;
+    }
+    
+    if (!projectId || !currentUser) {
+      console.error('Missing project ID or user information');
+      return;
+    }
+    
+    setLeavingProject(true);
+    
+    try {
+      const response = await fetchWithAuth(
+        `${BASE_API_URL}/v1/user/${currentUser.userId}/project/${projectId}/members/leave`,
+        '/projects',
+        true,
+        { method: 'POST' }
+      );
+      
+      if (!response) {
+        throw new Error('Authentication failed');
+      }
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to leave project');
+      }
+      
+      // Navigate back to projects list
+      navigate('/projects');
+      
+      // If onLeaveProject is provided as a prop, call it
+      if (onLeaveProject && typeof onLeaveProject === 'function') {
+        onLeaveProject();
+      }
+      
+    } catch (error) {
+      console.error('Error leaving project:', error);
+      alert(error.message || 'Failed to leave project. Please try again.');
+    } finally {
+      setLeavingProject(false);
+    }
+  };
+
   const MemberCard = ({ member, isCurrentUser }) => {
     const badges = getRandomBadges(member.userId);
     
@@ -201,10 +258,20 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
               <div>
                 {isCurrentUser ? (
                   <button 
-                    onClick={onLeaveProject}
-                    className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                    onClick={handleLeaveProject}
+                    disabled={leavingProject}
+                    className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
                   >
-                    <FiX className="mr-1" /> Leave Project
+                    {leavingProject ? (
+                      <>
+                        <div className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full"></div>
+                        Leaving...
+                      </>
+                    ) : (
+                      <>
+                        <FiX className="mr-1" /> Leave Project
+                      </>
+                    )}
                   </button>
                 ) : isProjectManager && (
                   <button 
