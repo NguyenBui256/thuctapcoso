@@ -527,6 +527,9 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                 notification.setObjectId(project.getId().intValue());
                 notification.setType("INVITATION_ACCEPTED");
                 notification.setCreatedBy(acceptingUser);
+                notification.setUpdatedBy(acceptingUser);
+                notification.setCreatedAt(LocalDateTime.now());
+                notification.setUpdatedAt(LocalDateTime.now());
                 notification.setIsSeen(false);
 
                 notificationRepository.save(notification);
@@ -546,6 +549,9 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                 notification.setObjectId(project.getId().intValue());
                 notification.setType("INVITATION_REJECTED");
                 notification.setCreatedBy(rejectingUser);
+                notification.setUpdatedBy(rejectingUser);
+                notification.setCreatedAt(LocalDateTime.now());
+                notification.setUpdatedAt(LocalDateTime.now());
                 notification.setIsSeen(false);
 
                 notificationRepository.save(notification);
