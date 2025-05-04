@@ -286,9 +286,9 @@ public class IssueFacadeService {
                     .orElseThrow(() -> new RequestException("Epic not found"));
             issue.setEpic(epic);
         }
-        Optional<Issue> lastIssue = issueRepository.findLastByProject(project);
+        Optional<Issue> lastIssue = issueRepository.findLastByProject(project.getId());
         if(lastIssue.isPresent()) {
-            issue.setPosition(lastIssue.get().getPosition());
+            issue.setPosition(lastIssue.get().getPosition() + 1);
         }
         else issue.setPosition(1);
         issue = issueRepository.save(issue);

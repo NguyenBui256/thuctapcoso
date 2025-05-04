@@ -34,7 +34,9 @@ public interface IssueRepository extends JpaRepository<Issue, Long>, JpaSpecific
     @Query("UPDATE Issue i SET i.position = i.position + 1 WHERE i.status.id = :statusId")
     void incrementPositionsByStatusId(@Param("statusId") Long statusId);
 
-    Optional<Issue> findLastByProject(Project project);
+    @Query(nativeQuery = true,
+            value = "SELECT * from issues where project_id = ?1 ORDER BY id DESC LIMIT 1")
+    Optional<Issue> findLastByProject(long projectId);
 
     Optional<Issue> findByProjectAndPosition(Project project, Integer position);
 }
