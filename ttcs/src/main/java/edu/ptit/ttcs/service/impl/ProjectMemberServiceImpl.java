@@ -17,6 +17,7 @@ import edu.ptit.ttcs.service.ProjectMemberService;
 import edu.ptit.ttcs.service.ProjectService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cglib.core.Local;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -196,7 +197,7 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-                List<ProjectMember> memberships = projectMemberRepository.findByUser(user);
+                List<ProjectMember> memberships = projectMemberRepository.findByUserAndIsDeleteIsFalse(user);
                 return memberships.stream()
                                 .filter(m -> !m.getIsDelete())
                                 .filter(m -> m.getProject() != null && !m.getProject().getIsDeleted())
@@ -314,9 +315,6 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
         }
         
         private void createInviteNotification(User receiver, Project project, ProjectRole role, Boolean isAdmin, Long senderId) {
-                User sender = userRepository.findById(senderId)
-                        .orElseThrow(() -> new RunTimeException("User not found"));
-
                 Notification notification = new Notification();
                 notification.setReceiver(receiver);
                 notification.setDescription("You have been invited to join project: " + project.getName());
@@ -324,9 +322,14 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                 notification.setType("PROJECT_INVITE");
                 notification.setCreatedAt(LocalDateTime.now());
                 notification.setUpdatedAt(LocalDateTime.now());
-                notification.setUpdatedBy(sender);
-                notification.setCreatedBy(sender);
 
+                User sender = userRepository.findById(senderId)
+                                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+                notification.setCreatedBy(sender);
+                notification.setCreatedBy(sender);
+                notification.setIsSeen(false);
+                
                 // Store role and isAdmin info in the description to be used when accepting the invite
                 if (role != null) {
                         notification.setDescription(notification.getDescription() + 
@@ -336,6 +339,204 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                 if (isAdmin != null && isAdmin) {
                         notification.setDescription(notification.getDescription() + " as an admin");
                 }
+                
+                notificationRepository.save(notification);
+        }
+
+        @Override
+        @Transactional
+        public ProjectMemberDTO acceptProjectInvitation(Integer notificationId, Long userId) {
+                // Find the notification
+                Notification notification = notificationRepository.findById(notificationId)
+                        .orElseThrow(() -> new IllegalArgumentException("Notification not found"));
+                
+                // Validate that the notification is for the right user
+                User user = userRepository.findById(userId)
+                        .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                
+                if (notification.getReceiver() == null || !notification.getReceiver().getId().equals(user.getId())) {
+                        throw new IllegalArgumentException("This invitation is not for you");
+                }
+                
+                // Validate that it's a project invitation
+                if (!"PROJECT_INVITE".equals(notification.getType())) {
+                        throw new IllegalArgumentException("This notification is not a project invitation");
+                }
+                
+                // Extract project ID from the notification
+                Long projectId = notification.getObjectId().longValue();
+                Project project = projectRepository.findById(projectId)
+                        .orElseThrow(() -> new IllegalArgumentException("Project not found"));
+                
+                // Check if user is already a member
+                if (projectMemberRepository.existsByProjectAndUserAndIsDeleteFalse(project, user)) {
+                        // Instead of throwing exception, mark notification as seen and create a notification
+                        notification.setIsSeen(true);
+                        notificationRepository.save(notification);
+                        
+                        // Create a notification to inform the user
+                        Notification alreadyMemberNotification = new Notification();
+                        alreadyMemberNotification.setReceiver(user);
+                        alreadyMemberNotification.setDescription("You are already a member of project: " + project.getName());
+                        alreadyMemberNotification.setObjectId(project.getId().intValue());
+                        alreadyMemberNotification.setType("INFO");
+                        alreadyMemberNotification.setCreatedAt(LocalDateTime.now());
+                        alreadyMemberNotification.setIsSeen(false);
+                        notificationRepository.save(alreadyMemberNotification);
+                        
+                        // Create notification for the invitation sender
+                        if (notification.getCreatedBy() != null) {
+                            Notification senderNotification = new Notification();
+                            senderNotification.setReceiver(notification.getCreatedBy());
+                            senderNotification.setDescription(user.getUsername() + " is already a member of project: " + project.getName());
+                            senderNotification.setObjectId(project.getId().intValue());
+                            senderNotification.setType("INFO");
+                            senderNotification.setCreatedAt(LocalDateTime.now());
+                            senderNotification.setIsSeen(false);
+                            notificationRepository.save(senderNotification);
+                        }
+                        
+                        throw new IllegalArgumentException("You are already a member of this project");
+                }
+                
+                // Extract role and isAdmin from the description (if available)
+                Long roleId = null;
+                Boolean isAdmin = false;
+                
+                String description = notification.getDescription();
+                if (description.contains("(ID: ")) {
+                        int startIndex = description.indexOf("(ID: ") + 5;
+                        int endIndex = description.indexOf(")", startIndex);
+                        if (endIndex > startIndex) {
+                                try {
+                                        roleId = Long.parseLong(description.substring(startIndex, endIndex));
+                                } catch (NumberFormatException e) {
+                                        // Ignore parsing errors, roleId will remain null
+                                }
+                        }
+                }
+                
+                if (description.contains("as an admin")) {
+                        isAdmin = true;
+                }
+                
+                // Get project role if provided
+                ProjectRole projectRole = null;
+                if (roleId != null) {
+                        projectRole = projectRoleRepository.findById(roleId)
+                                .orElse(null); // Don't throw if role not found, just leave it null
+                }
+                
+                // Create new ProjectMember
+                ProjectMember projectMember = new ProjectMember();
+                projectMember.setProject(project);
+                projectMember.setUser(user);
+                projectMember.setProjectRole(projectRole);
+                projectMember.setTotalPoint(0);
+                projectMember.setIsAdmin(isAdmin);
+                projectMember.setIsDelete(false);
+                projectMember.setCreatedAt(LocalDateTime.now());
+                projectMember.setUpdatedAt(LocalDateTime.now());
+                
+                ProjectMember savedMember = projectMemberRepository.save(projectMember);
+                
+                // Mark notification as seen
+                notification.setIsSeen(true);
+                notificationRepository.save(notification);
+                
+                // Create notification for the invitation sender
+                if (notification.getCreatedBy() != null) {
+                        createAcceptanceNotification(notification.getCreatedBy().getId(), user, project);
+                }
+                
+                // Record activity
+                activityService.recordActivity(
+                        projectId,
+                        null,
+                        userId,
+                        "ACCEPT_INVITATION",
+                        "Accepted invitation to join project");
+                
+                return mapToDTO(savedMember);
+        }
+        
+        @Override
+        @Transactional
+        public void rejectProjectInvitation(Integer notificationId, Long userId) {
+                // Find the notification
+                Notification notification = notificationRepository.findById(notificationId)
+                        .orElseThrow(() -> new IllegalArgumentException("Notification not found"));
+                
+                // Validate that the notification is for the right user
+                User user = userRepository.findById(userId)
+                        .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                
+                if (notification.getReceiver() == null || !notification.getReceiver().getId().equals(user.getId())) {
+                        throw new IllegalArgumentException("This invitation is not for you");
+                }
+                
+                // Validate that it's a project invitation
+                if (!"PROJECT_INVITE".equals(notification.getType())) {
+                        throw new IllegalArgumentException("This notification is not a project invitation");
+                }
+                
+                // Extract project ID from the notification
+                Long projectId = notification.getObjectId().longValue();
+                Project project = projectRepository.findById(projectId)
+                        .orElseThrow(() -> new IllegalArgumentException("Project not found"));
+                
+                // Mark notification as seen
+                notification.setIsSeen(true);
+                notificationRepository.save(notification);
+                
+                // Create notification for the invitation sender
+                if (notification.getCreatedBy() != null) {
+                        createRejectionNotification(notification.getCreatedBy().getId(), user, project);
+                }
+                
+                // Record activity
+                activityService.recordActivity(
+                        projectId,
+                        null,
+                        userId,
+                        "REJECT_INVITATION",
+                        "Rejected invitation to join project");
+        }
+        
+        private void createAcceptanceNotification(Long receiverId, User acceptingUser, Project project) {
+                User receiver = userRepository.findById(receiverId)
+                        .orElse(null);
+                
+                if (receiver == null) {
+                        return; // If receiver not found, don't create notification
+                }
+                
+                Notification notification = new Notification();
+                notification.setReceiver(receiver);
+                notification.setDescription(acceptingUser.getUsername() + " has accepted your invitation to join project: " + project.getName());
+                notification.setObjectId(project.getId().intValue());
+                notification.setType("INVITATION_ACCEPTED");
+                notification.setCreatedBy(acceptingUser);
+                notification.setIsSeen(false);
+                
+                notificationRepository.save(notification);
+        }
+        
+        private void createRejectionNotification(Long receiverId, User rejectingUser, Project project) {
+                User receiver = userRepository.findById(receiverId)
+                        .orElse(null);
+                
+                if (receiver == null) {
+                        return; // If receiver not found, don't create notification
+                }
+                
+                Notification notification = new Notification();
+                notification.setReceiver(receiver);
+                notification.setDescription(rejectingUser.getUsername() + " has declined your invitation to join project: " + project.getName());
+                notification.setObjectId(project.getId().intValue());
+                notification.setType("INVITATION_REJECTED");
+                notification.setCreatedBy(rejectingUser);
+                notification.setIsSeen(false);
                 
                 notificationRepository.save(notification);
         }
@@ -354,5 +555,68 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                 dto.setJoinedAt(member.getCreatedAt());
                 dto.setAvatar(member.getUser().getAvatar());
                 return dto;
+        }
+
+        @Override
+        @Transactional
+        public void leaveProject(Long projectId, Long userId) {
+                Project project = projectRepository.findById(projectId)
+                        .orElseThrow(() -> new IllegalArgumentException("Project not found"));
+
+                User user = userRepository.findById(userId)
+                        .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+                // Don't allow the project owner to leave the project
+                if (project.getOwner() != null && project.getOwner().getId().equals(userId)) {
+                        throw new IllegalArgumentException("Project owners cannot leave their projects. You must transfer ownership or delete the project.");
+                }
+
+                // Find the membership
+                ProjectMember projectMember = projectMemberRepository.findLastByProjectAndUser(project.getId(), user.getId())
+                        .orElseThrow(() -> new IllegalArgumentException("You are not a member of this project"));
+
+                // Mark the membership as deleted
+                projectMember.setIsDelete(true);
+                projectMember.setUpdatedAt(LocalDateTime.now());
+                projectMemberRepository.save(projectMember);
+
+                // Record the activity
+                activityService.recordActivity(
+                        projectId,
+                        null,
+                        userId,
+                        "LEAVE_PROJECT",
+                        user.getUsername() + " left the project");
+                
+                // Notify project admins
+                notifyAdminsAboutUserLeaving(project, user);
+        }
+        
+        private void notifyAdminsAboutUserLeaving(Project project, User leavingUser) {
+                // Find all admin members of the project
+                List<ProjectMember> adminMembers = projectMemberRepository.findByProjectAndIsAdminTrueAndIsDeleteFalse(project);
+                
+                if (adminMembers.isEmpty()) {
+                        return;
+                }
+                
+                // Create notifications for each admin
+                for (ProjectMember admin : adminMembers) {
+                        // Skip creating notification for the leaving user if they were an admin
+                        if (admin.getUser().getId().equals(leavingUser.getId())) {
+                                continue;
+                        }
+                        
+                        Notification notification = new Notification();
+                        notification.setReceiver(admin.getUser());
+                        notification.setDescription(leavingUser.getUsername() + " has left project: " + project.getName());
+                        notification.setObjectId(project.getId().intValue());
+                        notification.setType("MEMBER_LEFT");
+                        notification.setCreatedBy(leavingUser);
+                        notification.setIsSeen(false);
+                        notification.setCreatedAt(LocalDateTime.now());
+                        
+                        notificationRepository.save(notification);
+                }
         }
 }

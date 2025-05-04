@@ -10,6 +10,7 @@ const ErrorPage = lazy(() => import('./pages/ErrorPage.jsx'));
 const ProjectDetail = lazy(() => import('./pages/project_detail/ProjectDetail'));
 const WikiPage = lazy(() => import('./pages/Wiki/WikiPage'));
 const TeamPage = lazy(() => import('./pages/project_detail/TeamPage'));
+const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage'));
 const MainLayout = lazy(() => import ('./pages/MainLayout.jsx'))
 
 import { ERROR_TYPE } from './pages/ErrorPage.jsx';
@@ -40,6 +41,7 @@ function App() {
           <Route index element={< ProjectDetail /> } />
           <Route path="wiki" element={<WikiPage />} />
           <Route path="team" element={<TeamPage />} />
+          <Route path="settings" element={<SettingsPage />} />
         </Route>
         <Route path="/account/settings" element={<AccountSettings />} />
       </Route>

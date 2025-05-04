@@ -123,4 +123,16 @@ public class ProjectMemberController {
             return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
         }
     }
+    
+    @PostMapping("/leave")
+    public ResponseEntity<ApiResponse<?>> leaveProject(
+            @PathVariable Long projectId,
+            @PathVariable Long userId) {
+        try {
+            projectMemberService.leaveProject(projectId, userId);
+            return ResponseEntity.ok(new ApiResponse<>("success", "You have left the project successfully", null));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
+        }
+    }
 }

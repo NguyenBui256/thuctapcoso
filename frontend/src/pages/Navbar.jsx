@@ -3,25 +3,23 @@ import { Link } from "react-router-dom"
 import logo from '/icons/logo-nav.svg'
 import { useEffect, useState } from "react"
 import { FiFolder, FiHelpCircle, FiChevronDown } from 'react-icons/fi';
-import { IoNotificationsOutline } from "react-icons/io5";
 import { AiOutlineCompass } from "react-icons/ai";
 import { renderAvatar } from '../utils/UserUtils'
+import NotificationDropdown from '../components/notification/NotificationDropdown';
 
 export default function Navbar() {
-
-    const [authenticated, setAuthenticated] = useState(false)
-    const userData = JSON.parse(localStorage.getItem('userData'))
+    const [authenticated, setAuthenticated] = useState(false);
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const userData = JSON.parse(localStorage.getItem('userData'));
 
     const setAuth = async () => {
-        const auth = await checkAuthenticated()
-        setAuthenticated(auth)
+        const auth = await checkAuthenticated();
+        setAuthenticated(auth);
     }
 
     useEffect(() => {
-        setAuth()
-    }, [])
-
-    const [isProfileOpen, setIsProfileOpen] = useState(false);
+        setAuth();
+    }, []);
 
     return (
         <div className="h-12 bg-gray-200 flex items-center fixed top-0 left-0 right-0 z-50">
@@ -51,13 +49,14 @@ export default function Navbar() {
                                     <AiOutlineCompass className="text-2xl" />
                                 </button>
 
-                                <button className="cursor-pointer text-2xl  p-2 text-blue-600 hover:text-gray-700 rounded-full">
+                                <button className="cursor-pointer text-2xl p-2 text-blue-600 hover:text-gray-700 rounded-full">
                                     <FiHelpCircle />
                                 </button>
 
-                                <button className="cursor-pointer text-2xl  p-2 text-blue-600 hover:text-gray-700 rounded-full">
-                                    <IoNotificationsOutline />
-                                </button>
+                                {/* NotificationDropdown Component */}
+                                {userData && userData.userId && (
+                                    <NotificationDropdown userId={userData.userId} />
+                                )}
                             </div>
 
 

@@ -3,7 +3,12 @@ package edu.ptit.ttcs.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.annotation.LastModifiedDate;
 
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -11,7 +16,7 @@ import java.util.Set;
 @Table(name = "project")
 @Getter
 @Setter
-public class Project extends BaseEntity {
+public class Project {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -47,6 +52,24 @@ public class Project extends BaseEntity {
 
     @OneToMany(mappedBy = "project")
     private Set<ProjectRole> projectRoles = new HashSet<>();
+
+    @CreatedDate
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @LastModifiedDate
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @CreatedBy
+    @ManyToOne
+    @JoinColumn(name = "created_by", updatable = false)
+    private User createdBy;
+
+    @LastModifiedBy
+    @ManyToOne
+    @JoinColumn(name = "updated_by")
+    private User updatedBy;
 
     @ManyToMany
     @JoinTable(name = "project_module", joinColumns = @JoinColumn(name = "project_id"), inverseJoinColumns = @JoinColumn(name = "module_id"))

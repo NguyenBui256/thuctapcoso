@@ -74,8 +74,13 @@ public class ProjectService {
                 .orElseThrow(() -> new RuntimeException("Project not found"));
     }
 
-    public List<Project> findByOwner(User owner) {
-        return projectRepository.findByCreatedBy(owner);
+    public List<Project> findByOwner(User user) {
+        List<ProjectMember> projectMembers = projectMemberRepository.findByUserAndIsDeleteIsFalse(user);
+        Set<Project> projects = new HashSet<>();
+        for (ProjectMember projectMember : projectMembers) {
+            projects.add(projectMember.getProject());
+        }
+        return projects.stream().toList();
     }
 
     @Transactional
@@ -110,34 +115,39 @@ public class ProjectService {
         log.info("Project created: {}", project.getId());
 
         ProjectRole toSetForAdminProjectRole = null;
+        ProjectMember projectMember = null;
+        List<ProjectRole> projectRoleList = new ArrayList<>();
 
         for (ProjectRoleName roleName : ProjectRoleName.values()) {
             ProjectRole projectRole = new ProjectRole();
             projectRole.setProject(project);
             projectRole.setRoleName(roleName.name());
-            projectRole.setCreatedBy(creator);
-            projectRole.setUpdatedBy(creator);
+//            projectRole.setCreatedBy(projectMember);
+//            projectRole.setUpdatedBy(projectMember);
             projectRole.setCreatedAt(LocalDateTime.now());
             projectRole.setUpdatedAt(LocalDateTime.now());
             projectRoleRepository.save(projectRole);
             if (roleName == ProjectRoleName.PROJECT_MANAGER) {
                 toSetForAdminProjectRole = projectRole;
+                projectMember = new ProjectMember();
+                projectMember.setProject(project);
+                projectMember.setUser(creator);
+                projectMember.setIsAdmin(true);
+                projectMember.setCreatedAt(LocalDateTime.now());
+                projectMember.setUpdatedAt(LocalDateTime.now());
+                projectMember.setProjectRole(toSetForAdminProjectRole);
+                projectMemberRepository.save(projectMember);
+                log.info("ProjectMember ID: {}", projectMember.getId());
             }
             log.info("ProjectRole {} - ID: {}", projectRole.getRoleName(), projectRole.getId());
+            projectRoleList.add(projectRole);
         }
 
-        ProjectMember projectMember = new ProjectMember();
-        projectMember.setProject(project);
-        projectMember.setUser(creator);
-        projectMember.setIsAdmin(true);
-        projectMember.setCreatedBy(creator);
-        projectMember.setUpdatedBy(creator);
-        projectMember.setCreatedAt(LocalDateTime.now());
-        projectMember.setUpdatedAt(LocalDateTime.now());
-        projectMember.setProjectRole(toSetForAdminProjectRole);
-        projectMemberRepository.save(projectMember);
-        log.info("ProjectMember ID: {}", projectMember.getId());
-
+        for(ProjectRole projectRole : projectRoleList) {
+            projectRole.setCreatedBy(projectMember);
+            projectRole.setUpdatedBy(projectMember);
+            projectRoleRepository.save(projectRole);
+        }
         return project;
     }
 
@@ -146,12 +156,18 @@ public class ProjectService {
         Project sourceProject = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Project not found"));
 
+        User creator = userRepository.findById(projectDTO.getOwnerId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        ProjectMember projectMember = projectMemberRepository.findByProjectAndUser(sourceProject, creator)
+                .orElseThrow(() -> new RuntimeException("Project Member not found"));
+
         Project newProject = new Project();
         newProject.setName(projectDTO.getName());
         newProject.setDescription(projectDTO.getDescription());
         newProject.setIsPublic(projectDTO.getIsPublic());
         newProject.setLogoUrl(sourceProject.getLogoUrl());
-        newProject.setCreatedBy(securityUtils.getCurrentUser());
+        newProject.setCreatedBy(creator);
         newProject.setModules(new HashSet<>(sourceProject.getModules()));
         newProject.setCreatedAt(LocalDateTime.now());
         newProject.setUpdatedAt(LocalDateTime.now());

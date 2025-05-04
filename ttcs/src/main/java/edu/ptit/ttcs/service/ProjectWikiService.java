@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 
 import edu.ptit.ttcs.dao.ProjectMemberRepository;
 import edu.ptit.ttcs.dao.ProjectWikiPageRepository;
+import edu.ptit.ttcs.entity.ProjectMember;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cglib.core.Local;
 import org.springframework.stereotype.Service;
@@ -58,13 +59,16 @@ public class ProjectWikiService {
         
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        ProjectMember projectMember = projectMemberRepository.findByProjectAndUser(project, user)
+                .orElseThrow(() -> new IllegalArgumentException("Project member not found"));
         
         ProjectWikiPage wikiPage = new ProjectWikiPage();
         wikiPage.setProject(project);
         wikiPage.setTitle(request.getTitle());
         wikiPage.setContent(request.getContent());
-        wikiPage.setCreatedBy(user);
-        wikiPage.setUpdatedBy(user);
+        wikiPage.setCreatedBy(projectMember);
+        wikiPage.setUpdatedBy(projectMember);
         wikiPage.setCreatedAt(LocalDateTime.now());
         wikiPage.setUpdatedAt(LocalDateTime.now());
         wikiPage.setIsDelete(false);
@@ -78,16 +82,22 @@ public class ProjectWikiService {
     public ProjectWikiPageDTO updateWikiPage(Long projectId, Long wikiPageId, ProjectWikiPageRequestDTO request, Long userId) {
         validateUserAccess(projectId, userId);
         request.validate();
+
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found"));
         
         ProjectWikiPage wikiPage = wikiPageRepository.findByIdAndProjectIdAndIsDeleteFalse(wikiPageId, projectId)
                 .orElseThrow(() -> new IllegalArgumentException("Wiki page not found"));
         
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        ProjectMember projectMember = projectMemberRepository.findByProjectAndUser(project, user)
+                        .orElseThrow(() -> new IllegalArgumentException("ProjectMember not found"));
         
         wikiPage.setTitle(request.getTitle());
         wikiPage.setContent(request.getContent());
-        wikiPage.setUpdatedBy(user);
+        wikiPage.setUpdatedBy(projectMember);
         wikiPage.setUpdatedAt(LocalDateTime.now());
         wikiPage.setEditCount(wikiPage.getEditCount() + 1);
 
