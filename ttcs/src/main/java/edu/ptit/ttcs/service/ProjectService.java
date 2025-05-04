@@ -79,8 +79,13 @@ public class ProjectService {
                 .orElseThrow(() -> new RuntimeException("Project not found"));
     }
 
-    public List<Project> findByOwner(User owner) {
-        return projectRepository.findByCreatedBy(owner);
+    public List<Project> findByOwner(User user) {
+        List<ProjectMember> projectMembers = projectMemberRepository.findByUserAndIsDeleteIsFalse(user);
+        Set<Project> projects = new HashSet<>();
+        for (ProjectMember projectMember : projectMembers) {
+            projects.add(projectMember.getProject());
+        }
+        return projects.stream().toList();
     }
 
     @Transactional
@@ -116,6 +121,8 @@ public class ProjectService {
         log.info("Project created: {}", project.getId());
 
         ProjectRole toSetForAdminProjectRole = null;
+        ProjectMember projectMember = null;
+        List<ProjectRole> projectRoleList = new ArrayList<>();
 
         // Create first project member for creator
         ProjectMember creatorMember = new ProjectMember();
@@ -223,11 +230,18 @@ public class ProjectService {
 
         User currentUser = securityUtils.getCurrentUser();
 
+        User creator = userRepository.findById(projectDTO.getOwnerId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        ProjectMember projectMember = projectMemberRepository.findByProjectAndUser(sourceProject, creator)
+                .orElseThrow(() -> new RuntimeException("Project Member not found"));
+
         Project newProject = new Project();
         newProject.setName(projectDTO.getName());
         newProject.setDescription(projectDTO.getDescription());
         newProject.setIsPublic(projectDTO.getIsPublic());
         newProject.setLogoUrl(sourceProject.getLogoUrl());
+        newProject.setCreatedBy(creator);
         newProject.setModules(new HashSet<>(sourceProject.getModules()));
         newProject.setCreatedAt(LocalDateTime.now());
         newProject.setUpdatedAt(LocalDateTime.now());

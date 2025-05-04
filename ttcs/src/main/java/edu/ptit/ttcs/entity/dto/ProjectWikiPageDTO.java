@@ -4,9 +4,7 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
-import edu.ptit.ttcs.entity.Attachment;
-import edu.ptit.ttcs.entity.ProjectWikiPage;
-import edu.ptit.ttcs.entity.User;
+import edu.ptit.ttcs.entity.*;
 import lombok.Data;
 
 @Data
@@ -15,8 +13,8 @@ public class ProjectWikiPageDTO {
     private Long projectId;
     private String title;
     private String content;
-    private UserDTO createdBy;
-    private UserDTO updatedBy;
+    private ProjectMember createdBy;
+    private ProjectMember updatedBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private Integer editCount;
@@ -32,12 +30,8 @@ public class ProjectWikiPageDTO {
         dto.setProjectId(entity.getProject() != null ? entity.getProject().getId() : null);
         dto.setTitle(entity.getTitle());
         dto.setContent(entity.getContent());
-        dto.setCreatedBy(entity.getCreatedBy() != null && entity.getCreatedBy().getUser() != null
-                ? UserDTO.fromEntity(entity.getCreatedBy().getUser())
-                : null);
-        dto.setUpdatedBy(entity.getUpdatedBy() != null && entity.getUpdatedBy().getUser() != null
-                ? UserDTO.fromEntity(entity.getUpdatedBy().getUser())
-                : null);
+        dto.setCreatedBy(entity.getCreatedBy() != null ? (entity.getCreatedBy()) : null);
+        dto.setUpdatedBy(entity.getUpdatedBy() != null ? (entity.getUpdatedBy()) : null);
         dto.setCreatedAt(entity.getCreatedAt());
         dto.setUpdatedAt(entity.getUpdatedAt());
         dto.setEditCount(entity.getEditCount());

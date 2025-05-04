@@ -6,6 +6,7 @@ import edu.ptit.ttcs.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -13,6 +14,16 @@ import java.util.Optional;
 
 @Repository
 public interface ProjectMemberRepository extends JpaRepository<ProjectMember, Long> {
+    List<ProjectMember> findByProject(Project project);
+
+    List<ProjectMember> findByUserAndIsDeleteIsFalse(User user);
+
+    Optional<ProjectMember> findByProjectAndUser(Project project, User user);
+
+    @Query(nativeQuery = true, value = "SELECT * FROM project_member WHERE project_id = ?1 AND user_id = ?2 ORDER BY id DESC LIMIT 1")
+    Optional<ProjectMember> findLastByProjectAndUser(Long projectId, Long userId);
+
+
     List<ProjectMember> findByProjectAndIsDeleteFalse(Project project);
 
     List<ProjectMember> findByUserAndIsDeleteFalse(User user);
@@ -27,10 +38,11 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, Lo
     boolean existsByProjectIdAndUserIdAndIsDeleteFalse(@Param("projectId") Long projectId,
             @Param("userId") Long userId);
 
-    ProjectMember findByProjectAndUser(Project project, User user);
     boolean existsByProjectAndUserAndIsDeleteFalse(Project project, User user);
 
     Optional<ProjectMember> findByIdAndIsDeleteIsFalse(long id);
+
+    List<ProjectMember> findByProjectAndIsAdminTrueAndIsDeleteFalse(Project project);
 
     Optional<ProjectMember> findByUserAndProject(User user, Project project);
 
