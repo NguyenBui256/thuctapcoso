@@ -1,29 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import ReactDOM from 'react-dom';
 import { Link } from 'react-router-dom';
+import { updateIssue } from '../../api/issue';
+import { toast } from 'react-toastify';
+import DropdownPortal from './DropdownPortal';
 
-function DropdownPortal({ anchorRef, show, children, alignRight }) {
-  const [pos, setPos] = useState({ top: 0, left: 0, width: 0 });
-  useEffect(() => {
-    if (show && anchorRef.current) {
-      const rect = anchorRef.current.getBoundingClientRect();
-      setPos({
-        top: rect.bottom + window.scrollY,
-        left: alignRight ? (rect.right + window.scrollX - 192) : (rect.left + window.scrollX), // 192px là width dropdown
-        width: rect.width
-      });
-    }
-  }, [show, anchorRef, alignRight]);
-  if (!show) return null;
-  return ReactDOM.createPortal(
-    <div style={{ position: 'absolute', top: pos.top, left: pos.left, minWidth: pos.width, zIndex: 9999 }}>
-      {children}
-    </div>,
-    document.body
-  );
-}
-
-export default function IssueRow({ issue, statuses = [], assigns = [], onChangeStatus, onChangeAssignee, showTags }) {
+export default function IssueRow({ issue, statuses = [], assigns = [], onUpdate, showTags }) {
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [showAssignDropdown, setShowAssignDropdown] = useState(false);
   const statusRef = useRef();
@@ -39,9 +20,28 @@ export default function IssueRow({ issue, statuses = [], assigns = [], onChangeS
         setShowAssignDropdown(false);
       }
     }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
   }, [showStatusDropdown, showAssignDropdown]);
+
+  const handleStatusChange = async (newStatus) => {
+    console.log("Sdfdf")
+    try {
+      const updatedIssue = await updateIssue(issue.id, { status: newStatus });
+      onUpdate(updatedIssue.data);
+    } catch (error) {
+      toast.error("Error updating issue")
+    }
+  };
+
+  const handleAssigneeChange = async (newAssigneeId) => {
+    try {
+      const updatedIssue = await updateIssue(issue.id, { assignee: {id: newAssigneeId} });
+      onUpdate(updatedIssue.data);
+    } catch (error) {
+      toast.error("Error updating issue")
+    }
+  };
 
   return (
     <tr className="bg-gray-50 hover:bg-gray-100 transition">
@@ -71,8 +71,8 @@ export default function IssueRow({ issue, statuses = [], assigns = [], onChangeS
       </td>
       {/* ISSUE */}
       <td className="px-4 py-3">
-        <span className="text-sky-700 font-semibold">#{issue.position ?? issue.id}</span>{' '}
-        <Link to="#" className="hover:text-blue-400 transition duration-300 text-gray-900 font-medium">
+        <span className="text-sky-700 font-semibold">#{issue.position}</span>{' '}
+        <Link to={`../issue/${issue.id}`} className="hover:text-blue-400 transition duration-300 text-gray-900 font-medium">
           {issue.subject}
         </Link>
         {issue.dueDate && (
@@ -115,7 +115,7 @@ export default function IssueRow({ issue, statuses = [], assigns = [], onChangeS
                 className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sky-500"
                 onClick={() => {
                   setShowStatusDropdown(false);
-                  onChangeStatus && onChangeStatus(issue, st);
+                  handleStatusChange(st);
                 }}
               >
                 {st.name}
@@ -167,7 +167,7 @@ export default function IssueRow({ issue, statuses = [], assigns = [], onChangeS
                 className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
                 onClick={() => {
                   setShowAssignDropdown(false);
-                  onChangeAssignee && onChangeAssignee(issue, user);
+                  handleAssigneeChange(user.id);
                 }}
               >
                 {user.avatar ? (
