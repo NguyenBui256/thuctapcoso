@@ -57,7 +57,6 @@ function App() {
           <Route path="sprint/:sprintId" element={<SprintPage/>}/>
           <Route path='issues' element={<IssueList/>}/>
           <Route path='issue/:issueId' element={<IssueDetail/>}/>
-          <Route path='issues' elements={<IssuePage/>}/>
           <Route path="settings" element={<SettingsPage />} />
         </Route>
         <Route path="/account/settings" element={<AccountSettings />} />
