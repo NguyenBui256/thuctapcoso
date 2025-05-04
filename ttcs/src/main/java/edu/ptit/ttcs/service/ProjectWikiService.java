@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 
 import edu.ptit.ttcs.dao.ProjectMemberRepository;
 import edu.ptit.ttcs.dao.ProjectWikiPageRepository;
+import edu.ptit.ttcs.entity.ProjectMember;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cglib.core.Local;
 import org.springframework.stereotype.Service;

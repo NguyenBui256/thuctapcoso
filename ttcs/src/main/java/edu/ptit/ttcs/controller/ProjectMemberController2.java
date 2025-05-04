@@ -1,6 +1,7 @@
 package edu.ptit.ttcs.controller;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -12,17 +13,28 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.CrossOrigin;
 
 import edu.ptit.ttcs.entity.dto.PointsUpdateRequestDTO;
-import edu.ptit.ttcs.entity.dto.ProjectInviteDTO;
 import edu.ptit.ttcs.entity.dto.ProjectMemberDTO;
 import edu.ptit.ttcs.entity.dto.ProjectMemberRequestDTO;
 import edu.ptit.ttcs.service.ProjectMemberService;
 import edu.ptit.ttcs.util.ApiResponse;
+import edu.ptit.ttcs.entity.ProjectMember;
+import edu.ptit.ttcs.dao.ProjectMemberRepository;
+import edu.ptit.ttcs.entity.Project;
+import edu.ptit.ttcs.dao.ProjectRepository;
 
 @RestController
-@RequestMapping("/api/v1/user/{userId}/project/{projectId}/members")
-public class ProjectMemberController {
+@RequestMapping("/api/projects")
+@CrossOrigin(origins = "http://localhost:5173")
+public class ProjectMemberController2 {
+
+    @Autowired
+    private ProjectMemberRepository projectMemberRepository;
+
+    @Autowired
+    private ProjectRepository projectRepository;
 
     @Autowired
     private ProjectMemberService projectMemberService;
@@ -46,16 +58,22 @@ public class ProjectMemberController {
         }
     }
 
-    @GetMapping
-    public ResponseEntity<List<ProjectMemberDTO>> getProjectMembers(
-            @PathVariable Long projectId,
-            @PathVariable Long userId) {
-        try {
-            List<ProjectMemberDTO> members = projectMemberService.getProjectMembers(projectId, userId);
-            return ResponseEntity.ok(members);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(null);
-        }
+    @GetMapping("/{projectId}/members")
+    public ResponseEntity<List<ProjectMemberDTO>> getProjectMembers(@PathVariable Long projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found"));
+        List<ProjectMember> members = projectMemberRepository.findByProjectAndIsDeleteFalse(project);
+        List<ProjectMemberDTO> memberDTOs = members.stream()
+                .map(member -> {
+                    ProjectMemberDTO dto = new ProjectMemberDTO();
+                    dto.setUserId(member.getUser().getId());
+                    dto.setUsername(member.getUser().getUsername());
+                    dto.setUserFullName(member.getUser().getFullName());
+                    dto.setRoleName(member.getProjectRole().getRoleName());
+                    return dto;
+                })
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(memberDTOs);
     }
 
     @PutMapping("/{memberId}")
@@ -109,28 +127,36 @@ public class ProjectMemberController {
             return ResponseEntity.badRequest().body(null);
         }
     }
-    
-    @PostMapping("/invite")
-    public ResponseEntity<ApiResponse<Void>> inviteUserByEmail(
+
+    @GetMapping("/v1/user/{userId}/project/{projectId}/members")
+    public ResponseEntity<ApiResponse<List<ProjectMemberDTO>>> getProjectMembers(
             @PathVariable Long projectId,
-            @RequestBody ProjectInviteDTO invite,
             @PathVariable Long userId) {
         try {
-            invite.validate();
-            projectMemberService.inviteUserByEmail(projectId, invite, userId);
-            return ResponseEntity.ok(new ApiResponse<>("success", "Invitation sent successfully", null));
+            List<ProjectMemberDTO> members = projectMemberService.getProjectMembers(projectId, userId);
+            return ResponseEntity.ok(new ApiResponse<>("success", "Project members retrieved successfully", members));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
         }
     }
-    
-    @PostMapping("/leave")
-    public ResponseEntity<ApiResponse<?>> leaveProject(
-            @PathVariable Long projectId,
+
+    @GetMapping("/v1/user/{userId}/project/{projectId}/members/list")
+    public ResponseEntity<ApiResponse<List<ProjectMemberDTO>>> getProjectMembersList(
+            @PathVariable Long projectId) {
+        try {
+            List<ProjectMemberDTO> members = projectMemberService.getProjectMembersList(projectId);
+            return ResponseEntity.ok(new ApiResponse<>("success", "Project members retrieved successfully", members));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
+        }
+    }
+
+    @GetMapping("/v1/user/{userId}/projects/member")
+    public ResponseEntity<ApiResponse<List<ProjectMemberDTO>>> getUserProjectsAsMember(
             @PathVariable Long userId) {
         try {
-            projectMemberService.leaveProject(projectId, userId);
-            return ResponseEntity.ok(new ApiResponse<>("success", "You have left the project successfully", null));
+            List<ProjectMemberDTO> projects = projectMemberService.getUserProjects(userId);
+            return ResponseEntity.ok(new ApiResponse<>("success", "User projects retrieved successfully", projects));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
         }

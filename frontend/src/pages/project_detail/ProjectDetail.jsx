@@ -6,6 +6,7 @@ import ProjectSelector from '../../components/project/ProjectSelector';
 import TeamMembers from '../../components/project/TeamMembers';
 import { fetchProjectsByUserId, fetchProjectActivities, fetchProjectMembers, fetchProjectById } from '../../utils/api';
 import { formatDate, getUserInitials } from '../../utils/helpers';
+import { getCurrentUserId } from '../../utils/AuthUtils';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 function ProjectDetail() {
@@ -14,6 +15,7 @@ function ProjectDetail() {
   const [projectMembers, setProjectMembers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [currentUserId, setCurrentUserId] = useState(null);
   const navigate = useNavigate();
   const { projectId } = useParams();
 
@@ -82,6 +84,16 @@ function ProjectDetail() {
 
     getProjectData();
   }, [currentProject]);
+
+  // Get current user ID on component mount
+  useEffect(() => {
+    const userId = getCurrentUserId();
+    if (userId) {
+      setCurrentUserId(userId);
+    } else {
+      navigate('/login'); // Redirect to login if user ID not found
+    }
+  }, [navigate]);
 
   const sampleActivities = [
     {
@@ -244,11 +256,13 @@ function ProjectDetail() {
             </div>
           </div>
 
-          <TeamMembers
-            projectMembers={sampleTeamMembers}
-            loading={loading}
-            getUserInitials={getUserInitials}
-          />
+          {currentUserId && (
+            <TeamMembers
+              projectId={projectId}
+              userId={currentUserId}
+              getUserInitials={getUserInitials}
+            />
+          )}
         </div>
       </div>
     </>
