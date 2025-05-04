@@ -28,6 +28,7 @@ public class GlobalException {
         res.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
         res.setMessage(ex.getMessage());
         res.setError("Internal Server Error");
+        ex.printStackTrace();
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(res);
     }
 

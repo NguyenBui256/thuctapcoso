@@ -1,5 +1,8 @@
-package edu.ptit.ttcs.entity.dto.response;
+package edu.ptit.ttcs.dto.request;
 
+import edu.ptit.ttcs.entity.dto.response.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -8,24 +11,25 @@ import java.util.List;
 
 @Getter
 @Setter
-public class IssueDTO {
+public class AddIssueDTO {
 
-    private long id;
-
+    @NotBlank(message = "Issue's name cannot be empty")
     private String subject;
-
-    private LocalDate dueDate;
 
     private String description;
 
-    private int position;
+    private LocalDate dueDate;
 
+    @NotNull
     private PjStatusDTO status;
 
+    @NotNull
     private PjTypeDTO type;
 
+    @NotNull
     private PjSeverityDTO severity;
 
+    @NotNull
     private PjPriorityDTO priority;
 
     private List<PjTagDTO> tags;

@@ -116,7 +116,7 @@ public class UserStoryService {
                 .toList();
 
 
-        List<ProjectMember> members = projectMemberRepository.findAllByProject(project);
+        List<ProjectMember> members = projectMemberRepository.findAllByProjectAndIsDeleteIsFalse(project);
         List<PjMemberDTO> memberDTOS = members.stream()
                 .map(member -> {
                     PjMemberDTO dto = new PjMemberDTO();
@@ -135,7 +135,7 @@ public class UserStoryService {
                 .filter(dto -> roleFiltered.stream().noneMatch(r -> r == dto.getId()))
                 .toList();
         return FilterData.builder()
-                .assignedTo(memberDTOS.stream().filter(dto ->
+                .assigns(memberDTOS.stream().filter(dto ->
                         assignFiltered.stream().noneMatch(a -> a == dto.getId())).toList())
                 .createdBy(memberDTOS.stream().filter(dto ->
                         createdByFiltered.stream().noneMatch(a -> a == dto.getId())).toList())
