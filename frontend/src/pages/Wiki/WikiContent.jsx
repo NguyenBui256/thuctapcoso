@@ -1,12 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { FiEdit2, FiTrash2, FiDownload, FiUpload, FiX, FiSave } from 'react-icons/fi';
+import { FiEdit2, FiTrash2, FiDownload, FiUpload, FiX, FiSave, FiFile } from 'react-icons/fi';
 import { format } from 'date-fns';
+import { BASE_API_URL } from '../../common/constants';
+import { fetchWithAuth, getCurrentUserId } from '../../utils/AuthUtils';
+import { toast } from 'react-toastify';
+import axios from '../../common/axios-customize';
+import { useParams } from 'react-router-dom';
 
 const WikiContent = ({ page, onUpdatePage, onDeletePage, loading, error }) => {
+  // Get projectId from URL params
+  const { projectId } = useParams();
+
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
   const [editTitle, setEditTitle] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (page) {
@@ -39,6 +49,222 @@ const WikiContent = ({ page, onUpdatePage, onDeletePage, loading, error }) => {
     } catch (e) {
       console.error('Error formatting date:', e);
       return dateString || 'Not available';
+    }
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current.click();
+  };
+
+  // Function to get the most reliable project ID
+  const getProjectId = () => {
+    // First try URL params
+    if (projectId && projectId !== 'undefined') {
+      return projectId;
+    }
+
+    // Then try page object
+    if (page && page.project && page.project.id) {
+      return page.project.id;
+    }
+
+    // Finally try page.projectId
+    if (page && page.projectId) {
+      return page.projectId;
+    }
+
+    console.error('Cannot determine project ID for attachment upload');
+    return null;
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Get project ID first
+    const effectiveProjectId = getProjectId();
+    if (!effectiveProjectId) {
+      toast.error('Cannot upload attachment: Project ID is missing');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', `wiki/${page.id}`);
+
+      // Determine the correct upload endpoint based on file type
+      let uploadEndpoint = '/api/v1/files/upload/raw'; // Default for documents
+
+      if (file.type.startsWith('image/')) {
+        uploadEndpoint = '/api/v1/files/upload/image';
+      } else if (file.type.startsWith('video/')) {
+        uploadEndpoint = '/api/v1/files/upload/video';
+      }
+
+      // Use axios instead of fetchWithAuth for file uploads
+      const uploadResponse = await axios.post(uploadEndpoint, formData);
+
+      if (uploadResponse.data) {
+        const cloudinaryData = uploadResponse.data;
+
+        // Now save the attachment to the wiki page
+        const attachmentData = {
+          filename: file.name,
+          contentType: file.type,
+          fileSize: file.size,
+          url: cloudinaryData.secure_url || cloudinaryData.url
+        };
+
+        const attachResponse = await fetchWithAuth(
+          `${BASE_API_URL}/v1/user/${getCurrentUserId()}/project/${effectiveProjectId}/wiki/${page.id}/attachment`,
+          null,
+          true,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(attachmentData)
+          }
+        );
+
+        if (attachResponse && attachResponse.ok) {
+          const updatedPageData = await attachResponse.json();
+          console.log('Attachment response data:', updatedPageData); // Debug log
+
+          // Phản hồi từ API có cấu trúc lồng nhau: { status, message, data }
+          // Trích xuất dữ liệu từ phản hồi đúng cách
+          let pageData = null;
+
+          if (updatedPageData.data) {
+            // Nếu có trường data (cấu trúc API chuẩn)
+            pageData = updatedPageData.data;
+          } else if (updatedPageData.status === 'success' && updatedPageData.data) {
+            // Kiểm tra cấu trúc phản hồi khác
+            pageData = updatedPageData.data;
+          } else {
+            // Sử dụng dữ liệu trực tiếp nếu không có cấu trúc lồng nhau
+            pageData = updatedPageData;
+          }
+
+          // Nếu dữ liệu trả về không có ID, sử dụng ID từ trang hiện tại
+          if (pageData && !pageData.id && page && page.id) {
+            pageData.id = page.id;
+          }
+
+          // Bảo đảm dữ liệu trang không bị mất
+          if (pageData) {
+            // Giữ lại tiêu đề nếu không có trong dữ liệu trả về
+            if (!pageData.title && page && page.title) {
+              pageData.title = page.title;
+            }
+
+            // Giữ lại nội dung nếu không có trong dữ liệu trả về
+            if (!pageData.content && page && page.content) {
+              pageData.content = page.content;
+            }
+          }
+
+          // Nếu không có tệp đính kèm trong dữ liệu trả về, bổ sung tệp đính kèm mới
+          if (pageData && (!pageData.attachments || !Array.isArray(pageData.attachments))) {
+            pageData.attachments = [...(page.attachments || [])];
+            // Thêm tệp đính kèm mới vào mảng
+            pageData.attachments.push({
+              filename: attachmentData.filename,
+              url: attachmentData.url,
+              contentType: attachmentData.contentType,
+              fileSize: attachmentData.fileSize
+            });
+          }
+
+          // Cập nhật trang với dữ liệu hợp lệ
+          if (pageData) {
+            onUpdatePage(pageData);
+            toast.success('File attached successfully!');
+          } else {
+            // Cập nhật trực tiếp tệp đính kèm vào trang hiện tại nếu không thể trích xuất dữ liệu từ phản hồi
+            const updatedAttachments = [...(page.attachments || []), {
+              filename: attachmentData.filename,
+              url: attachmentData.url,
+              contentType: attachmentData.contentType,
+              fileSize: attachmentData.fileSize
+            }];
+
+            // Bảo đảm giữ lại tất cả dữ liệu của trang hiện tại
+            onUpdatePage({
+              ...page,
+              title: page.title || '',  // Đảm bảo giữ lại tiêu đề
+              content: page.content || '',  // Đảm bảo giữ lại nội dung
+              attachments: updatedAttachments
+            });
+            toast.success('File attached successfully!');
+          }
+        } else {
+          toast.error('Failed to attach file to wiki page');
+        }
+      } else {
+        toast.error('Failed to upload file to cloud storage');
+      }
+    } catch (err) {
+      console.error('Error uploading file:', err);
+      toast.error('Error uploading file: ' + (err.message || 'Unknown error'));
+    } finally {
+      setIsUploading(false);
+      // Clear the file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleDownloadAttachment = (attachment) => {
+    try {
+      // Xác định nếu là loại file đặc biệt cần xử lý đặc biệt (pdf, doc, docx, xls, xlsx)
+      const fileExt = attachment.filename.split('.').pop().toLowerCase();
+      const specialTypes = ['pdf', 'doc', 'docx', 'xls', 'xlsx'];
+
+      if (attachment.contentType && attachment.contentType.startsWith('image/')) {
+        // Đối với hình ảnh, mở trong tab mới
+        window.open(attachment.url, '_blank');
+      } else if (specialTypes.includes(fileExt)) {
+        // Với các loại file đặc biệt, chúng ta sử dụng fetch để lấy blob
+        fetch(attachment.url)
+          .then(response => response.blob())
+          .then(blob => {
+            // Tạo một URL tạm thời từ blob và tên file gốc
+            const blobUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.setAttribute('download', attachment.filename);
+            document.body.appendChild(link);
+            link.click();
+            // Giải phóng URL sau khi tải xuống
+            setTimeout(() => {
+              document.body.removeChild(link);
+              window.URL.revokeObjectURL(blobUrl);
+            }, 100);
+          })
+          .catch(err => {
+            console.error('Error downloading file:', err);
+            toast.error('Failed to download file. Try again or contact admin.');
+            // Fallback to direct open
+            window.open(attachment.url, '_blank');
+          });
+      } else {
+        // Với các loại file khác, sử dụng phương pháp tải xuống thông thường
+        const link = document.createElement('a');
+        link.href = attachment.url;
+        link.setAttribute('download', attachment.filename);
+        link.setAttribute('target', '_blank');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } catch (error) {
+      console.error('Error in download handler:', error);
+      toast.error('Failed to download file');
+      // Fallback to direct open
+      window.open(attachment.url, '_blank');
     }
   };
 
@@ -165,22 +391,43 @@ const WikiContent = ({ page, onUpdatePage, onDeletePage, loading, error }) => {
             </button>
           </div>
         </div>
-        
+
         {/* Attachments section */}
         <div className="bg-white rounded-md shadow-sm mt-6 p-4">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-medium text-gray-700">Attachments</h3>
-            <button className="text-taiga-primary hover:text-taiga-secondary flex items-center">
-              <FiUpload className="mr-1" /> Upload
+            <button
+              className="text-taiga-primary hover:text-taiga-secondary flex items-center"
+              onClick={handleUploadClick}
+              disabled={isUploading}
+            >
+              {isUploading ? 'Uploading...' : (
+                <>
+                  <FiUpload className="mr-1" /> Upload
+                </>
+              )}
             </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              onChange={handleFileChange}
+              accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            />
           </div>
-          
+
           {page.attachments && page.attachments.length > 0 ? (
             <div className="space-y-2">
               {page.attachments.map(attachment => (
                 <div key={attachment.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
-                  <span className="text-gray-700">{attachment.filename}</span>
-                  <button className="text-taiga-primary hover:text-taiga-secondary">
+                  <div className="flex items-center">
+                    <FiFile className="mr-2 text-taiga-primary" />
+                    <span className="text-gray-700">{attachment.filename}</span>
+                  </div>
+                  <button
+                    className="text-taiga-primary hover:text-taiga-secondary"
+                    onClick={() => handleDownloadAttachment(attachment)}
+                  >
                     <FiDownload size={16} />
                   </button>
                 </div>

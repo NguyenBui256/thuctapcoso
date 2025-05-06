@@ -115,6 +115,8 @@ public class ProjectService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Project project = projectMapper.toEntity(createProjectDTO);
+        // Không set createdBy lúc này
+        project.setCreatedBy(null);
         project.setIsDeleted(false);
         log.info("Project CREATED AT: {}", project.getCreatedAt());
         project = projectRepository.save(project);
@@ -132,6 +134,11 @@ public class ProjectService {
         creatorMember.setCreatedAt(LocalDateTime.now());
         creatorMember.setUpdatedAt(LocalDateTime.now());
         creatorMember = projectMemberRepository.save(creatorMember);
+
+        // Sau khi đã tạo xong ProjectMember, cập nhật lại createdBy cho Project
+        project.setCreatedBy(creator);
+        project = projectRepository.save(project);
+        log.info("Updated project with creator ID: {}", creator.getId());
 
         for (ProjectRoleName roleName : ProjectRoleName.values()) {
             ProjectRole projectRole = new ProjectRole();
@@ -161,9 +168,8 @@ public class ProjectService {
     @Transactional
     public Project createProject(CreateProjectDTO createProjectDTO, Long currentUserId) {
         try {
+            User currentUser = securityUtils.getCurrentUser();
             // Get user from repository
-            User creator = userRepository.findById(currentUserId)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
 
             log.info("Creating project for user ID: {}", currentUserId);
 
@@ -172,7 +178,8 @@ public class ProjectService {
             project.setDescription(createProjectDTO.getDescription());
             project.setIsPublic(createProjectDTO.getIsPublic());
             project.setLogoUrl(createProjectDTO.getLogoUrl());
-            // Can't set createdBy until we have a ProjectMember
+            project.setCreatedBy(currentUser);
+            // Không set createdBy lúc này
             project.setCreatedAt(LocalDateTime.now());
             project.setIsDeleted(false);
             project = projectRepository.save(project);
@@ -184,16 +191,17 @@ public class ProjectService {
             // Create project member first
             ProjectMember creatorMember = new ProjectMember();
             creatorMember.setProject(project);
-            creatorMember.setUser(creator);
+            creatorMember.setUser(currentUser);
             creatorMember.setIsAdmin(true);
             creatorMember.setCreatedAt(LocalDateTime.now());
             creatorMember.setUpdatedAt(LocalDateTime.now());
             creatorMember = projectMemberRepository.save(creatorMember);
             log.info("Project member created with ID: {}", creatorMember.getId());
 
-            // Now we can set the project's createdBy
-            project.setCreatedBy(creator);
+            // Sau khi đã tạo xong ProjectMember, cập nhật lại createdBy cho Project
+            project.setCreatedBy(currentUser);
             project = projectRepository.save(project);
+            log.info("Updated project with creator ID: {}", currentUser.getId());
 
             for (ProjectRoleName roleName : ProjectRoleName.values()) {
                 ProjectRole projectRole = new ProjectRole();
@@ -241,7 +249,8 @@ public class ProjectService {
         newProject.setDescription(projectDTO.getDescription());
         newProject.setIsPublic(projectDTO.getIsPublic());
         newProject.setLogoUrl(sourceProject.getLogoUrl());
-        newProject.setCreatedBy(creator);
+        // Không set createdBy lúc này
+        newProject.setCreatedBy(null);
         newProject.setModules(new HashSet<>(sourceProject.getModules()));
         newProject.setCreatedAt(LocalDateTime.now());
         newProject.setUpdatedAt(LocalDateTime.now());
@@ -289,6 +298,9 @@ public class ProjectService {
     public boolean isUserProjectAdmin(Long projectId, Long userId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Project not found"));
+        if (project.getCreatedBy() == null) {
+            return false;
+        }
         return project.getCreatedBy().getId().equals(userId);
     }
 

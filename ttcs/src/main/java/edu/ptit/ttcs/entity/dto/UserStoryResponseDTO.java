@@ -22,6 +22,7 @@ public class UserStoryResponseDTO {
     private Long assignedUserId;
     private Boolean isBlocked;
     private List<UserDTO> assignedUsers;
+    private List<AttachmentDTO> attachments;
 
     // Getters and Setters
     public Integer getId() {
@@ -158,6 +159,14 @@ public class UserStoryResponseDTO {
 
     public void setAssignedUsers(List<UserDTO> assignedUsers) {
         this.assignedUsers = assignedUsers;
+    }
+
+    public List<AttachmentDTO> getAttachments() {
+        return attachments;
+    }
+
+    public void setAttachments(List<AttachmentDTO> attachments) {
+        this.attachments = attachments;
     }
 
     // Add methods with alternative naming for Jackson serialization

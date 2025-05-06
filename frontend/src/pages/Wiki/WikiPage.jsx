@@ -184,6 +184,23 @@ const WikiPage = () => {
   };
 
   const handleUpdatePage = async (updatedPage) => {
+    // Xóa lỗi ngay lập tức khi có cập nhật mới
+    setError(null);
+
+    // Kiểm tra xem đây có phải là cập nhật tệp đính kèm không
+    const isAttachmentUpdate = updatedPage && updatedPage.attachments &&
+      selectedPage && selectedPage.attachments &&
+      updatedPage.attachments.length > selectedPage.attachments.length;
+
+    // Nếu là cập nhật tệp đính kèm, chỉ cập nhật state mà không gọi API
+    if (isAttachmentUpdate) {
+      console.log('Attachment update detected, updating local state');
+      setSelectedPage(updatedPage);
+      setWikiPages(wikiPages.map(p => (p.id === updatedPage.id ? updatedPage : p)));
+      return;
+    }
+
+    // Nếu không có ID trang, đây có thể là lỗi
     if (!updatedPage || !updatedPage.id) {
       setError('Cannot update page: Invalid page ID');
       return;
@@ -209,9 +226,16 @@ const WikiPage = () => {
       if (response && response.ok) {
         const jsonResponse = await response.json();
         const updatedData = jsonResponse.data || jsonResponse;
+
+        // Đảm bảo giữ lại các tệp đính kèm nếu cần
+        if (updatedData && (!updatedData.attachments || !Array.isArray(updatedData.attachments)) &&
+          updatedPage.attachments && Array.isArray(updatedPage.attachments)) {
+          updatedData.attachments = updatedPage.attachments;
+        }
+
         setSelectedPage(updatedData);
         setWikiPages(wikiPages.map(p => (p.id === updatedData.id ? updatedData : p)));
-        setError(null); // Clear error on success
+        setError(null); // Xóa lỗi trên thành công
       } else {
         setError('Failed to update wiki page');
       }

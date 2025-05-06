@@ -5,6 +5,7 @@ import lombok.Setter;
 
 import java.time.LocalDate;
 import java.util.List;
+import edu.ptit.ttcs.entity.dto.AttachmentDTO;
 
 @Getter
 @Setter
@@ -29,6 +30,8 @@ public class IssueDTO {
     private PjPriorityDTO priority;
 
     private List<PjTagDTO> tags;
+
+    private List<AttachmentDTO> attachments;
 
     private PjMemberDTO assignee;
 
