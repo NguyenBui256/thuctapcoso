@@ -1,10 +1,15 @@
 spring:
   application:
     name: ttcs
+  datasource:
+    url: jdbc:mysql://localhost:3306/ttcss
+    username: root
+    password: 21122004dug
+    driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     show-sql: true
-#    hibernate:
-#      ddl-auto: update
+    hibernate:
+      ddl-auto: update
   servlet:
     multipart:
       max-file-size: 50MB
@@ -86,3 +91,11 @@ app:
     exposedHeaders: Authorization
     allowCredentials: true
     maxAge: 3600
+
+cloudinary:
+  cloud-name: deagzbffy
+  api-key: 828333548732815
+  api-secret: Fr158SFI3iTxIYczrO4lsmqfTjY
+  base-uri: https://res.cloudinary.com/deagzbffy
+  secure: true
+  

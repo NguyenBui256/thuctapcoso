@@ -16,6 +16,7 @@ const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage'));
 const TeamPage = lazy(() => import('./pages/project_detail/TeamPage'));
 const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage'));
 const MainLayout = lazy(() => import ('./pages/MainLayout.jsx'))
+const MainLayout = lazy(() => import('./pages/MainLayout.jsx'))
 const BacklogPage = lazy(() => import('./pages/scrum/BacklogPage'));
 const SprintPage = lazy(() => import ('./pages/scrum/SprintPage.jsx'))
 const MainLayout = lazy(() => import('./pages/MainLayout.jsx'))
@@ -23,6 +24,8 @@ const BacklogPage = lazy(() => import('./pages/scrum/BacklogPage.jsx'));
 const SprintPage = lazy(() => import('./pages/scrum/SprintPage.jsx'));
 const IssuePage = lazy(() => import ('./pages/issue/IssuePage.jsx'))
 const IssueList = lazy(() => import ('./pages/issue/IssueList.jsx'))
+const SprintPage = lazy(() => import('./pages/scrum/SprintPage.jsx'))
+const IssueList = lazy(() => import('./pages/issue/IssueList.jsx'))
 const IssueDetail = lazy(() => import('./pages/issue/IssueDetail.jsx'));
 
 import { ERROR_TYPE } from './pages/ErrorPage.jsx';
@@ -54,10 +57,10 @@ function App() {
         <Route path="/projects/create/:projectType" element={<CreateProject />} />
         <Route path="/projects/duplicate" element={<DuplicateProject />} />
         <Route path="/projects/:projectId" element={<ProjectDetail />} />
-        <Route path="/projects/:projectId/kanban" element={<KanbanBoardWrapper />} />
-        <Route path="/projects/:projectId/userstory/:userStoryId" element={<TaigaUserStoryDetail />} />
-        <Route path="/task/:taskId" element={<TaigaTaskDetail />} />
         <Route path="/projects/:projectId" element={<ProjectDetailLayout />} >
+          <Route path="/projects/:projectId/kanban" element={<KanbanBoardWrapper />} />
+          <Route path="/projects/:projectId/userstory/:userStoryId" element={<TaigaUserStoryDetail />} />
+          <Route path="/projects/:projectId/task/:taskId" element={<TaigaTaskDetail />} />
           <Route index element={< ProjectDetail />} />
           <Route path="wiki" element={<WikiPage />} />
           <Route path="team" element={<TeamPage />} />
@@ -72,6 +75,10 @@ function App() {
           <Route path='issue/:issueId' element={<IssueDetail/>}/>
           <Route path="settings" element={<SettingsPage />} />
           <Route path="team" element={<TeamPage />} />
+          <Route path="backlog" element={<BacklogPage />} />
+          <Route path="sprint/:sprintId" element={<SprintPage />} />
+          <Route path='issues' element={<IssueList />} />
+          <Route path='issue/:issueId' element={<IssueDetail />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
         <Route path="/account/settings" element={<AccountSettings />} />

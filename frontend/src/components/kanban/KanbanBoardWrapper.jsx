@@ -655,22 +655,6 @@ const KanbanBoardWrapper = () => {
                     <KanbanFilter projectId={projectId} onFilterChange={handleFilterChange} />
 
                     <div className="flex items-center justify-between mt-2">
-                        <div className="flex items-center space-x-2">
-                            <div className="relative">
-                                <input
-                                    type="text"
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    placeholder="subject or reference"
-                                    className="border border-gray-300 rounded px-2 py-1 text-xs w-40 pr-6"
-                                />
-                                <button className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400">
-                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
 
                         <div className="flex items-center ml-auto">
                             <span className="text-xs text-gray-500 mr-2">ZOOM:</span>

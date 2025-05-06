@@ -135,6 +135,11 @@ public class ProjectService {
         creatorMember.setUpdatedAt(LocalDateTime.now());
         creatorMember = projectMemberRepository.save(creatorMember);
 
+        // Sau khi đã tạo xong ProjectMember, cập nhật lại createdBy cho Project
+        project.setCreatedBy(creator);
+        project = projectRepository.save(project);
+        log.info("Updated project with creator ID: {}", creator.getId());
+
         for (ProjectRoleName roleName : ProjectRoleName.values()) {
             ProjectRole projectRole = new ProjectRole();
             projectRole.setProject(project);
@@ -250,7 +255,8 @@ public class ProjectService {
         newProject.setDescription(projectDTO.getDescription());
         newProject.setIsPublic(projectDTO.getIsPublic());
         newProject.setLogoUrl(sourceProject.getLogoUrl());
-        newProject.setCreatedBy(securityUtils.getCurrentUser());
+        // Không set createdBy lúc này
+        newProject.setCreatedBy(null);
         newProject.setModules(new HashSet<>(sourceProject.getModules()));
         newProject.setCreatedAt(LocalDateTime.now());
         newProject.setUpdatedAt(LocalDateTime.now());
@@ -298,6 +304,9 @@ public class ProjectService {
     public boolean isUserProjectAdmin(Long projectId, Long userId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Project not found"));
+        if (project.getCreatedBy() == null) {
+            return false;
+        }
         return project.getCreatedBy().getId().equals(userId);
     }
 

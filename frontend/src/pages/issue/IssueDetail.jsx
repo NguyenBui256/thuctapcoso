@@ -2,16 +2,39 @@ import { useNavigate, useParams } from "react-router-dom"
 import { fetchWithAuth } from "../../utils/AuthUtils"
 import { BASE_API_URL } from "../../common/constants"
 import { useEffect, useState, useRef } from "react"
-import { Avatar, Tag, Tooltip, Button, Divider } from "antd"
-import { UserOutlined, EyeOutlined, PlusOutlined, LockOutlined, LinkOutlined, DeleteOutlined, FileTextOutlined, ClockCircleOutlined, EditOutlined } from '@ant-design/icons'
+import { Avatar, Tag, Tooltip, Button, Divider, List, Input, Tabs } from "antd"
+import { UserOutlined, EyeOutlined, PlusOutlined, LockOutlined, LinkOutlined, DeleteOutlined, FileTextOutlined, ClockCircleOutlined, EditOutlined, SendOutlined, UploadOutlined, DownloadOutlined, FileOutlined, LoadingOutlined } from '@ant-design/icons'
 import { updateIssue } from '../../api/issue'
 import DropdownPortal from './DropdownPortal'
 import { toast } from "react-toastify"
+import axios from '../../common/axios-customize';
+import { message } from "antd"
+// Thêm comment component từ nguồn khác nếu cần
 
-export default function IssueDetail(){
+const { TextArea } = Input;
+const { TabPane } = Tabs;
+
+// Tạo một custom comment component
+const CommentItem = ({ author, avatar, content, datetime, actions }) => {
+    return (
+        <div className="flex items-start">
+            <div className="mr-3">{avatar}</div>
+            <div className="flex-1">
+                <div className="flex justify-between mb-1">
+                    <span className="font-medium">{author}</span>
+                    <span className="text-gray-500 text-sm">{datetime}</span>
+                </div>
+                <div className="mb-2">{content}</div>
+                {actions && <div className="mt-1">{actions}</div>}
+            </div>
+        </div>
+    );
+};
+
+export default function IssueDetail() {
 
     const userId = localStorage.getItem('userId')
-    const {projectId, issueId} = useParams()
+    const { projectId, issueId } = useParams()
     const navigate = useNavigate()
     const [issue, setIssue] = useState({})
     const [filters, setFilters] = useState({})
@@ -22,6 +45,13 @@ export default function IssueDetail(){
 
     const [isAddingTag, setIsAddingTag] = useState(false)
     const [tagInput, setTagInput] = useState('')
+
+    // New states for comments and activities
+    const [comments, setComments] = useState([])
+    const [activities, setActivities] = useState([])
+    const [commentContent, setCommentContent] = useState('')
+    const [activeTab, setActiveTab] = useState('comments')
+    const [isLoadingComment, setIsLoadingComment] = useState(false)
 
     const filteredTags = filters.tags?.filter(t => t.name.toLowerCase().includes(tagInput.toLowerCase()) && !issue.tags?.some(st => st.id === t.id));
 
@@ -40,6 +70,120 @@ export default function IssueDetail(){
     const assignRef = useRef()
 
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false)
+
+    // Attachments handling
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef(null);
+
+    const handleUploadClick = () => {
+        fileInputRef.current.click();
+    };
+
+    const handleFileChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('folder', `issue/${issueId}`);
+
+            // Determine the correct upload endpoint based on file type
+            let uploadEndpoint = '/api/v1/files/upload/raw'; // Default for documents
+
+            if (file.type.startsWith('image/')) {
+                uploadEndpoint = '/api/v1/files/upload/image';
+            } else if (file.type.startsWith('video/')) {
+                uploadEndpoint = '/api/v1/files/upload/video';
+            }
+
+            // Upload file to cloudinary
+            const uploadResponse = await axios.post(uploadEndpoint, formData);
+
+            if (uploadResponse.data) {
+                // Now save the attachment to the issue
+                const attachmentData = {
+                    filename: file.name,
+                    contentType: file.type,
+                    fileSize: file.size,
+                    url: uploadResponse.data.secure_url || uploadResponse.data.url
+                };
+
+                const attachResponse = await axios.post(`/api/v1/issue/${issueId}/attachment`, attachmentData);
+
+                if (attachResponse.data) {
+                    message.success('File attached successfully!');
+                    // Refresh the issue to show the new attachment
+                    await fetchIssue();
+                } else {
+                    message.error('Failed to attach file to issue');
+                }
+            } else {
+                message.error('Failed to upload file to cloud storage');
+            }
+        } catch (err) {
+            console.error('Error uploading file:', err);
+            message.error('Error uploading file: ' + (err.message || 'Unknown error'));
+        } finally {
+            setIsUploading(false);
+            // Clear the file input
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        }
+    };
+
+    const handleDownloadAttachment = (attachment) => {
+        try {
+            // Xác định nếu là loại file đặc biệt cần xử lý đặc biệt (pdf, doc, docx, xls, xlsx)
+            const fileExt = attachment.filename.split('.').pop().toLowerCase();
+            const specialTypes = ['pdf', 'doc', 'docx', 'xls', 'xlsx'];
+
+            if (attachment.contentType && attachment.contentType.startsWith('image/')) {
+                // Đối với hình ảnh, mở trong tab mới
+                window.open(attachment.url, '_blank');
+            } else if (specialTypes.includes(fileExt)) {
+                // Với các loại file đặc biệt, chúng ta sử dụng fetch để lấy blob
+                fetch(attachment.url)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        // Tạo một URL tạm thời từ blob và tên file gốc
+                        const blobUrl = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = blobUrl;
+                        link.setAttribute('download', attachment.filename);
+                        document.body.appendChild(link);
+                        link.click();
+                        // Giải phóng URL sau khi tải xuống
+                        setTimeout(() => {
+                            document.body.removeChild(link);
+                            window.URL.revokeObjectURL(blobUrl);
+                        }, 100);
+                    })
+                    .catch(err => {
+                        console.error('Error downloading file:', err);
+                        message.error('Failed to download file. Try again or contact admin.');
+                        // Fallback to direct open
+                        window.open(attachment.url, '_blank');
+                    });
+            } else {
+                // Với các loại file khác, sử dụng phương pháp tải xuống thông thường
+                const link = document.createElement('a');
+                link.href = attachment.url;
+                link.setAttribute('download', attachment.filename);
+                link.setAttribute('target', '_blank');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        } catch (error) {
+            console.error('Error in download handler:', error);
+            message.error('Failed to download file');
+            // Fallback to direct open
+            window.open(attachment.url, '_blank');
+        }
+    };
 
     useEffect(() => {
         function handleClickOutside(event) {
@@ -64,7 +208,7 @@ export default function IssueDetail(){
         fetchWithAuth(`${BASE_API_URL}/v1/issue/get?projectId=${projectId}&issueId=${issueId}`)
             .then(res => res.json())
             .then(res => {
-                if(res.error)
+                if (res.error)
                     navigate('/error?errorType=NOT_FOUND')
                 else
                     setIssue(res.data)
@@ -77,13 +221,85 @@ export default function IssueDetail(){
             .then(res => setFilters(res.data))
     }
 
+    const fetchComments = () => {
+        fetchWithAuth(`${BASE_API_URL}/v1/issue/${issueId}/comments`)
+            .then(res => res.json())
+            .then(res => {
+                if (!res.error) {
+                    setComments(res.data)
+                }
+            })
+    }
+
+    const fetchActivities = () => {
+        fetchWithAuth(`${BASE_API_URL}/v1/issue/${issueId}/activities`)
+            .then(res => res.json())
+            .then(res => {
+                if (!res.error) {
+                    setActivities(res.data)
+                }
+            })
+    }
+
+    const handleSubmitComment = () => {
+        if (!commentContent.trim()) {
+            return;
+        }
+
+        setIsLoadingComment(true);
+        fetchWithAuth(`${BASE_API_URL}/v1/issue/${issueId}/comments`, window.location, true, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ content: commentContent })
+        })
+            .then(res => res.json())
+            .then(res => {
+                if (res.error) {
+                    toast.error('Failed to submit comment');
+                } else {
+                    setCommentContent('');
+                    fetchComments();  // Refresh comments
+                    fetchActivities(); // Cập nhật activities
+                    toast.success('Comment added successfully');
+                }
+                setIsLoadingComment(false);
+            })
+            .catch(err => {
+                console.error('Error submitting comment:', err);
+                toast.error('Failed to submit comment');
+                setIsLoadingComment(false);
+            });
+    }
+
+    const handleDeleteComment = (commentId) => {
+        fetchWithAuth(`${BASE_API_URL}/v1/issue/comments/${commentId}`, window.location, true, {
+            method: 'DELETE'
+        })
+            .then(res => res.json())
+            .then(res => {
+                if (!res.error) {
+                    fetchComments();  // Refresh comments
+                    fetchActivities(); // Cập nhật activities
+                    toast.success('Comment deleted successfully');
+                } else {
+                    toast.error('Failed to delete comment');
+                }
+            })
+            .catch(err => {
+                console.error('Error deleting comment:', err);
+                toast.error('Failed to delete comment');
+            });
+    }
+
     const handleTitleClick = () => {
         setEditTitle(issue.subject)
         setIsEditingTitle(true)
     }
 
     const handleTitleSave = async () => {
-        if(!editTitle){
+        if (!editTitle) {
             toast.warn("Tiêu đề không được trống")
             return
         }
@@ -92,8 +308,9 @@ export default function IssueDetail(){
             if (res && !res.error) {
                 setIssue(res.data)
                 setIsEditingTitle(false)
+                fetchActivities(); // Cập nhật activities
             }
-        } catch (e) {}
+        } catch (e) { }
     }
 
     const handleDesUpdate = async () => {
@@ -102,21 +319,23 @@ export default function IssueDetail(){
             if (res && !res.error) {
                 setIssue(res.data)
                 setIsEditingDes(false)
+                fetchActivities(); // Cập nhật activities
             }
-        } catch (e) {}
+        } catch (e) { }
     }
-     
+
     const handleUpdate = async (propName, value) => {
         const body = {
             [propName]: value
         }
         const res = await updateIssue(issue.id, body)
-        if(res.error){
+        if (res.error) {
             toast.error("Error while updating")
         }
-        else{
+        else {
             setIssue(res.data)
             toast.success("Updated successfully")
+            fetchActivities(); // Cập nhật activities
         }
     }
 
@@ -126,21 +345,30 @@ export default function IssueDetail(){
         })
             .then(res => res.json())
             .then(res => {
-                if(res.error){
+                if (res.error) {
                     toast.error("Error while deleting, try again later")
                 }
-                else{
+                else {
                     window.location.assign("../issues")
                 }
             })
     }
 
-    useEffect(() => {
-        fetchIssue()
-        fetchFilters()
-    }, [])
+    // Format date for better display
+    const formatDate = (dateString) => {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        return date.toLocaleString('vi-VN');
+    }
 
-    if(!issue) return (
+    useEffect(() => {
+        fetchIssue();
+        fetchFilters();
+        fetchComments();
+        fetchActivities();
+    }, [issueId]);
+
+    if (!issue) return (
         <></>
     )
 
@@ -206,7 +434,7 @@ export default function IssueDetail(){
                     {/* Tag */}
                     <div style={{ margin: '12px 0' }}>
                         {issue.tags?.map((tag, idx) => (
-                            <Tag key={idx} style={{background: tag.color}}>
+                            <Tag key={idx} style={{ background: tag.color }}>
                                 {tag.name}
                                 <span
                                     className="ml-2 font-bold text-[20px] rounded-full cursor-pointer"
@@ -230,116 +458,236 @@ export default function IssueDetail(){
                                 />
                                 {tagInput && filteredTags.length > 0 && (
                                     <div className="absolute w-fit left-0 right-0 bg-white border border-gray-200 rounded shadow z-10 mt-1 max-h-40 overflow-y-auto">
-                                    {filteredTags.map(tag => (
-                                        <div
-                                            key={tag.id}
-                                            className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center"
-                                            onClick={() => {
-                                                handleUpdate('tags', [...issue.tags, tag])
-                                                setIsAddingTag(false)
-                                            }}
-                                        >
-                                            {tag.color && <span className="w-3 h-3 rounded-full mr-2" style={{backgroundColor: tag.color}}></span>}
-                                            {tag.name}
-                                        </div>
-                                    ))}
+                                        {filteredTags.map(tag => (
+                                            <div
+                                                key={tag.id}
+                                                className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center"
+                                                onClick={() => {
+                                                    handleUpdate('tags', [...issue.tags, tag])
+                                                    setIsAddingTag(false)
+                                                }}
+                                            >
+                                                {tag.color && <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: tag.color }}></span>}
+                                                {tag.name}
+                                            </div>
+                                        ))}
                                     </div>
                                 )}
 
                                 <Button
-                                    className="bg-blue-300 mr-2"                                
+                                    className="bg-blue-300 mr-2"
                                 >
                                     Thêm mới
                                 </Button>
-                                <Button 
+                                <Button
                                     className="bg-red-100"
-                                    onClick={() => setIsAddingTag(false)}  
+                                    onClick={() => setIsAddingTag(false)}
                                 >
                                     Hủy
                                 </Button>
-                                
+
                             </div>
                         ) : (
-                            <Button 
+                            <Button
                                 color="#bfbfbf"
                                 onClick={() => {
                                     setTagInput('')
                                     setIsAddingTag(true)
-                                }}  
+                                }}
                             >
                                 + Thêm thẻ
                             </Button>
                         )}
-                        
+
                     </div>
                     {/* Description */}
-                    <div 
+                    <div
                         style={{ fontStyle: 'italic', marginBottom: 16 }}
-                        
+
                     >
                         {isEditingDes ? (
                             <>
-                            <textarea
-                                value={editDes}
-                                onChange={e => setEditDes(e.target.value)}
-                                style={{
-                                    fontSize: 20,
-                                    height: 100,
-                                    lineHeight: '36px',
-                                    resize: 'none',
-                                    width: 350,
-                                    padding: '2px 8px',
-                                    borderRadius: 4,
-                                    border: '1px solid #bfc6d1',
-                                    fontFamily: 'inherit',
-                                    verticalAlign: 'middle',
-                                    boxSizing: 'border-box',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                }}
-                                autoFocus
-                            />
-                            <button
-                                style={{ marginLeft: 8, padding: '4px 12px', fontSize: 16, borderRadius: 4, border: '1px solid #5178d3', background: '#5178d3', color: '#fff', cursor: 'pointer' }}
-                                onClick={handleDesUpdate}
-                            >Lưu</button>
-                            <button
-                                style={{ marginLeft: 8, padding: '4px 12px', fontSize: 16, borderRadius: 4, border: '1px solid #bfc6d1', background: '#fff', color: '#5178d3', cursor: 'pointer' }}
-                                onClick={() => setIsEditingDes(false)}
-                            >Hủy</button>
+                                <textarea
+                                    value={editDes}
+                                    onChange={e => setEditDes(e.target.value)}
+                                    style={{
+                                        fontSize: 20,
+                                        height: 100,
+                                        lineHeight: '36px',
+                                        resize: 'none',
+                                        width: 350,
+                                        padding: '2px 8px',
+                                        borderRadius: 4,
+                                        border: '1px solid #bfc6d1',
+                                        fontFamily: 'inherit',
+                                        verticalAlign: 'middle',
+                                        boxSizing: 'border-box',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                    }}
+                                    autoFocus
+                                />
+                                <button
+                                    style={{ marginLeft: 8, padding: '4px 12px', fontSize: 16, borderRadius: 4, border: '1px solid #5178d3', background: '#5178d3', color: '#fff', cursor: 'pointer' }}
+                                    onClick={handleDesUpdate}
+                                >Lưu</button>
+                                <button
+                                    style={{ marginLeft: 8, padding: '4px 12px', fontSize: 16, borderRadius: 4, border: '1px solid #bfc6d1', background: '#fff', color: '#5178d3', cursor: 'pointer' }}
+                                    onClick={() => setIsEditingDes(false)}
+                                >Hủy</button>
                             </>
                         ) : (
                             <>
-                            {issue.description ? (
-                                <span
-                                    style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}
-                                    onClick={() => {
-                                        setEditDes(issue.description)
-                                        setIsEditingDes(true)
-                                    }}
-                                    title="Nhấn để chỉnh sửa mô tả"
-                                >
-                                    <span style={{ fontSize: 20, cursor: 'pointer' }}>{issue.description}</span>
-                                </span>
-                            ) : 'Empty space is so boring... go on, be descriptive...'}
+                                {issue.description ? (
+                                    <span
+                                        style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}
+                                        onClick={() => {
+                                            setEditDes(issue.description)
+                                            setIsEditingDes(true)
+                                        }}
+                                        title="Nhấn để chỉnh sửa mô tả"
+                                    >
+                                        <span style={{ fontSize: 20, cursor: 'pointer' }}>{issue.description}</span>
+                                    </span>
+                                ) : 'Empty space is so boring... go on, be descriptive...'}
                             </>
                         )}
-                        
+
                     </div>
                     {/* Attachments */}
                     <div style={{ background: '#f3f5fa', border: '1px solid #e5e7ef', borderRadius: 6, padding: 16, marginBottom: 24 }}>
-                        <b>0 Attachments</b>
-                        <div style={{ border: '1px dashed #bfc6d1', borderRadius: 6, padding: 24, textAlign: 'center', marginTop: 8, color: '#5178d3', cursor: 'pointer' }}>
-                            Drop attachments here!
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                            <b>{issue.attachments?.length || 0} Attachments</b>
+                            <Button
+                                type="link"
+                                icon={isUploading ? <LoadingOutlined /> : <UploadOutlined />}
+                                onClick={handleUploadClick}
+                                disabled={isUploading}
+                            />
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                className="hidden"
+                                onChange={handleFileChange}
+                                accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                style={{ display: 'none' }}
+                            />
                         </div>
+
+                        {issue.attachments && issue.attachments.length > 0 ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {issue.attachments.map(attachment => (
+                                    <div key={attachment.id} style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        padding: 8,
+                                        backgroundColor: '#fff',
+                                        borderRadius: 4,
+                                        border: '1px solid #e5e7ef'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <FileOutlined style={{ color: '#5178d3' }} />
+                                            <span>{attachment.filename}</span>
+                                        </div>
+                                        <Button
+                                            type="link"
+                                            icon={<DownloadOutlined />}
+                                            onClick={() => handleDownloadAttachment(attachment)}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div style={{ border: '1px dashed #bfc6d1', borderRadius: 6, padding: 24, textAlign: 'center', marginTop: 8, color: '#5178d3', cursor: 'pointer' }}
+                                onClick={handleUploadClick}>
+                                Drop attachments here!
+                            </div>
+                        )}
                     </div>
                     {/* Tabs: Comments & Activities */}
                     <div style={{ background: '#f3f5fa', borderRadius: 6, padding: 16 }}>
-                        <div style={{ display: 'flex', gap: 32, borderBottom: '1px solid #e5e7ef', marginBottom: 16 }}>
-                            <b style={{ borderBottom: '2px solid #5178d3', paddingBottom: 4 }}>0 Comments</b>
-                            <span style={{ color: '#5178d3', cursor: 'pointer' }}>1 Activities</span>
-                        </div>
-                        <textarea style={{ width: '100%', minHeight: 60, borderRadius: 6, border: '1px solid #bfc6d1', padding: 8 }} placeholder="Type a new comment here" />
+                        <Tabs
+                            activeKey={activeTab}
+                            onChange={setActiveTab}
+                            style={{ marginBottom: 16 }}
+                        >
+                            <TabPane tab={`${comments.length} Comments`} key="comments">
+                                <div className="comments-container">
+                                    {comments.length === 0 ? (
+                                        <div className="py-4 text-center text-gray-500">No comments yet</div>
+                                    ) : (
+                                        <List
+                                            className="comment-list"
+                                            itemLayout="horizontal"
+                                            dataSource={comments}
+                                            renderItem={item => (
+                                                <li className="mb-3 pb-3 border-b border-gray-200">
+                                                    <CommentItem
+                                                        author={<span>{item.userFullName}</span>}
+                                                        avatar={<Avatar icon={<UserOutlined />} />}
+                                                        content={<p>{item.content}</p>}
+                                                        datetime={<span>{formatDate(item.createdAt)}</span>}
+                                                        actions={[
+                                                            <span
+                                                                key="delete"
+                                                                onClick={() => handleDeleteComment(item.id)}
+                                                                className="text-red-500 cursor-pointer hover:underline"
+                                                            >
+                                                                <DeleteOutlined /> Delete
+                                                            </span>
+                                                        ]}
+                                                    />
+                                                </li>
+                                            )}
+                                        />
+                                    )}
+                                    <div className="mt-4">
+                                        <TextArea
+                                            rows={3}
+                                            value={commentContent}
+                                            onChange={e => setCommentContent(e.target.value)}
+                                            placeholder="Add a comment..."
+                                            className="mb-2"
+                                        />
+                                        <Button
+                                            type="primary"
+                                            icon={<SendOutlined />}
+                                            onClick={handleSubmitComment}
+                                            loading={isLoadingComment}
+                                            disabled={!commentContent.trim()}
+                                        >
+                                            Comment
+                                        </Button>
+                                    </div>
+                                </div>
+                            </TabPane>
+                            <TabPane tab={`${activities.length} Activities`} key="activities">
+                                <div className="activities-container">
+                                    {activities.length === 0 ? (
+                                        <div className="py-4 text-center text-gray-500">No activities recorded yet</div>
+                                    ) : (
+                                        <List
+                                            className="activity-list"
+                                            itemLayout="horizontal"
+                                            dataSource={activities}
+                                            renderItem={item => (
+                                                <li className="mb-2 pb-2 border-b border-gray-200">
+                                                    <div className="flex items-start">
+                                                        <Avatar icon={<UserOutlined />} className="mr-3" />
+                                                        <div>
+                                                            <div className="font-medium">{item.userFullName || item.username}</div>
+                                                            <div>{item.details}</div>
+                                                            <div className="text-gray-500 text-sm">{formatDate(item.timestamp)}</div>
+                                                        </div>
+                                                    </div>
+                                                </li>
+                                            )}
+                                        />
+                                    )}
+                                </div>
+                            </TabPane>
+                        </Tabs>
                     </div>
                 </div>
                 {/* Cột phải */}
@@ -347,9 +695,9 @@ export default function IssueDetail(){
                     <div style={{ background: '#fff', borderRadius: 8, padding: 24, marginBottom: 24 }}>
                         <div ref={statusRef} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                             <span style={{ fontSize: 28, fontWeight: 600, letterSpacing: 1 }}>{issue.status?.closed ? 'CLOSED' : 'OPEN'}</span>
-                            <Tag 
+                            <Tag
                                 color="#59597c" style={{ fontWeight: 500, marginLeft: 8 }}
-                                onClick={() => {setShowStatusDropdown(v => !v)}}
+                                onClick={() => { setShowStatusDropdown(v => !v) }}
                             >
                                 {issue.status?.name}
                             </Tag>
@@ -373,7 +721,7 @@ export default function IssueDetail(){
                         <Divider style={{ margin: '16px 0' }} />
                         <div style={{ marginBottom: 12 }}>
                             <span style={{ color: '#888' }}>type</span>
-                            <div 
+                            <div
                                 ref={typeRef}
                                 style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
                                 onClick={() => setShowTypeDropdown(v => !v)}
@@ -400,7 +748,7 @@ export default function IssueDetail(){
                         </div>
                         <div style={{ marginBottom: 12 }}>
                             <span style={{ color: '#888' }}>severity</span>
-                            <div 
+                            <div
                                 ref={severityRef}
                                 style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
                                 onClick={() => setShowSeverityDropdown(v => !v)}
@@ -427,7 +775,7 @@ export default function IssueDetail(){
                         </div>
                         <div style={{ marginBottom: 12 }}>
                             <span style={{ color: '#888' }}>priority</span>
-                            <div 
+                            <div
                                 ref={prioRef}
                                 style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
                                 onClick={() => setShowPrioDropdown(v => !v)}
@@ -454,11 +802,11 @@ export default function IssueDetail(){
                         </div>
                     </div>
                     {/* Assigned */}
-                    <div 
+                    <div
                         style={{ background: '#fff', borderRadius: 8, padding: 16, marginBottom: 16 }}
                     >
                         <div style={{ fontWeight: 500, marginBottom: 8 }}>ASSIGNED</div>
-                        <Button 
+                        <Button
                             ref={assignRef}
                             icon={<PlusOutlined />} size="small" style={{ marginRight: 8 }}
                             onClick={() => setShowAssignDropdown(v => !v)}
@@ -466,7 +814,7 @@ export default function IssueDetail(){
                             Change assigned
                         </Button>
                         {(issue.assignee === null || issue.assignee?.userId != userId) && (
-                            <Button 
+                            <Button
                                 icon={<UserOutlined />} size="small"
                                 onClick={() => handleUpdate('assignee', filters.assigns.find(v => v.userId == userId))}
                             >
@@ -487,7 +835,7 @@ export default function IssueDetail(){
                                     className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
                                     onClick={() => {
                                         setShowAssignDropdown(false);
-                                        handleUpdate('assignee', {id: -1});
+                                        handleUpdate('assignee', { id: -1 });
                                     }}
                                 >
                                     Không phân công
@@ -502,11 +850,11 @@ export default function IssueDetail(){
                                         }}
                                     >
                                         {user.avatar ? (
-                                        <img src={user.avatar} alt={user.fullName} className="w-7 h-7 rounded-full object-cover" />
+                                            <img src={user.avatar} alt={user.fullName} className="w-7 h-7 rounded-full object-cover" />
                                         ) : (
-                                        <div className="w-7 h-7 rounded-full bg-gray-300 flex items-center justify-center text-xs text-gray-600">
-                                            {user.fullName?.charAt(0)?.toUpperCase()}
-                                        </div>
+                                            <div className="w-7 h-7 rounded-full bg-gray-300 flex items-center justify-center text-xs text-gray-600">
+                                                {user.fullName?.charAt(0)?.toUpperCase()}
+                                            </div>
                                         )}
                                         <span>{user.fullName}</span>
                                     </div>
@@ -521,38 +869,38 @@ export default function IssueDetail(){
                         <Button icon={<EyeOutlined />} size="small">Watch</Button>
                     </div>
                     {/* Các nút chức năng */}
-                    <div 
+                    <div
                         style={{ background: '#fff', borderRadius: 8, padding: 16, display: 'flex', gap: 12, justifyContent: 'center' }}
                     >
-                        <Button 
+                        <Button
                             ref={dueDateRef}
-                            icon={<ClockCircleOutlined />} shape="circle" 
+                            icon={<ClockCircleOutlined />} shape="circle"
                             className={`${issue.dueDate && 'bg-red-300'}`}
                             onClick={() => setShowDueDatePicker(v => !v)}
                         />
-                        <Button 
-                            icon={<DeleteOutlined />} 
-                            shape="circle" 
-                            danger 
-                            onClick={() => setShowDeleteConfirmModal(true)}    
+                        <Button
+                            icon={<DeleteOutlined />}
+                            shape="circle"
+                            danger
+                            onClick={() => setShowDeleteConfirmModal(true)}
                         />
 
                         <DropdownPortal anchorRef={dueDateRef} show={showDueDatePicker}>
                             <div className="absolute right-0 bg-white border border-gray-200 rounded shadow-lg p-4 z-10">
                                 <input
-                                type="date"
-                                className="w-full border border-gray-300 rounded px-3 py-2 mb-2"
-                                value={issue.dueDate}
-                                onChange={(e) => {
-                                    handleUpdate('dueDate', e.target.value);
-                                    setShowDueDatePicker(false);
-                                }}
+                                    type="date"
+                                    className="w-full border border-gray-300 rounded px-3 py-2 mb-2"
+                                    value={issue.dueDate}
+                                    onChange={(e) => {
+                                        handleUpdate('dueDate', e.target.value);
+                                        setShowDueDatePicker(false);
+                                    }}
                                 />
                                 <button
                                     className="text-sm text-gray-500 hover:text-gray-700"
                                     onClick={() => setShowDueDatePicker(false)}
                                 >
-                                Hủy
+                                    Hủy
                                 </button>
                             </div>
                         </DropdownPortal>

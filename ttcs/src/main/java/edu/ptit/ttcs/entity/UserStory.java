@@ -67,7 +67,7 @@ public class UserStory extends BaseEntity {
     private Set<ProjectSettingTag> tags = new HashSet<>();
 
     @ManyToMany
-    @JoinTable(name = "user_story_user", joinColumns = @JoinColumn(name = "user_story_id"), inverseJoinColumns = @JoinColumn(name = "project_member_id"))
+    @JoinTable(name = "user_story_assign", joinColumns = @JoinColumn(name = "user_story_id"), inverseJoinColumns = @JoinColumn(name = "project_member_id"))
     private Set<ProjectMember> assignedUsers = new HashSet<>();
 
     @ManyToMany
@@ -85,4 +85,8 @@ public class UserStory extends BaseEntity {
     public void setAssignedTo(User assignedTo) {
         this.assignedTo = assignedTo;
     }
+
+    @ManyToMany
+    @JoinTable(name = "user_story_attachment", joinColumns = @JoinColumn(name = "user_story_id"), inverseJoinColumns = @JoinColumn(name = "attachment_id"))
+    private Set<Attachment> attachments = new HashSet<>();
 }

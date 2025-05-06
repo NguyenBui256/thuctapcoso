@@ -6,6 +6,8 @@ import edu.ptit.ttcs.dao.UserRepository;
 import edu.ptit.ttcs.dao.UserStoryRepository;
 import edu.ptit.ttcs.dao.ProjectMemberRepository;
 import edu.ptit.ttcs.dao.CommentRepository;
+import edu.ptit.ttcs.dao.AttachmentRepository;
+import edu.ptit.ttcs.dao.TaskAttachmentRepository;
 import edu.ptit.ttcs.entity.dto.TaskDTO;
 import edu.ptit.ttcs.entity.dto.request.TaskRequestDTO;
 import edu.ptit.ttcs.entity.ProjectSettingTag;
@@ -18,6 +20,9 @@ import edu.ptit.ttcs.entity.Comment;
 import edu.ptit.ttcs.entity.dto.CommentDTO;
 import edu.ptit.ttcs.entity.dto.ActivityDTO;
 import edu.ptit.ttcs.service.ActivityService;
+import edu.ptit.ttcs.entity.Attachment;
+import edu.ptit.ttcs.entity.TaskAttachment;
+import edu.ptit.ttcs.entity.dto.AttachmentDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -60,6 +65,12 @@ public class TaskController {
 
     @Autowired
     private ActivityService activityService;
+
+    @Autowired
+    private AttachmentRepository attachmentRepository;
+
+    @Autowired
+    private TaskAttachmentRepository taskAttachmentRepository;
 
     private Long getUserIdFromHeader() {
         try {
@@ -131,19 +142,20 @@ public class TaskController {
      * @param userId User ID
      * @return List of tasks
      */
-//    @GetMapping("/user/{userId}")
-//    public ResponseEntity<List<TaskDTO>> getTasksByUser(@PathVariable Integer userId) {
-//        Optional<User> userOptional = userRepository.findById(userId.longValue());
-//        if (!userOptional.isPresent()) {
-//            return ResponseEntity.notFound().build();
-//        }
-//
-////        List<Task> tasks = taskRepository.findByUser(userOptional.get());
-//        List<TaskDTO> taskDTOs = tasks.stream()
-//                .map(this::convertToDTO)
-//                .collect(Collectors.toList());
-//        return ResponseEntity.ok(taskDTOs);
-//    }
+    // @GetMapping("/user/{userId}")
+    // public ResponseEntity<List<TaskDTO>> getTasksByUser(@PathVariable Integer
+    // userId) {
+    // Optional<User> userOptional = userRepository.findById(userId.longValue());
+    // if (!userOptional.isPresent()) {
+    // return ResponseEntity.notFound().build();
+    // }
+    //
+    //// List<Task> tasks = taskRepository.findByUser(userOptional.get());
+    // List<TaskDTO> taskDTOs = tasks.stream()
+    // .map(this::convertToDTO)
+    // .collect(Collectors.toList());
+    // return ResponseEntity.ok(taskDTOs);
+    // }
 
     /**
      * Create new task
@@ -1034,58 +1046,61 @@ public class TaskController {
         dto.setIsBlocked(task.getIsBlocked());
         dto.setPoints(task.getPoints());
 
-        // Set status info if available
-        if (task.getStatus() != null) {
-            dto.setStatusId(task.getStatus().getId().intValue());
-            dto.setStatusName(task.getStatus().getName());
+        if (task.getAssigned() != null) {
+            dto.setAssignedTo(task.getAssigned().getId().intValue());
+            dto.setAssignedToName(task.getAssigned().getUser().getFullName());
         }
 
-        // Set user story info if available
         if (task.getUserStory() != null) {
             dto.setUserStoryId(task.getUserStory().getId());
             dto.setUserStoryName(task.getUserStory().getName());
         }
 
-        // Set assignees info if available
-        if (task.getAssignees() != null && !task.getAssignees().isEmpty()) {
-            List<TaskDTO.UserDTO> assigneeDTOs = task.getAssignees().stream()
-                    .map(assignee -> {
-                        TaskDTO.UserDTO userDTO = new TaskDTO.UserDTO();
-                        userDTO.setId(assignee.getId().intValue());
-                        userDTO.setUsername(assignee.getUser().getUsername());
-                        userDTO.setFullName(assignee.getUser().getFullName());
-                        return userDTO;
-                    })
-                    .collect(Collectors.toList());
-            dto.setAssignees(assigneeDTOs);
+        if (task.getStatus() != null) {
+            dto.setStatusId(task.getStatus().getId());
+            dto.setStatus(task.getStatus().getName());
+            dto.setStatusName(task.getStatus().getName());
         }
 
-        // Set tags if available
         if (task.getTags() != null && !task.getTags().isEmpty()) {
-            List<TaskDTO.TagDTO> tagDTOs = task.getTags().stream()
-                    .map(tag -> {
-                        TaskDTO.TagDTO tagDTO = new TaskDTO.TagDTO();
-                        tagDTO.setId(tag.getId().intValue());
-                        tagDTO.setName(tag.getName());
-                        tagDTO.setColor(tag.getColor());
-                        return tagDTO;
-                    })
-                    .collect(Collectors.toList());
+            List<TaskDTO.TagDTO> tagDTOs = task.getTags().stream().map(tag -> {
+                TaskDTO.TagDTO tagDTO = new TaskDTO.TagDTO();
+                tagDTO.setId(tag.getId().intValue());
+                tagDTO.setName(tag.getName());
+                tagDTO.setColor(tag.getColor());
+                return tagDTO;
+            }).toList();
             dto.setTags(tagDTOs);
         }
 
-        // Set watchers if available
         if (task.getWatchers() != null && !task.getWatchers().isEmpty()) {
-            List<TaskDTO.UserDTO> watcherDTOs = task.getWatchers().stream()
-                    .map(watcher -> {
-                        TaskDTO.UserDTO userDTO = new TaskDTO.UserDTO();
-                        userDTO.setId(watcher.getId().intValue());
-                        userDTO.setUsername(watcher.getUser().getUsername());
-                        userDTO.setFullName(watcher.getUser().getFullName());
-                        return userDTO;
-                    })
-                    .collect(Collectors.toList());
+            List<TaskDTO.UserDTO> watcherDTOs = task.getWatchers().stream().map(watcher -> {
+                TaskDTO.UserDTO userDTO = new TaskDTO.UserDTO();
+                userDTO.setId(watcher.getId().intValue());
+                userDTO.setUsername(watcher.getUser().getUsername());
+                userDTO.setFullName(watcher.getUser().getFullName());
+                return userDTO;
+            }).toList();
             dto.setWatchers(watcherDTOs);
+        }
+
+        if (task.getAssignees() != null && !task.getAssignees().isEmpty()) {
+            List<TaskDTO.UserDTO> assigneeDTOs = task.getAssignees().stream().map(assignee -> {
+                TaskDTO.UserDTO userDTO = new TaskDTO.UserDTO();
+                userDTO.setId(assignee.getId().intValue());
+                userDTO.setUsername(assignee.getUser().getUsername());
+                userDTO.setFullName(assignee.getUser().getFullName());
+                return userDTO;
+            }).toList();
+            dto.setAssignees(assigneeDTOs);
+        }
+
+        // Convert task attachments
+        if (task.getTaskAttachments() != null && !task.getTaskAttachments().isEmpty()) {
+            List<AttachmentDTO> attachmentDTOs = task.getTaskAttachments().stream()
+                    .map(taskAttachment -> AttachmentDTO.fromEntity(taskAttachment.getAttachment()))
+                    .toList();
+            dto.setAttachments(attachmentDTOs);
         }
 
         return dto;

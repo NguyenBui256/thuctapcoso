@@ -2,6 +2,7 @@ package edu.ptit.ttcs.controller;
 
 import edu.ptit.ttcs.entity.UserStory;
 import edu.ptit.ttcs.entity.Task;
+import edu.ptit.ttcs.entity.TaskAttachment;
 import edu.ptit.ttcs.entity.ProjectSettingStatus;
 import edu.ptit.ttcs.dao.UserStoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,10 +40,16 @@ import edu.ptit.ttcs.service.ActivityService;
 import edu.ptit.ttcs.entity.dto.ActivityDTO;
 import jakarta.servlet.http.HttpServletRequest;
 import edu.ptit.ttcs.dao.ProjectRepository;
+import edu.ptit.ttcs.dao.TaskAttachmentRepository;
+import edu.ptit.ttcs.dao.TaskRepository;
 import edu.ptit.ttcs.entity.Project;
 import edu.ptit.ttcs.dao.CommentRepository;
 import edu.ptit.ttcs.entity.Comment;
 import edu.ptit.ttcs.util.SecurityUtils;
+import edu.ptit.ttcs.entity.Attachment;
+import edu.ptit.ttcs.dao.AttachmentRepository;
+import edu.ptit.ttcs.entity.dto.AttachmentDTO;
+import edu.ptit.ttcs.controller.TaskController;
 
 // Inner class for block response to avoid issues with the DTO
 class UserStoryBlockResponse {
@@ -86,10 +93,9 @@ class UserStoryBlockResponse {
 
 @RestController
 @RequestMapping("/api/kanban/board")
-@CrossOrigin(origins = "http://localhost:5173", methods = {
-        RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT,
-        RequestMethod.PATCH, RequestMethod.DELETE, RequestMethod.OPTIONS
-})
+@CrossOrigin(origins = "http://localhost:5173", methods = { RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT,
+        RequestMethod.PATCH, RequestMethod.DELETE, RequestMethod.OPTIONS }, allowedHeaders = { "Content-Type",
+                "Authorization", "User-Id" }, exposedHeaders = { "Content-Type", "Authorization", "User-Id" })
 public class UserStoryController {
 
     @Autowired
@@ -100,6 +106,12 @@ public class UserStoryController {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private TaskAttachmentRepository taskAttachmentRepository;
+
+    @Autowired
+    private TaskRepository taskRepository;
 
     @Autowired
     private KanbanTaskService kanbanTaskService;
@@ -118,6 +130,12 @@ public class UserStoryController {
 
     @Autowired
     private SecurityUtils securityUtils;
+
+    @Autowired
+    private AttachmentRepository attachmentRepository;
+
+    @Autowired
+    private TaskController taskController;
 
     @GetMapping("/userstory")
     public List<UserStory> getUserStoriesByStatus(@RequestParam("statusId") Integer statusId) {
@@ -594,10 +612,25 @@ public class UserStoryController {
             dto.setCreatedAt(story.getCreatedAt());
             dto.setCreatedByFullName(story.getCreatedBy().getUser().getFullName());
             dto.setCreatedByUsername(story.getCreatedBy().getUser().getUsername());
-//            dto.setAssignedUserId(story.getAssignedTo() != null ? story.getAssignedTo().getId() : null);
+            // dto.setAssignedUserId(story.getAssignedTo() != null ?
+            // story.getAssignedTo().getId() : null);
 
             // Set blocked state directly
             dto.setIsBlocked(story.getIsBlock());
+
+            // Include attachments
+            if (story.getAttachments() != null) {
+                dto.setAttachments(story.getAttachments().stream().map(attachment -> {
+                    AttachmentDTO attachmentDTO = new AttachmentDTO();
+                    attachmentDTO.setId(attachment.getId());
+                    attachmentDTO.setFilename(attachment.getFilename());
+                    attachmentDTO.setContentType(attachment.getContentType());
+                    attachmentDTO.setFileSize(attachment.getFileSize());
+                    attachmentDTO.setUrl(attachment.getUrl());
+                    attachmentDTO.setCreatedAt(attachment.getCreatedAt());
+                    return attachmentDTO;
+                }).collect(Collectors.toList()));
+            }
 
             return ResponseEntity.ok(dto);
         } catch (Exception e) {
@@ -1096,9 +1129,9 @@ public class UserStoryController {
                 responseDTO.setCreatedByFullName(savedUserStory.getCreatedBy().getUser().getFullName());
                 responseDTO.setCreatedByUsername(savedUserStory.getCreatedBy().getUser().getUsername());
             }
-//            if (savedUserStory.getAssignedTo() != null) {
-//                responseDTO.setAssignedUserId(savedUserStory.getAssignedTo().getId());
-//            }
+            // if (savedUserStory.getAssignedTo() != null) {
+            // responseDTO.setAssignedUserId(savedUserStory.getAssignedTo().getId());
+            // }
 
             return ResponseEntity.ok(responseDTO);
         } catch (Exception e) {
@@ -1488,6 +1521,110 @@ public class UserStoryController {
 
         public void setUserIds(List<Integer> userIds) {
             this.userIds = userIds;
+        }
+    }
+
+    @PostMapping("/{taskId}/attachment")
+    public ResponseEntity<?> addTaskAttachment(
+            @PathVariable("taskId") Integer taskId,
+            @RequestBody AttachmentDTO attachmentDTO) {
+        try {
+            User currentUser = securityUtils.getCurrentUser();
+
+            // Create a new attachment
+            Attachment attachment = new Attachment();
+            attachment.setFilename(attachmentDTO.getFilename());
+            attachment.setContentType(attachmentDTO.getContentType());
+            attachment.setFileSize(attachmentDTO.getFileSize());
+            attachment.setUrl(attachmentDTO.getUrl());
+            attachment.setIsDelete(false);
+            attachment.setCreatedAt(LocalDateTime.now());
+            attachment.setCreatedBy(currentUser);
+
+            // Save the attachment
+            Attachment savedAttachment = attachmentRepository.save(attachment);
+
+            // Find the task
+            Task task = taskRepository.findById(taskId)
+                    .orElseThrow(() -> new IllegalArgumentException("Task not found with ID: " + taskId));
+
+            // Create a TaskAttachment object to link the task and attachment
+            TaskAttachment taskAttachment = new TaskAttachment();
+            taskAttachment.setTask(task);
+            taskAttachment.setAttachment(savedAttachment);
+            taskAttachment.setCreatedAt(LocalDateTime.now());
+            taskAttachmentRepository.save(taskAttachment);
+
+            // Record activity
+            String activityDetail = String.format("Attachment '%s' added", savedAttachment.getFilename());
+            activityService.recordTaskActivity(
+                    task.getProject().getId(),
+                    task.getId(),
+                    currentUser.getId(),
+                    "attachment_added",
+                    activityDetail);
+
+            // delegate to TaskController.getTaskById to return TaskDTO
+            return taskController.getTaskById(task.getId());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to add attachment: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/userstory/{userStoryId}/attachment")
+    public ResponseEntity<?> addAttachment(
+            @PathVariable("userStoryId") Integer userStoryId,
+            @RequestBody AttachmentDTO attachmentDTO,
+            @RequestHeader(value = "User-Id", required = false) Long userId) {
+
+        try {
+            // Determine current user: prefer header, fallback to security context
+            User currentUser;
+            if (userId != null) {
+                currentUser = userRepository.findById(userId)
+                        .orElseThrow(() -> new IllegalArgumentException("User not found"));
+            } else {
+                currentUser = securityUtils.getCurrentUser();
+            }
+
+            // Create a new attachment
+            Attachment attachment = new Attachment();
+            attachment.setFilename(attachmentDTO.getFilename());
+            attachment.setContentType(attachmentDTO.getContentType());
+            attachment.setFileSize(attachmentDTO.getFileSize());
+            attachment.setUrl(attachmentDTO.getUrl());
+            attachment.setIsDelete(false);
+            attachment.setCreatedAt(LocalDateTime.now());
+            attachment.setCreatedBy(currentUser);
+
+            // Save the attachment
+            Attachment savedAttachment = attachmentRepository.save(attachment);
+
+            // Find the user story
+            UserStory userStory = userStoryRepository.findById(userStoryId)
+                    .orElseThrow(() -> new IllegalArgumentException("User Story not found with ID: " + userStoryId));
+
+            // Add attachment to the user story
+            if (userStory.getAttachments() == null) {
+                userStory.setAttachments(new HashSet<>());
+            }
+            userStory.getAttachments().add(savedAttachment);
+            userStoryRepository.save(userStory);
+
+            // Record activity
+            String activityDetail = String.format("Attachment '%s' added", savedAttachment.getFilename());
+            activityService.recordUserStoryActivity(
+                    userStory.getProject().getId(),
+                    userStory.getId(),
+                    currentUser.getId(),
+                    "attachment_added",
+                    activityDetail);
+
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to add attachment: " + e.getMessage());
         }
     }
 }
