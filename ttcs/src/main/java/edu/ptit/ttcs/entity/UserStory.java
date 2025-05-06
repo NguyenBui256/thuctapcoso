@@ -73,4 +73,8 @@ public class UserStory extends BaseEntity {
     @ManyToMany
     @JoinTable(name = "user_story_watcher", joinColumns = @JoinColumn(name = "user_story_id"), inverseJoinColumns = @JoinColumn(name = "project_member_id"))
     private Set<ProjectMember> watchers = new HashSet<>();
+
+    @ManyToMany
+    @JoinTable(name = "user_story_attachment", joinColumns = @JoinColumn(name = "user_story_id"), inverseJoinColumns = @JoinColumn(name = "attachment_id"))
+    private Set<Attachment> attachments = new HashSet<>();
 }

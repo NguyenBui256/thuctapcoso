@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Plus, ChevronDown, X, Paperclip, Clock, Users, Lock, List, Save, Trash2, Eye, EyeOff } from 'lucide-react';
+import { Plus, ChevronDown, X, Paperclip, Clock, Users, Lock, List, Save, Trash2, Eye, EyeOff, FileText, Download } from 'lucide-react';
 import axios from '../../common/axios-customize';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import { message } from 'antd';
 import { BASE_API_URL } from '../../common/constants';
+import { LoadingOutlined } from '@ant-design/icons';
 
 export default function TaigaUserStoryDetail() {
     const { userStoryId } = useParams();
@@ -70,6 +71,13 @@ export default function TaigaUserStoryDetail() {
         { id: 5, name: 'Needs Info', color: 'bg-red-500' }
     ];
 
+    /* Attachments section */
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef(null);
+
+    // Thêm lại attachment refresh trigger
+    const [attachmentRefreshTrigger, setAttachmentRefreshTrigger] = useState(0);
+
     const getCurrentUserId = () => {
         const user = JSON.parse(localStorage.getItem('user'));
         return user ? user.id : null;
@@ -118,7 +126,7 @@ export default function TaigaUserStoryDetail() {
         }
     }, [userStoryId]);
 
-    const fetchUserStory = async () => {
+    const fetchUserStory = useCallback(async () => {
         setLoading(true);
         setError(null);
 
@@ -133,6 +141,11 @@ export default function TaigaUserStoryDetail() {
             }
 
             setUserStory(userStoryData);
+
+            // Đồng bộ state attachments từ userStoryData
+            if (userStoryData.attachments) {
+                console.log('Updated attachments from server:', userStoryData.attachments);
+            }
 
             // Initialize editable fields with safe fallbacks
             setEditedName(userStoryData.name || '');
@@ -185,25 +198,38 @@ export default function TaigaUserStoryDetail() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [userStoryId, fetchUserStoryTasks, fetchComments, fetchActivities]);
 
     useEffect(() => {
         fetchUserStory();
-    }, [userStoryId]);
+    }, [userStoryId, fetchUserStory]);
 
-    // Thêm useEffect để tự động làm mới dữ liệu hoạt động khi trigger thay đổi
+    // Sửa useEffect để activities luôn được cập nhật khi có trigger, không phụ thuộc activeTab
     useEffect(() => {
-        if (userStoryId && activeTab === 'activities') {
+        if (userStoryId) {
             fetchActivities();
         }
-    }, [userStoryId, activeTab, activitiesRefreshTrigger]);
+    }, [userStoryId, activitiesRefreshTrigger, fetchActivities]);
+
+    // Thêm lại useEffect để theo dõi khi nào cần tải lại dữ liệu attachments
+    useEffect(() => {
+        if (userStoryId && attachmentRefreshTrigger > 0) {
+            console.log("Attachment refresh triggered, reloading user story");
+            fetchUserStory();
+        }
+    }, [userStoryId, attachmentRefreshTrigger, fetchUserStory]);
 
     // Hàm helper để trigger làm mới hoạt động
     const triggerActivitiesRefresh = () => {
         setActivitiesRefreshTrigger(prev => prev + 1);
     };
 
-    // Update the recordActivity function
+    // Thêm lại hàm helper để trigger làm mới attachments
+    const triggerAttachmentRefresh = () => {
+        setAttachmentRefreshTrigger(prev => prev + 1);
+    };
+
+    // Sửa hàm recordActivity để luôn gọi fetchActivities sau khi lưu hoạt động
     const recordActivity = async (action, details) => {
         if (!userStory || !userStory.id) return;
 
@@ -220,10 +246,8 @@ export default function TaigaUserStoryDetail() {
             // Use the correct endpoint format
             await axios.post(`/api/kanban/board/userstory/${userStoryId}/activities`, activityData);
 
-            // Refresh activities if activities tab is active
-            if (activeTab === 'activities') {
-                fetchActivities();
-            }
+            // Luôn fetch activities sau khi ghi lại hoạt động, bất kể activeTab là gì
+            fetchActivities();
         } catch (err) {
             console.error('Error recording activity:', err);
             message.error('Failed to record activity');
@@ -392,7 +416,15 @@ export default function TaigaUserStoryDetail() {
 
             const response = await axios.put(`/api/kanban/board/userstory/${userStoryId}`, updatedData);
 
-            setUserStory(response.data);
+            // Lưu lại thông tin attachments từ state hiện tại
+            const currentAttachments = userStory.attachments || [];
+
+            // Cập nhật userStory với dữ liệu từ response, nhưng giữ lại attachments
+            setUserStory(prevState => ({
+                ...response.data,
+                attachments: response.data.attachments || currentAttachments // Ưu tiên dùng data từ server nếu có, nếu không thì giữ nguyên data cũ
+            }));
+
             setEditMode(false);
 
             // Update state with new values
@@ -440,16 +472,28 @@ export default function TaigaUserStoryDetail() {
 
             console.log(`Changing status from ${originalStatusId} to ${statusId}`);
 
+            // Lưu lại thông tin về các tệp đính kèm hiện tại
+            const currentAttachments = userStory.attachments || [];
+
             // Use PATCH endpoint specifically for status updates
-            await axios.put(`/api/kanban/board/userstory/${userStoryId}/status`, {
+            const response = await axios.put(`/api/kanban/board/userstory/${userStoryId}/status`, {
                 statusId: statusId
             });
 
-            // Update local state
-            setUserStory(prevState => ({
-                ...prevState,
-                statusId: statusId
-            }));
+            // Nếu response.data có dữ liệu, sử dụng nó để cập nhật state
+            if (response.data) {
+                setUserStory(prevState => ({
+                    ...response.data,
+                    attachments: response.data.attachments || currentAttachments
+                }));
+            } else {
+                // Update local state if no complete data returned
+                setUserStory(prevState => ({
+                    ...prevState,
+                    statusId: statusId,
+                    attachments: currentAttachments
+                }));
+            }
 
             setShowStatusDropdown(false);
 
@@ -710,6 +754,144 @@ export default function TaigaUserStoryDetail() {
         return status ? status.color : 'bg-gray-300';
     };
 
+    const handleUploadClick = () => {
+        fileInputRef.current.click();
+    };
+
+    const handleFileChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('folder', `userstory/${userStoryId}`);
+
+            // Determine the correct upload endpoint based on file type
+            let uploadEndpoint = '/api/v1/files/upload/raw'; // Default for documents
+
+            if (file.type.startsWith('image/')) {
+                uploadEndpoint = '/api/v1/files/upload/image';
+            } else if (file.type.startsWith('video/')) {
+                uploadEndpoint = '/api/v1/files/upload/video';
+            }
+
+            // Upload file to cloudinary
+            const uploadResponse = await axios.post(uploadEndpoint, formData);
+
+            if (uploadResponse.data) {
+                // Tạo attachment mới với dữ liệu từ response Cloudinary
+                const newAttachment = {
+                    id: `temp-${Date.now()}`, // ID tạm thời
+                    filename: file.name,
+                    contentType: file.type,
+                    fileSize: file.size,
+                    url: uploadResponse.data.secure_url || uploadResponse.data.url,
+                    createdAt: new Date().toISOString()
+                };
+
+                // Cập nhật userStory để hiển thị attachment mới ngay lập tức - optimistic update
+                setUserStory(prev => ({
+                    ...prev,
+                    attachments: [...(prev.attachments || []), newAttachment]
+                }));
+
+                message.success('File attached successfully!');
+
+                // Sau đó mới gọi API để lưu attachment vào server - không đợi phản hồi
+                const attachmentData = {
+                    filename: file.name,
+                    contentType: file.type,
+                    fileSize: file.size,
+                    url: uploadResponse.data.secure_url || uploadResponse.data.url
+                };
+
+                // Gửi request nhưng không chờ đợi kết quả
+                axios.post(`/api/kanban/board/userstory/${userStoryId}/attachment`, attachmentData, {
+                    headers: {
+                        'User-Id': getCurrentUserId()
+                    }
+                })
+                    .then(response => {
+                        console.log('Attachment saved to server:', response.data);
+                        // Không cần làm gì thêm vì đã cập nhật UI trước đó
+                    })
+                    .catch(error => {
+                        console.error('Error saving attachment to server:', error);
+                        // Vẫn giữ UI đã cập nhật - user không cần biết về lỗi này
+                    });
+
+                // Ghi lại hoạt động 
+                recordActivity('attachment_added', `Added attachment: ${file.name}`)
+                    .catch(error => console.error('Error recording activity:', error));
+
+            } else {
+                message.error('Failed to upload file to cloud storage');
+            }
+        } catch (err) {
+            console.error('Error uploading file:', err);
+            message.error('Error uploading file: ' + (err.message || 'Unknown error'));
+        } finally {
+            setIsUploading(false);
+            // Clear the file input
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        }
+    };
+
+    const handleDownloadAttachment = (attachment) => {
+        try {
+            // Xác định nếu là loại file đặc biệt cần xử lý đặc biệt (pdf, doc, docx, xls, xlsx)
+            const fileExt = attachment.filename.split('.').pop().toLowerCase();
+            const specialTypes = ['pdf', 'doc', 'docx', 'xls', 'xlsx'];
+
+            if (attachment.contentType && attachment.contentType.startsWith('image/')) {
+                // Đối với hình ảnh, mở trong tab mới
+                window.open(attachment.url, '_blank');
+            } else if (specialTypes.includes(fileExt)) {
+                // Với các loại file đặc biệt, chúng ta sử dụng fetch để lấy blob
+                fetch(attachment.url)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        // Tạo một URL tạm thời từ blob và tên file gốc
+                        const blobUrl = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = blobUrl;
+                        link.setAttribute('download', attachment.filename);
+                        document.body.appendChild(link);
+                        link.click();
+                        // Giải phóng URL sau khi tải xuống
+                        setTimeout(() => {
+                            document.body.removeChild(link);
+                            window.URL.revokeObjectURL(blobUrl);
+                        }, 100);
+                    })
+                    .catch(err => {
+                        console.error('Error downloading file:', err);
+                        message.error('Failed to download file. Try again or contact admin.');
+                        // Fallback to direct open
+                        window.open(attachment.url, '_blank');
+                    });
+            } else {
+                // Với các loại file khác, sử dụng phương pháp tải xuống thông thường
+                const link = document.createElement('a');
+                link.href = attachment.url;
+                link.setAttribute('download', attachment.filename);
+                link.setAttribute('target', '_blank');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        } catch (error) {
+            console.error('Error in download handler:', error);
+            message.error('Failed to download file');
+            // Fallback to direct open
+            window.open(attachment.url, '_blank');
+        }
+    };
+
     // Update the loading display
     if (loading) {
         return (
@@ -884,15 +1066,49 @@ export default function TaigaUserStoryDetail() {
                     <div className="mb-6">
                         <div className="flex justify-between items-center mb-2 py-2 bg-gray-100">
                             <div className="px-4 font-semibold">
-                                0 Attachments
+                                {userStory.attachments?.length || 0} Attachments
                             </div>
-                            <button className="mr-2 bg-blue-100 hover:bg-blue-200 p-1 rounded">
-                                <Plus size={16} className="text-blue-500" />
+                            <button
+                                className="mr-2 bg-blue-100 hover:bg-blue-200 p-1 rounded"
+                                onClick={handleUploadClick}
+                                disabled={isUploading}
+                            >
+                                {isUploading ? (
+                                    <LoadingOutlined />
+                                ) : (
+                                    <Plus size={16} className="text-blue-500" />
+                                )}
                             </button>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                className="hidden"
+                                onChange={handleFileChange}
+                                accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            />
                         </div>
-                        <div className="border border-dashed border-gray-300 py-8 text-center text-gray-400">
-                            Drop attachments here!
-                        </div>
+                        {userStory.attachments && userStory.attachments.length > 0 ? (
+                            <div className="space-y-2">
+                                {userStory.attachments.map(attachment => (
+                                    <div key={attachment.id || `temp-${Date.now()}-${attachment.filename}`} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+                                        <div className="flex items-center">
+                                            <FileText className="mr-2 text-blue-500" />
+                                            <span className="text-gray-700">{attachment.filename}</span>
+                                        </div>
+                                        <button
+                                            className="text-blue-500 hover:text-blue-700"
+                                            onClick={() => handleDownloadAttachment(attachment)}
+                                        >
+                                            <Download size={16} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="border border-dashed border-gray-300 py-8 text-center text-gray-400">
+                                Drop attachments here!
+                            </div>
+                        )}
                     </div>
 
                     {/* Tasks section */}
@@ -1028,7 +1244,7 @@ export default function TaigaUserStoryDetail() {
                                         <div key={task.id} className="flex justify-between items-center border-b pb-2">
                                             <div className="flex items-center">
                                                 <span className="text-gray-400 mr-2">::</span>
-                                                <a href={`/task/${task.id}`} className="text-blue-500 mr-2 hover:underline">#{task.id}</a>
+                                                <a href={`/projects/${userStory.projectId}/task/${task.id}`} className="text-blue-500 mr-2 hover:underline">#{task.id}</a>
                                                 <span>{task.subject || "Unnamed Task"}</span>
                                             </div>
                                             <div className="flex items-center">

@@ -2,6 +2,7 @@ package edu.ptit.ttcs.controller;
 
 import edu.ptit.ttcs.entity.dto.ProjectWikiPageDTO;
 import edu.ptit.ttcs.entity.dto.ProjectWikiPageRequestDTO;
+import edu.ptit.ttcs.entity.dto.AttachmentDTO;
 import edu.ptit.ttcs.service.ProjectWikiService;
 import edu.ptit.ttcs.util.ApiResponse;
 import java.util.List;
@@ -87,6 +88,33 @@ public class ProjectWikiController {
         try {
             wikiService.deleteWikiPage(projectId, wikiPageId, userId);
             return ResponseEntity.ok(new ApiResponse<>("success", "Wiki page deleted successfully", null));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
+        }
+    }
+
+    @PostMapping("/{wikiPageId}/attachment")
+    public ResponseEntity<ApiResponse<ProjectWikiPageDTO>> addAttachment(
+            @PathVariable Long userId,
+            @PathVariable String projectId,
+            @PathVariable Long wikiPageId,
+            @RequestBody AttachmentDTO attachmentDTO) {
+        try {
+            Long actualProjectId;
+            try {
+                actualProjectId = Long.parseLong(projectId);
+            } catch (NumberFormatException e) {
+                actualProjectId = wikiService.getProjectIdFromWikiPage(wikiPageId);
+                if (actualProjectId == null) {
+                    return ResponseEntity.badRequest().body(
+                            new ApiResponse<>("error",
+                                    "Invalid project ID and could not determine project from wiki page", null));
+                }
+            }
+
+            ProjectWikiPageDTO updatedPage = wikiService.addAttachmentToWikiPage(
+                    actualProjectId, wikiPageId, userId, attachmentDTO);
+            return ResponseEntity.ok(new ApiResponse<>("success", "Attachment added successfully", updatedPage));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
         }

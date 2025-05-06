@@ -1,25 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-    ClockIcon,
-    UserIcon,
-    DocumentTextIcon,
-    PaperClipIcon,
-    LockClosedIcon,
-    ArrowLeftIcon,
-    PlusIcon,
-    EyeIcon,
-    XMarkIcon,
-    CheckIcon,
-    ChevronDownIcon
-} from '@heroicons/react/24/outline';
-import { EyeOff, Save, Plus, ChevronDown, X, Clock, Users, Lock, List, Trash2, Eye } from 'lucide-react';
+import { CheckIcon } from '@heroicons/react/24/outline';
+import { EyeOff, Save, Plus, ChevronDown, X, Clock, Users, Lock, List, Trash2, Eye, FileText, Download, Paperclip } from 'lucide-react';
 import axios from '../../common/axios-customize';
 import { Modal, message, Checkbox, DatePicker, TimePicker } from 'antd';
 import dayjs from 'dayjs';
+import { LoadingOutlined } from '@ant-design/icons';
 
 const TaskDetail = () => {
-    const { taskId } = useParams();
+    const { taskId, projectId } = useParams();
     const navigate = useNavigate();
 
     const [taskDetails, setTaskDetails] = useState({
@@ -64,6 +53,10 @@ const TaskDetail = () => {
     // Add activities state
     const [activitiesRefreshTrigger, setActivitiesRefreshTrigger] = useState(0);
 
+    // Attachments handling
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef(null);
+
     const statuses = [
         { id: 1, name: 'NEW', color: 'bg-blue-400' },
         { id: 2, name: 'IN_PROGRESS', color: 'bg-orange-400' },
@@ -84,8 +77,16 @@ const TaskDetail = () => {
     };
 
     const fetchComments = useCallback(async () => {
+        let isMounted = true;
+        const controller = new AbortController();
+
         try {
-            const response = await axios.get(`/api/tasks/${taskId}/comments`);
+            const response = await axios.get(`/api/tasks/${taskId}/comments`, {
+                signal: controller.signal
+            });
+
+            if (!isMounted) return;
+
             if (response.data) {
                 // Update both the comments array and taskDetails
                 const commentsData = response.data;
@@ -95,35 +96,71 @@ const TaskDetail = () => {
                 }));
             }
         } catch (error) {
+            if (error.name === 'AbortError' || !isMounted) {
+                return;
+            }
             console.error('Error fetching comments:', error);
             message.error('Failed to load comments');
         }
+
+        return () => {
+            isMounted = false;
+            controller.abort();
+        };
     }, [taskId]);
 
     const fetchActivities = useCallback(async () => {
+        let isMounted = true;
+        const controller = new AbortController();
+
         try {
             setIsLoading(true);
-            const response = await axios.get(`/api/kanban/board/${taskId}/activities`);
+            const response = await axios.get(`/api/kanban/board/${taskId}/activities`, {
+                signal: controller.signal
+            });
+
+            if (!isMounted) return;
+
             setActivities(response.data);
         } catch (error) {
+            if (error.name === 'AbortError' || !isMounted) {
+                return;
+            }
             console.error('Error fetching activities:', error);
             message.error('Failed to load activities');
-            setActivities([]); // Set empty array on error
+            if (isMounted) {
+                setActivities([]); // Set empty array on error
+            }
         } finally {
-            setIsLoading(false);
+            if (isMounted) {
+                setIsLoading(false);
+            }
         }
+
+        return () => {
+            isMounted = false;
+            controller.abort();
+        };
     }, [taskId]);
 
     const fetchTaskDetails = useCallback(async () => {
+        let isMounted = true;
+        const controller = new AbortController();
+
         try {
             setIsLoading(true);
-            const response = await axios.get(`/api/tasks/${taskId}`);
+            const response = await axios.get(`/api/tasks/${taskId}`, {
+                signal: controller.signal
+            });
+
+            if (!isMounted) return;
+
             const taskData = response.data;
 
             // Preserve existing comments when updating task details
             setTaskDetails(prev => ({
                 ...taskData,
-                comments: prev.comments || taskData.comments || []
+                comments: prev?.comments || taskData.comments || []
             }));
 
             // Initialize editable fields
@@ -134,35 +171,78 @@ const TaskDetail = () => {
             setEditedPoints(taskData.points || 0);
 
             // Fetch available assignees if project ID is available
-            if (taskData.userStoryId) {
-                const userStoryResponse = await axios.get(`/api/userstories/${taskData.userStoryId}`);
-                if (userStoryResponse.data && userStoryResponse.data.projectId) {
-                    fetchAvailableAssignees(userStoryResponse.data.projectId);
+            if (taskData.userStoryId && isMounted) {
+                try {
+                    const userStoryResponse = await axios.get(`/api/userstories/${taskData.userStoryId}`, {
+                        signal: controller.signal
+                    });
+
+                    if (!isMounted) return;
+
+                    if (userStoryResponse.data && userStoryResponse.data.projectId) {
+                        // Lưu lại projectId từ user story nếu task không có
+                        if (!taskData.projectId) {
+                            setTaskDetails(prev => ({
+                                ...prev,
+                                projectId: userStoryResponse.data.projectId
+                            }));
+                            console.log('Updated projectId from userStory:', userStoryResponse.data.projectId);
+                        }
+
+                        fetchAvailableAssignees(userStoryResponse.data.projectId);
+                    }
+                } catch (innerErr) {
+                    console.error('Error fetching user story:', innerErr);
+                    // Continue execution, don't break on this error
                 }
             }
 
-            setError(null);
+            if (isMounted) {
+                setError(null);
+            }
         } catch (err) {
+            if (err.name === 'AbortError' || !isMounted) {
+                // Ignore abort errors
+                return;
+            }
             console.error('Error fetching task:', err);
             setError('Không thể tải dữ liệu nhiệm vụ. Vui lòng thử lại sau.');
         } finally {
-            setIsLoading(false);
+            if (isMounted) {
+                setIsLoading(false);
+            }
         }
+
+        return () => {
+            isMounted = false;
+            controller.abort();
+        };
     }, [taskId]);
 
     // Initial data fetch
     useEffect(() => {
+        let isMounted = true;
+        const controller = new AbortController();
+
         const fetchInitialData = async () => {
             try {
                 await fetchTaskDetails();
-                await fetchComments();
-                await fetchActivities();
+                if (isMounted) {
+                    await fetchComments();
+                    await fetchActivities();
+                }
             } catch (error) {
                 console.error('Error fetching initial data:', error);
             }
         };
 
         fetchInitialData();
+
+        // Cleanup function to prevent state updates after unmount
+        return () => {
+            isMounted = false;
+            controller.abort();
+        };
     }, [taskId, fetchTaskDetails, fetchComments, fetchActivities]);
 
     useEffect(() => {
@@ -202,25 +282,48 @@ const TaskDetail = () => {
         }
     }, [taskDetails]);
 
-    // Add new useEffect to update comments count
+    // Sửa useEffect để có cleanup và tránh vòng lặp vô hạn
     useEffect(() => {
         if (taskDetails.comments) {
-            setTaskDetails(prev => ({
-                ...prev,
-                comments: taskDetails.comments
-            }));
+            // Chỉ cập nhật khi comments thực sự thay đổi để tránh vòng lặp
+            const currentCommentsCount = taskDetails.comments.length;
+            const prevCommentsCount = taskDetails.comments ? taskDetails.comments.length : 0;
+
+            if (currentCommentsCount !== prevCommentsCount) {
+                setTaskDetails(prev => ({
+                    ...prev,
+                    comments: taskDetails.comments
+                }));
+            }
         }
     }, [taskDetails.comments]);
 
-    // Add useEffect for activities
+    // Sửa useEffect để activities luôn được cập nhật khi có trigger và có cleanup
     useEffect(() => {
+        let isMounted = true;
+        const controller = new AbortController();
+
         if (taskId) {
-            if (activeTab === 'activities') {
-                fetchActivities();
-            } else if (activeTab === 'comments') {
-                fetchComments();
-            }
+            const loadData = async () => {
+                try {
+                    await fetchActivities();
+                    if (isMounted && activeTab === 'comments') {
+                        await fetchComments();
+                    }
+                } catch (error) {
+                    if (isMounted) {
+                        console.error('Error loading data:', error);
+                    }
+                }
+            };
+
+            loadData();
         }
+
+        return () => {
+            isMounted = false;
+            controller.abort();
+        };
     }, [taskId, activeTab, activitiesRefreshTrigger, fetchComments, fetchActivities]);
 
     const fetchAvailableAssignees = async (projectId) => {
@@ -251,7 +354,13 @@ const TaskDetail = () => {
     };
 
     const handleGoBack = () => {
-        navigate(-1);
+        // Sử dụng state để đánh dấu đã navigate để tránh navigate nhiều lần
+        // Quay lại kanban board của project hoặc trang trước đó
+        if (projectId) {
+            navigate(`/projects/${projectId}/kanban`, { replace: true });
+        } else {
+            navigate(-1);
+        }
     };
 
     const handleAddTag = () => {
@@ -425,6 +534,25 @@ const TaskDetail = () => {
         // Không cần gọi trigger ở đây vì đã gọi trong handleRemoveWatcher/handleAddWatcher
     };
 
+    const handleEditToggle = () => {
+        if (editMode) {
+            // Reset values when canceling edit
+            setEditedSubject(taskDetails.subject || '');
+            setEditedDescription(taskDetails.description || '');
+            setEditedDueDate(taskDetails.dueDate ? new Date(taskDetails.dueDate) : null);
+
+            // Khi hủy chỉnh sửa, ghi lại activity
+            recordActivity('edit_canceled', 'Edit mode canceled');
+        } else {
+            // Khi bắt đầu chỉnh sửa, ghi lại activity
+            recordActivity('edit_started', 'Started editing task');
+        }
+        setEditMode(!editMode);
+
+        // Trigger làm mới hoạt động
+        triggerActivitiesRefresh();
+    };
+
     const handleDeleteTask = async () => {
         if (window.confirm('Bạn có chắc chắn muốn xóa nhiệm vụ này không?')) {
             try {
@@ -435,10 +563,17 @@ const TaskDetail = () => {
                 triggerActivitiesRefresh();
 
                 await axios.delete(`/api/tasks/${taskId}`);
-                navigate(-1);
+                message.success('Task deleted successfully');
+
+                // Quay về kanban board của project sau khi xóa, dùng replace để tránh vòng lặp
+                if (projectId) {
+                    navigate(`/projects/${projectId}/kanban`, { replace: true });
+                } else {
+                    navigate(-1);
+                }
             } catch (error) {
                 console.error('Error deleting task:', error);
-                alert('Không thể xóa nhiệm vụ. Vui lòng thử lại sau.');
+                message.error('Không thể xóa nhiệm vụ. Vui lòng thử lại sau.');
             }
         }
     };
@@ -477,16 +612,6 @@ const TaskDetail = () => {
         }
     };
 
-    const handleEditToggle = () => {
-        if (editMode) {
-            // Reset values when canceling edit
-            setEditedSubject(taskDetails.subject || '');
-            setEditedDescription(taskDetails.description || '');
-            setEditedDueDate(taskDetails.dueDate ? new Date(taskDetails.dueDate) : null);
-        }
-        setEditMode(!editMode);
-    };
-
     const handleSaveChanges = async () => {
         try {
             // Store original values for activity details
@@ -497,13 +622,21 @@ const TaskDetail = () => {
             const descriptionChanged = originalDescription !== editedDescription;
             const pointsChanged = originalPoints !== editedPoints;
 
+            // Lưu lại thông tin về các tệp đính kèm hiện tại
+            const currentAttachments = taskDetails.attachments || [];
+
             // Update description
             const descriptionResponse = await axios.put(`/api/tasks/${taskId}/description`, {
                 description: editedDescription
             });
 
             if (descriptionResponse.data) {
-                setTaskDetails(descriptionResponse.data);
+                // Giữ lại tệp đính kèm khi cập nhật từ response
+                setTaskDetails(prevDetails => ({
+                    ...descriptionResponse.data,
+                    attachments: descriptionResponse.data.attachments || currentAttachments,
+                    comments: prevDetails.comments // Giữ lại comments hiện tại
+                }));
             }
 
             // Update points if changed
@@ -515,7 +648,9 @@ const TaskDetail = () => {
                 if (pointsResponse.data) {
                     setTaskDetails(prevDetails => ({
                         ...prevDetails,
-                        points: editedPoints
+                        points: editedPoints,
+                        // Đảm bảo giữ lại attachments nếu response không trả về
+                        attachments: pointsResponse.data.attachments || prevDetails.attachments
                     }));
                 }
             }
@@ -527,7 +662,11 @@ const TaskDetail = () => {
                 });
 
                 if (dueDateResponse.data) {
-                    setTaskDetails(dueDateResponse.data);
+                    setTaskDetails(prevDetails => ({
+                        ...dueDateResponse.data,
+                        attachments: dueDateResponse.data.attachments || prevDetails.attachments,
+                        comments: prevDetails.comments // Giữ lại comments hiện tại
+                    }));
                 }
             }
 
@@ -570,14 +709,18 @@ const TaskDetail = () => {
                 6: 'CLOSED'
             };
 
+            // Lưu lại thông tin về các tệp đính kèm hiện tại
+            const currentAttachments = taskDetails.attachments || [];
+
             // Call the status update API
             const response = await axios.put(`/api/tasks/${taskId}/status/${statusNames[statusId]}`);
 
-            // Preserve existing comments
+            // Preserve existing comments and attachments
             const currentComments = taskDetails.comments || [];
             setTaskDetails({
                 ...response.data,
-                comments: currentComments
+                comments: currentComments,
+                attachments: response.data.attachments || currentAttachments
             });
 
             setShowStatusDropdown(false);
@@ -596,6 +739,7 @@ const TaskDetail = () => {
         }
     };
 
+    // Sửa recordActivity để tránh cập nhật sau khi component unmount
     const recordActivity = async (action, details) => {
         if (!taskDetails || !taskDetails.id) return;
 
@@ -613,10 +757,10 @@ const TaskDetail = () => {
                 { headers: { 'User-Id': userId } }
             );
 
-            // Refresh activities if activities tab is active
-            if (activeTab === 'activities') {
-                fetchActivities();
-            }
+            // Luôn fetch activities sau khi ghi lại hoạt động, bất kể activeTab là gì
+            // Sử dụng triggerActivitiesRefresh thay vì gọi trực tiếp fetchActivities 
+            // để tránh cập nhật state khi component unmounted
+            triggerActivitiesRefresh();
         } catch (err) {
             console.error('Error recording activity:', err);
         }
@@ -730,6 +874,142 @@ const TaskDetail = () => {
         }
     };
 
+    // Attachments handling
+    const handleUploadClick = () => {
+        fileInputRef.current.click();
+    };
+
+    const handleFileChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('folder', `task/${taskId}`);
+
+            // Determine the correct upload endpoint based on file type
+            let uploadEndpoint = '/api/v1/files/upload/raw'; // Default for documents
+
+            if (file.type.startsWith('image/')) {
+                uploadEndpoint = '/api/v1/files/upload/image';
+            } else if (file.type.startsWith('video/')) {
+                uploadEndpoint = '/api/v1/files/upload/video';
+            }
+
+            // Upload file to cloudinary
+            const uploadResponse = await axios.post(uploadEndpoint, formData);
+
+            if (uploadResponse.data) {
+                // Now save the attachment to the task
+                const attachmentData = {
+                    filename: file.name,
+                    contentType: file.type,
+                    fileSize: file.size,
+                    url: uploadResponse.data.secure_url || uploadResponse.data.url
+                };
+
+                const attachResponse = await axios.post(`/api/kanban/board/${taskId}/attachment`, attachmentData);
+
+                if (attachResponse.data) {
+                    message.success('File attached successfully!');
+                    // Refresh the task to show the new attachment
+                    fetchTaskDetails();
+                } else {
+                    message.error('Failed to attach file to task');
+                }
+            } else {
+                message.error('Failed to upload file to cloud storage');
+            }
+        } catch (err) {
+            console.error('Error uploading file:', err);
+            message.error('Error uploading file: ' + (err.message || 'Unknown error'));
+        } finally {
+            setIsUploading(false);
+            // Clear the file input
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        }
+    };
+
+    const handleDownloadAttachment = (attachment) => {
+        try {
+            // Xác định nếu là loại file đặc biệt cần xử lý đặc biệt (pdf, doc, docx, xls, xlsx)
+            const fileExt = attachment.filename.split('.').pop().toLowerCase();
+            const specialTypes = ['pdf', 'doc', 'docx', 'xls', 'xlsx'];
+
+            if (attachment.contentType && attachment.contentType.startsWith('image/')) {
+                // Đối với hình ảnh, mở trong tab mới
+                window.open(attachment.url, '_blank');
+            } else if (specialTypes.includes(fileExt)) {
+                // Với các loại file đặc biệt, chúng ta sử dụng fetch để lấy blob
+                fetch(attachment.url)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        // Tạo một URL tạm thời từ blob và tên file gốc
+                        const blobUrl = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = blobUrl;
+                        link.setAttribute('download', attachment.filename);
+                        document.body.appendChild(link);
+                        link.click();
+                        // Giải phóng URL sau khi tải xuống
+                        setTimeout(() => {
+                            document.body.removeChild(link);
+                            window.URL.revokeObjectURL(blobUrl);
+                        }, 100);
+                    })
+                    .catch(err => {
+                        console.error('Error downloading file:', err);
+                        message.error('Failed to download file. Try again or contact admin.');
+                        // Fallback to direct open
+                        window.open(attachment.url, '_blank');
+                    });
+            } else {
+                // Với các loại file khác, sử dụng phương pháp tải xuống thông thường
+                const link = document.createElement('a');
+                link.href = attachment.url;
+                link.setAttribute('download', attachment.filename);
+                link.setAttribute('target', '_blank');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        } catch (error) {
+            console.error('Error in download handler:', error);
+            message.error('Failed to download file');
+            // Fallback to direct open
+            window.open(attachment.url, '_blank');
+        }
+    };
+
+    // Hàm để tìm nạp thông tin user story khi cần
+    const fetchUserStoryIfNeeded = useCallback(async () => {
+        if (taskDetails && taskDetails.userStoryId && !taskDetails.projectId) {
+            try {
+                console.log("Attempting to fetch user story data for navigation:", taskDetails.userStoryId);
+                const response = await axios.get(`/api/kanban/board/userstory/${taskDetails.userStoryId}`);
+
+                if (response.data && response.data.projectId) {
+                    // Cập nhật projectId vào task details
+                    setTaskDetails(prev => ({
+                        ...prev,
+                        projectId: response.data.projectId,
+                        userStoryName: response.data.name || prev.userStoryName
+                    }));
+                    console.log("Updated projectId for navigation:", response.data.projectId);
+                    return response.data.projectId;
+                }
+            } catch (error) {
+                console.error("Error fetching user story data for navigation:", error);
+                return null;
+            }
+        }
+        return taskDetails.projectId;
+    }, [taskDetails]);
+
     if (isLoading) {
         return (
             <div className="bg-gray-100 min-h-screen flex items-center justify-center">
@@ -829,13 +1109,28 @@ const TaskDetail = () => {
                     {/* User Story link if this task belongs to a User Story */}
                     {taskDetails.userStoryId && (
                         <div className="mb-6">
-                            <a
-                                href={`/projects/${taskDetails.projectId}/userstory/${taskDetails.userStoryId}`}
-                                className="text-blue-500 flex items-center"
+                            <button
+                                onClick={async () => {
+                                    try {
+                                        // Chờ fetchUserStoryIfNeeded để đảm bảo có projectId
+                                        const projectId = await fetchUserStoryIfNeeded();
+
+                                        if (projectId) {
+                                            navigate(`/projects/${projectId}/userstory/${taskDetails.userStoryId}`, { replace: true });
+                                        } else {
+                                            console.error('Could not determine projectId for navigation');
+                                            message.error('Không thể xem User Story do thiếu thông tin dự án.');
+                                        }
+                                    } catch (error) {
+                                        console.error('Error navigating to user story:', error);
+                                        message.error('Không thể xem User Story. Vui lòng thử lại sau.');
+                                    }
+                                }}
+                                className="text-blue-500 flex items-center hover:underline focus:outline-none bg-transparent border-0 p-0"
                             >
                                 <span className="mr-2">🔗</span>
                                 US #{taskDetails.userStoryId}: {taskDetails.userStoryName || 'User Story'}
-                            </a>
+                            </button>
                         </div>
                     )}
 
@@ -886,13 +1181,48 @@ const TaskDetail = () => {
                             <div className="px-4 font-semibold">
                                 {taskDetails.attachments?.length || 0} Attachments
                             </div>
-                            <button className="mr-2 bg-blue-100 hover:bg-blue-200 p-1 rounded">
-                                <Plus size={16} className="text-blue-500" />
+                            <button
+                                className="mr-2 bg-blue-100 hover:bg-blue-200 p-1 rounded"
+                                onClick={handleUploadClick}
+                                disabled={isUploading}
+                            >
+                                {isUploading ? (
+                                    <LoadingOutlined />
+                                ) : (
+                                    <Plus size={16} className="text-blue-500" />
+                                )}
                             </button>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                className="hidden"
+                                onChange={handleFileChange}
+                                accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            />
                         </div>
-                        <div className="border border-dashed border-gray-300 py-8 text-center text-gray-400">
-                            Drop attachments here!
-                        </div>
+
+                        {taskDetails.attachments && taskDetails.attachments.length > 0 ? (
+                            <div className="space-y-2">
+                                {taskDetails.attachments.map(attachment => (
+                                    <div key={attachment.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+                                        <div className="flex items-center">
+                                            <FileText className="mr-2 text-blue-500" />
+                                            <span className="text-gray-700">{attachment.filename}</span>
+                                        </div>
+                                        <button
+                                            className="text-blue-500 hover:text-blue-700"
+                                            onClick={() => handleDownloadAttachment(attachment)}
+                                        >
+                                            <Download size={16} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="border border-dashed border-gray-300 py-8 text-center text-gray-400">
+                                Drop attachments here!
+                            </div>
+                        )}
                     </div>
 
                     {/* Comments and Activities section */}
@@ -1241,7 +1571,7 @@ const TaskDetail = () => {
                             <Users size={16} />
                         </button>
                         <button className="bg-gray-100 p-2 rounded text-gray-500 hover:bg-gray-200">
-                            <PaperClipIcon className="w-4 h-4" />
+                            <Paperclip size={16} />
                         </button>
                         <button
                             className={`p-2 rounded ${isBlocked ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-500'} hover:${isBlocked ? 'bg-red-600' : 'bg-gray-200'}`}
