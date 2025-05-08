@@ -57,7 +57,7 @@ const Sidebar = ({ currentProject, onToggleCollapse }) => {
               {!sidebarCollapsed && <span className="ml-2 truncate">Epics</span>}
             </Link>
             <Link
-              to={currentProject?.id && `/projects/${currentProject.id}/scrum`}
+              to={currentProject?.id && `/projects/${currentProject.id}/backlog`}
               className={`flex items-center justify-${sidebarCollapsed ? 'center' : 'start'} px-3 py-2 text-sm rounded-md ${activeTab === 'scrum' ? 'text-white' : 'text-gray-200 hover:bg-gray-700'}`}
               onClick={() => setActiveTab('scrum')}
               style={activeTab === 'scrum' ? styles.bgPrimary : {}}
@@ -158,7 +158,7 @@ const Sidebar = ({ currentProject, onToggleCollapse }) => {
             </svg>
             {!sidebarCollapsed && <span className="ml-2 truncate">Settings</span>}
           </Link>
-          <button 
+          <button
             onClick={toggleSidebar}
             className={`w-full flex items-center justify-${sidebarCollapsed ? 'center' : 'start'} px-3 py-2 text-sm text-gray-200 hover:bg-gray-700 rounded-md mt-4`}
           >

@@ -59,11 +59,11 @@ const TaskDetail = () => {
 
     const statuses = [
         { id: 1, name: 'NEW', color: 'bg-blue-400' },
-        { id: 2, name: 'IN_PROGRESS', color: 'bg-orange-400' },
-        { id: 3, name: 'READY_FOR_TEST', color: 'bg-yellow-400' },
-        { id: 4, name: 'TESTING', color: 'bg-purple-400' },
+        { id: 2, name: 'READY', color: 'bg-red-500' },
+        { id: 3, name: 'IN PROGRESS', color: 'bg-orange-400' },
+        { id: 4, name: 'READY FOR TEST', color: 'bg-yellow-400' },
         { id: 5, name: 'DONE', color: 'bg-green-500' },
-        { id: 6, name: 'CLOSED', color: 'bg-gray-400' }
+        { id: 6, name: 'ARCHIVED', color: 'bg-gray-400' }
     ];
 
     const getStatusColor = (statusId) => {
@@ -702,11 +702,11 @@ const TaskDetail = () => {
             const originalStatusId = taskDetails.statusId;
             const statusNames = {
                 1: 'NEW',
-                2: 'IN_PROGRESS',
-                3: 'READY_FOR_TEST',
-                4: 'TESTING',
+                2: 'READY',
+                3: 'IN PROGRESS',
+                4: 'READY FOR TEST',
                 5: 'DONE',
-                6: 'CLOSED'
+                6: 'ARCHIVED'
             };
 
             // Lưu lại thông tin về các tệp đính kèm hiện tại

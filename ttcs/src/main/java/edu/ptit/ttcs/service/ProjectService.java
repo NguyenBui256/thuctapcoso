@@ -325,4 +325,8 @@ public class ProjectService {
                 .stream().map(st -> ModelMapper.getInstance().map(st, PjStatusDTO.class))
                 .toList();
     }
+
+    public boolean userHasAccessToProject(Long userId, Long projectId) {
+        return isUserProjectMember(projectId, userId);
+    }
 }

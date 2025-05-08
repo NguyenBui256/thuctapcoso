@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import userSettingsService from '../../services/userSettingsService';
+import { LoadingOutlined } from '@ant-design/icons';
+import { message } from 'antd';
+import axios from '../../common/axios-customize';
 
 const UserSettings = () => {
     const [formData, setFormData] = useState({
@@ -14,6 +17,8 @@ const UserSettings = () => {
     });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef(null);
 
     useEffect(() => {
         fetchUserSettings();
@@ -23,10 +28,15 @@ const UserSettings = () => {
         try {
             setLoading(true);
             const data = await userSettingsService.getUserSettings();
+            console.log("Fetched user settings:", data);
+
+            // Ensure we use the correct field for avatar
+            const photoUrl = data.data.photoUrl || data.data.avatar || '';
+
             setFormData({
                 ...data.data,
+                photoUrl: photoUrl // Standardize on photoUrl in our component
             });
-            console.log(data);
         } catch (err) {
             setError('Failed to load user settings');
             console.error('Error loading user settings:', err);
@@ -52,13 +62,123 @@ const UserSettings = () => {
                 language: formData.language,
                 theme: formData.theme,
                 bio: formData.bio,
-                photoUrl: formData.photoUrl
+                avatar: formData.photoUrl // Send avatar field to backend
+            };
+
+            console.log("Updating user settings with:", updateData);
+            await userSettingsService.updateUserSettings(updateData);
+            message.success('Settings updated successfully!');
+
+            // Update userData in localStorage to reflect changes
+            updateUserDataInLocalStorage({
+                fullName: formData.fullName,
+                email: formData.email,
+                avatarUrl: formData.photoUrl // Make sure avatar is updated in localStorage
+            });
+        } catch (err) {
+            message.error('Failed to update settings');
+            console.error('Error updating settings:', err);
+        }
+    };
+
+    // Helper function to update userData in localStorage
+    const updateUserDataInLocalStorage = (updatedFields) => {
+        try {
+            const userData = JSON.parse(localStorage.getItem('userData'));
+            if (userData) {
+                const updatedUserData = { ...userData, ...updatedFields };
+                localStorage.setItem('userData', JSON.stringify(updatedUserData));
+
+                // Trigger storage event for Navbar to detect changes
+                window.dispatchEvent(new Event('storage'));
+            }
+        } catch (err) {
+            console.error('Error updating localStorage:', err);
+        }
+    };
+
+    const handlePhotoUploadClick = () => {
+        fileInputRef.current.click();
+    };
+
+    const handlePhotoChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Validate file is an image
+        if (!file.type.startsWith('image/')) {
+            message.error('Please select an image file');
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('folder', 'avatars');
+
+            // Upload image to Cloudinary
+            const uploadResponse = await axios.post('/api/v1/files/upload/image', formData);
+
+            if (uploadResponse.data && uploadResponse.data.secure_url) {
+                const photoUrl = uploadResponse.data.secure_url;
+
+                // Update the user interface immediately
+                setFormData(prev => ({
+                    ...prev,
+                    photoUrl: photoUrl
+                }));
+
+                // Save to the database
+                const updateData = {
+                    photoUrl: photoUrl // Using 'avatar' field name consistently for backend communication
+                };
+                console.log("Updating avatar with:", updateData);
+                await userSettingsService.updateUserSettings(updateData);
+
+                // Update avatar in localStorage so navbar will show the updated avatar
+                updateUserDataInLocalStorage({ avatarUrl: photoUrl });
+
+                message.success('Profile photo updated successfully!');
+            } else {
+                message.error('Failed to upload image to cloud storage');
+            }
+        } catch (err) {
+            console.error('Error uploading photo:', err);
+            message.error('Error uploading photo: ' + (err.message || 'Unknown error'));
+        } finally {
+            setIsUploading(false);
+            // Clear the file input
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        }
+    };
+
+    const handleUseDefaultImage = async () => {
+        try {
+            // Update with a default image URL or empty string
+            const defaultImageUrl = '';
+
+            // Update the UI immediately
+            setFormData(prev => ({
+                ...prev,
+                photoUrl: defaultImageUrl
+            }));
+
+            // Save to the database
+            const updateData = {
+                avatar: defaultImageUrl
             };
             await userSettingsService.updateUserSettings(updateData);
-            alert('Settings updated successfully!');
+
+            // Update avatar in localStorage to null or empty string
+            updateUserDataInLocalStorage({ avatarUrl: defaultImageUrl });
+
+            message.success('Default image set successfully!');
         } catch (err) {
-            alert('Failed to update settings');
-            console.error('Error updating settings:', err);
+            console.error('Error setting default image:', err);
+            message.error('Failed to set default image');
         }
     };
 
@@ -89,7 +209,7 @@ const UserSettings = () => {
             <h2 className="text-2xl font-bold mb-6 text-teal-500">User Settings</h2>
 
             <div className="flex items-start mb-8">
-                <div className="w-48 h-48 bg-purple-300 mr-6">
+                <div className="w-48 h-48 bg-purple-300 mr-6 overflow-hidden">
                     {formData.photoUrl ? (
                         <img
                             src={formData.photoUrl}
@@ -128,10 +248,27 @@ const UserSettings = () => {
                     )}
                 </div>
                 <div className="flex flex-col gap-2">
-                    <button className="bg-gray-200 text-gray-700 px-4 py-2 rounded">
-                        CHANGE PHOTO
+                    <button
+                        className="bg-gray-200 text-gray-700 px-4 py-2 rounded flex items-center justify-center"
+                        onClick={handlePhotoUploadClick}
+                        disabled={isUploading}
+                    >
+                        {isUploading ? (
+                            <LoadingOutlined className="mr-2" />
+                        ) : null}
+                        {isUploading ? 'UPLOADING...' : 'CHANGE PHOTO'}
                     </button>
-                    <button className="text-teal-500 hover:underline">
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        onChange={handlePhotoChange}
+                        accept="image/*"
+                    />
+                    <button
+                        className="text-teal-500 hover:underline"
+                        onClick={handleUseDefaultImage}
+                    >
                         Use default image
                     </button>
                 </div>
