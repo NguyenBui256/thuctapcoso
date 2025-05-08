@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 const Sidebar = ({ currentProject, onToggleCollapse }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState('project');
-  
+
   // Custom styles for the new primary color
   const primaryColor = "rgb(153, 214, 220)";
   const styles = {
@@ -24,11 +24,11 @@ const Sidebar = ({ currentProject, onToggleCollapse }) => {
   };
 
   return (
-      <aside className={`${sidebarCollapsed ? 'w-20' : 'w-64'} bg-taiga-dark text-white flex-shrink-0 fixed left-0 top-12 h-[calc(100vh-3rem)] transition-all duration-300`}>
+    <aside className={`${sidebarCollapsed ? 'w-20' : 'w-64'} bg-taiga-dark text-white flex-shrink-0 fixed left-0 top-12 h-[calc(100vh-3rem)] transition-all duration-300`}>
       <div className="p-4 h-full flex flex-col">
         <div className="mb-6">
-          <Link 
-            to={currentProject?.id && `/projects/${currentProject.id}`} 
+          <Link
+            to={currentProject?.id && `/projects/${currentProject.id}`}
             className={`flex items-center justify-${sidebarCollapsed ? 'center' : 'start'} px-3 py-2 text-sm rounded-md ${activeTab === 'project' ? 'text-white' : 'text-gray-200 hover:bg-gray-700'}`}
             onClick={() => setActiveTab('project')}
             style={activeTab === 'project' ? styles.bgPrimary : {}}
@@ -41,7 +41,7 @@ const Sidebar = ({ currentProject, onToggleCollapse }) => {
             {!sidebarCollapsed && <span className="ml-2 truncate">{currentProject?.name || 'Projects'}</span>}
           </Link>
         </div>
-        
+
         <div className="mb-6">
           <nav className="space-y-1">
             <Link
@@ -57,7 +57,7 @@ const Sidebar = ({ currentProject, onToggleCollapse }) => {
               {!sidebarCollapsed && <span className="ml-2 truncate">Epics</span>}
             </Link>
             <Link
-              to={currentProject?.id && `/projects/${currentProject.id}/scrum`}
+              to={currentProject?.id && `/projects/${currentProject.id}/backlog`}
               className={`flex items-center justify-${sidebarCollapsed ? 'center' : 'start'} px-3 py-2 text-sm rounded-md ${activeTab === 'scrum' ? 'text-white' : 'text-gray-200 hover:bg-gray-700'}`}
               onClick={() => setActiveTab('scrum')}
               style={activeTab === 'scrum' ? styles.bgPrimary : {}}
@@ -94,7 +94,7 @@ const Sidebar = ({ currentProject, onToggleCollapse }) => {
             </Link>
           </nav>
         </div>
-        
+
         <div className="mt-auto space-y-1">
           <Link to={currentProject?.id && `/projects/${currentProject.id}/search`} className={`flex items-center justify-${sidebarCollapsed ? 'center' : 'start'} px-3 py-2 text-sm text-gray-200 hover:bg-gray-700 rounded-md`}>
             <svg className="w-6 h-6 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -135,7 +135,7 @@ const Sidebar = ({ currentProject, onToggleCollapse }) => {
             </svg>
             {!sidebarCollapsed && <span className="ml-2 truncate">Settings</span>}
           </Link>
-          <button 
+          <button
             onClick={toggleSidebar}
             className={`w-full flex items-center justify-${sidebarCollapsed ? 'center' : 'start'} px-3 py-2 text-sm text-gray-200 hover:bg-gray-700 rounded-md mt-4`}
           >

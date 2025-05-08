@@ -37,53 +37,51 @@ public class UserStoryService {
     private final UserRepository userRepository;
 
     public List<UserStoryDTO> get(long projectId,
-                                  Long sprintId,
-                                  FilterParams filters) {
+            Long sprintId,
+            FilterParams filters) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RequestException("Project not found"));
-        if(sprintId != null && !sprintRepository.existsById(sprintId))
+        if (sprintId != null && !sprintRepository.existsById(sprintId))
             throw new RequestException("Sprint not found");
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByUsername(username).get();
-        if(!projectMemberRepository.existsByProjectAndUserAndIsDeleteFalse(project, user))
+        if (!projectMemberRepository.existsByProjectAndUserAndIsDeleteFalse(project, user))
             throw new RequestException("Member not found");
         Specification<UserStory> spec = Specification.where(
-                UserStorySpecs.belongToProject(projectId)
-        );
-        if(sprintId != null){
+                UserStorySpecs.belongToProject(projectId));
+        if (sprintId != null) {
             spec = spec.and(UserStorySpecs.belongToSprint(sprintId));
-        }
-        else{
+        } else {
             spec = spec.and(UserStorySpecs.notBelongToSprint());
         }
 
-        if(filters.getKeyword() != null){
+        if (filters.getKeyword() != null) {
             spec = spec.and(UserStorySpecs.hasKeyword(filters.getKeyword()));
         }
 
-        if(filters.getExcludeStatuses() != null){
+        if (filters.getExcludeStatuses() != null) {
             spec = spec.and(UserStorySpecs.byStatuses(filters.getExcludeStatuses(), true));
         }
-        if(filters.getExcludeCreatedBy() != null){
+        if (filters.getExcludeCreatedBy() != null) {
             spec = spec.and(UserStorySpecs.byCreatedMembers(filters.getExcludeCreatedBy(), true));
         }
-        if(filters.getExcludeAssigns() != null){
+        if (filters.getExcludeAssigns() != null) {
             spec = spec.and(UserStorySpecs.byAssignedMembers(filters.getExcludeAssigns(), true));
         }
-        if(filters.getExcludeRoles() != null){
+        if (filters.getExcludeRoles() != null) {
             spec = spec.and(UserStorySpecs.byMemberRoles(filters.getExcludeRoles(), true));
         }
 
-        if(filters.getStatuses() != null){
+        if (filters.getStatuses() != null) {
             spec = spec.and(UserStorySpecs.byStatuses(filters.getStatuses(), false));
         }
-        if(filters.getCreatedBy() != null){
+        if (filters.getCreatedBy() != null) {
             spec = spec.and(UserStorySpecs.byCreatedMembers(filters.getCreatedBy(), false));
         }
-        if(filters.getAssigns() != null){
+        if (filters.getAssigns() != null) {
             spec = spec.and(UserStorySpecs.byAssignedMembers(filters.getAssigns(), false));
         }
-        if(filters.getRoles() != null){
+        if (filters.getRoles() != null) {
             spec = spec.and(UserStorySpecs.byMemberRoles(filters.getRoles(), false));
         }
         List<UserStory> res = userStoryRepository.findAll(spec);
@@ -91,7 +89,7 @@ public class UserStoryService {
     }
 
     public FilterData getFilterData(long projectId,
-                                    FilterParams filters){
+            FilterParams filters) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RequestException("Project not found"));
 
@@ -115,7 +113,6 @@ public class UserStoryService {
                 .flatMap(Collection::stream)
                 .toList();
 
-
         List<ProjectMember> members = projectMemberRepository.findAllByProjectAndIsDeleteIsFalse(project);
         List<PjMemberDTO> memberDTOS = members.stream()
                 .map(member -> {
@@ -126,7 +123,8 @@ public class UserStoryService {
                     return dto;
                 })
                 .toList();
-        List<PjStatusDTO> statuses = pjSettingStatusRepository.findAllByProjectAndType(project, StatusType.USER_STORY).stream()
+        List<PjStatusDTO> statuses = pjSettingStatusRepository.findAllByProjectAndType(project, StatusType.USER_STORY)
+                .stream()
                 .map(status -> ModelMapper.getInstance().map(status, PjStatusDTO.class))
                 .filter(dto -> statusFiltered.stream().noneMatch(st -> st == dto.getId()))
                 .toList();
@@ -135,10 +133,10 @@ public class UserStoryService {
                 .filter(dto -> roleFiltered.stream().noneMatch(r -> r == dto.getId()))
                 .toList();
         return FilterData.builder()
-                .assigns(memberDTOS.stream().filter(dto ->
-                        assignFiltered.stream().noneMatch(a -> a == dto.getId())).toList())
-                .createdBy(memberDTOS.stream().filter(dto ->
-                        createdByFiltered.stream().noneMatch(a -> a == dto.getId())).toList())
+                .assigns(memberDTOS.stream().filter(dto -> assignFiltered.stream().noneMatch(a -> a == dto.getId()))
+                        .toList())
+                .createdBy(memberDTOS.stream()
+                        .filter(dto -> createdByFiltered.stream().noneMatch(a -> a == dto.getId())).toList())
                 .statuses(statuses)
                 .roles(roles)
                 .build();
@@ -158,6 +156,34 @@ public class UserStoryService {
                     return taskDTO;
                 }).toList());
         return dto;
+    }
+
+    public UserStoryDTO updateSprint(long userStoryId, long sprintId) {
+        UserStory userStory = userStoryRepository.findById((int) userStoryId)
+                .orElseThrow(() -> new RequestException("User story not found"));
+
+        Sprint sprint = sprintRepository.findById(sprintId)
+                .orElseThrow(() -> new RequestException("Sprint not found"));
+
+        // Ensure they belong to the same project
+        if (!userStory.getProject().getId().equals(sprint.getProject().getId())) {
+            throw new RequestException("User story and sprint must belong to the same project");
+        }
+
+        userStory.setSprint(sprint);
+        userStory = userStoryRepository.save(userStory);
+
+        return toDTO(userStory);
+    }
+
+    public UserStoryDTO removeSprint(long userStoryId) {
+        UserStory userStory = userStoryRepository.findById((int) userStoryId)
+                .orElseThrow(() -> new RequestException("User story not found"));
+
+        userStory.setSprint(null);
+        userStory = userStoryRepository.save(userStory);
+
+        return toDTO(userStory);
     }
 
 }

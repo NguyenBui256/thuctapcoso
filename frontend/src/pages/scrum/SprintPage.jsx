@@ -11,18 +11,27 @@ import {
   Plus,
   ChevronRight,
 } from "lucide-react"
-import {fetchWithAuth} from '../../utils/AuthUtils'
+import { fetchWithAuth } from '../../utils/AuthUtils'
 import { BASE_API_URL } from "../../common/constants"
-import { useParams } from "react-router-dom"
+import { useParams, useNavigate } from "react-router-dom"
 import { toast } from "react-toastify"
+import CreateTaskModal from "../../components/kanban/CreateTaskModal"
 
 const filterss = ['statuses', 'assigns', 'createdBy', 'roles']
 const filterNames = ['Trạng thái', 'Phân công', 'Tạo bởi', 'Vai trò']
 
 export default function SprintPage() {
-    const {projectId, sprintId} = useParams()
+  const { projectId, sprintId } = useParams()
+  const navigate = useNavigate()
   // Danh sách trạng thái
-  const [statuses, setStatuses] = useState([])
+  const [statuses, setStatuses] = useState([
+    { id: 1, name: 'NEW', color: 'bg-blue-400' },
+    { id: 2, name: 'READY', color: 'bg-red-500' },
+    { id: 3, name: 'IN PROGRESS', color: 'bg-orange-400' },
+    { id: 4, name: 'READY FOR TEST', color: 'bg-yellow-400' },
+    { id: 5, name: 'DONE', color: 'bg-green-500' },
+    { id: 6, name: 'ARCHIVED', color: 'bg-gray-400' }
+  ])
 
   // Danh sách User Stories
   const [userStories, setUserStories] = useState([])
@@ -54,9 +63,16 @@ export default function SprintPage() {
 
   const [keyword, setKeyword] = useState('')
 
+  // Thêm state để theo dõi task đang được kéo
+  const [draggingItemId, setDraggingItemId] = useState(null)
+
+  // Add state for task creation modal
+  const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
+  const [selectedUserStory, setSelectedUserStory] = useState(null);
+
   const getFilterParams = () => {
     const params = {};
-    
+
     // Xử lý các filter include
     selectedFilters.include.forEach(filter => {
       const key = filter.key;
@@ -79,16 +95,9 @@ export default function SprintPage() {
   }
 
   const fetchTaskStatuses = async () => {
-    const res = await fetchWithAuth(`${BASE_API_URL}/v1/projects/get-task-statuses?projectId=${projectId}`);
-    const data = await res.json();
-    if (data.error) {
-      toast.error("Có lỗi xảy ra");
-      return null;
-    } else {
-      return data.data; // return data chứ không set luôn
-    }
+    return statuses;
   };
-  
+
   const fetchFilters = async () => {
     const params = getFilterParams();
     const queryString = new URLSearchParams();
@@ -115,47 +124,51 @@ export default function SprintPage() {
     }
   };
 
-  const fetchUserStories = (statuses) => {
-    const params = getFilterParams();
-    const queryString = new URLSearchParams();
-    Object.entries(params).forEach(([key, value]) => {
-      if (Array.isArray(value)) {
-        queryString.append(key, value.join(','));
-      } else {
-        queryString.append(key, value);
+  // Lấy tasks cho mỗi user story riêng lẻ
+  const fetchTasksForUserStory = async (userStoryId) => {
+    try {
+      console.log('Fetching tasks for userStory ID:', userStoryId);
+      const response = await fetchWithAuth(`${BASE_API_URL}/tasks/userstory/${userStoryId}`);
+      const data = await response.json();
+      console.log('Tasks data for userStory', userStoryId, ':', data);
+
+      if (data.statusCode === 200 && data.data) {
+        return data.data;
       }
-    });
-
-    const filterQuery = queryString.toString() ? `&${queryString.toString()}` : '';
-    const keywordQuery = keyword ? `&keyword=${keyword}` : '';
-
-    fetchWithAuth(`${BASE_API_URL}/v1/user_story/get?projectId=${projectId}&sprintId=${sprintId}${keywordQuery}${filterQuery}`)
-      .then(res => res.json())
-      .then(res => {
-        setTasks(prev => {
-          const newTasks = {};
-  
-          res.data.forEach(userStory => {
-            newTasks[userStory.id] = {}; // phải init trước
-            statuses.forEach(stat => newTasks[userStory.id][stat.id] = []);
-            userStory.tasks.forEach(task => {
-              const statusId = task.status.id;
-              newTasks[userStory.id][statusId].push(task);
-            });
-          });
-  
-          return newTasks;
-        });
-        // Thêm property isExpanded vào mỗi userStory
-        const userStoriesWithExpanded = res.data.map(story => ({
-          ...story,
-          isExpanded: true // Mặc định là mở
-        }));
-        setUserStories(userStoriesWithExpanded);
-      })
+      return [];
+    } catch (error) {
+      console.error('Error fetching tasks for userStory', userStoryId, ':', error);
+      toast.error(`Lỗi khi tải tasks cho user story #${userStoryId}`);
+      return []; // Trả về mảng rỗng khi có lỗi
+    }
   };
 
-  const fetchTasks = () => {
+  // Thêm hàm helper để ánh xạ statusId từ API response
+  const mapStatusIdToLocal = (statusId, statusName) => {
+    // If statusId is between 1-6, use it directly
+    if (statusId && statusId >= 1 && statusId <= 6) {
+      return statusId;
+    }
+
+    // Otherwise, try to match by name
+    if (statusName) {
+      const matchedStatus = statuses.find(s =>
+        s.name.toLowerCase() === statusName.toLowerCase() ||
+        s.name.toLowerCase().includes(statusName.toLowerCase()) ||
+        statusName.toLowerCase().includes(s.name.toLowerCase())
+      );
+
+      if (matchedStatus) {
+        console.log(`Đã ánh xạ statusName "${statusName}" sang ID=${matchedStatus.id}`);
+        return matchedStatus.id;
+      }
+    }
+
+    // Default to first status (NEW) if no match
+    return 1;
+  };
+
+  const fetchUserStories = async (statuses) => {
     const params = getFilterParams();
     const queryString = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
@@ -169,109 +182,255 @@ export default function SprintPage() {
     const filterQuery = queryString.toString() ? `&${queryString.toString()}` : '';
     const keywordQuery = keyword ? `&keyword=${keyword}` : '';
 
-    fetchWithAuth(`${BASE_API_URL}/v1/task/get_by_sprint?projectId=${projectId}&sprintId=${sprintId}${keywordQuery}${filterQuery}`)
-      .then(res => res.json())
-      .then(res => {
-        setTasks(prev => {
-          const newTasks = {};
-          
-          // Khởi tạo tất cả userStory với tất cả status là mảng rỗng
-          userStories.forEach(story => {
-            newTasks[story.id] = {};
-            statuses.forEach(stat => {
-              newTasks[story.id][stat.id] = [];
-            });
-          });
+    try {
+      const res = await fetchWithAuth(`${BASE_API_URL}/v1/user_story/get?projectId=${projectId}&sprintId=${sprintId}${keywordQuery}${filterQuery}`);
+      const data = await res.json();
+      console.log("User stories data:", data.data);
 
-          // Thêm task vào đúng vị trí
-          res.data.forEach(task => {
-            const userStoryId = task.userStoryId;
-            const statusId = task.status.id;
-            if (newTasks[userStoryId] && newTasks[userStoryId][statusId]) {
-              newTasks[userStoryId][statusId].push(task);
+      // Thêm property isExpanded vào mỗi userStory
+      const userStoriesWithExpanded = data.data.map(story => ({
+        ...story,
+        isExpanded: true // Mặc định là mở
+      }));
+
+      setUserStories(userStoriesWithExpanded);
+
+      // Tạo đối tượng mới để lưu tasks
+      const newTasks = {};
+
+      // Lấy tasks cho từng user story
+      for (const story of data.data) {
+        newTasks[story.id] = {};
+        statuses.forEach(stat => newTasks[story.id][stat.id] = []);
+
+        const storyTasks = await fetchTasksForUserStory(story.id);
+
+        // Phân loại tasks theo status
+        if (storyTasks && Array.isArray(storyTasks)) {
+          console.log(`Phân loại ${storyTasks.length} tasks cho story #${story.id}`);
+          storyTasks.forEach(task => {
+            // Lấy statusId từ task và map về ID trong danh sách statuses
+            const apiStatusId = task.statusId;
+            const statusName = task.statusName || task.status;
+
+            // Ánh xạ statusId từ API về ID trong danh sách statuses
+            const mappedStatusId = mapStatusIdToLocal(apiStatusId, statusName);
+
+            if (!mappedStatusId) {
+              console.warn("Không thể ánh xạ status cho task:", task);
+              return;
             }
-          });
 
-          console.log(newTasks)
-          return newTasks;
-        });
-      })
-  }
-  
+            console.log(`Task #${task.id} có statusId=${apiStatusId}, statusName=${statusName}, mappedStatusId=${mappedStatusId}`);
+
+            if (!newTasks[story.id][mappedStatusId]) {
+              console.log(`Tạo mảng mới cho mappedStatusId=${mappedStatusId} của story #${story.id}`);
+              newTasks[story.id][mappedStatusId] = [];
+            }
+
+            console.log(`Thêm task #${task.id} vào cột status=${mappedStatusId} của story #${story.id}`);
+            newTasks[story.id][mappedStatusId].push(task);
+          });
+        }
+      }
+
+      console.log("Organized tasks for all stories:", newTasks);
+      setTasks(newTasks);
+
+    } catch (error) {
+      console.error("Error fetching user stories:", error);
+      toast.error("Có lỗi xảy ra khi tải dữ liệu user stories");
+    }
+  };
+
   // Fetch danh sách trạng thái khi component được mount
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       try {
-        const statusesData = await fetchTaskStatuses(); // lấy danh sách status
-        if (statusesData) {
-          setStatuses(statusesData); // update state
-          fetchUserStories(statusesData); // truyền vào
-        }
+        // Use hardcoded statuses directly
+        fetchUserStories(statuses);
       } catch (error) {
-        console.error("Error loading statuses:", error);
+        console.error("Error loading data:", error);
       } finally {
         setLoading(false);
       }
     };
-  
-    loadData(); 
+
+    loadData();
   }, []);
 
-  // Gọi fetchTasks sau khi userStories đã được cập nhật
+  // Cập nhật useEffect để không gọi fetchTasks nữa
   useEffect(() => {
-    if (userStories.length > 0) {
-      fetchTasks();
+    if (userStories.length > 0 && statuses.length > 0) {
+      // fetchTasks(); // Không cần gọi nữa
       fetchFilters();
     }
   }, [userStories, selectedFilters, keyword]);
-  
-  const toggleStoryExpand = (storyId) => {
-    setUserStories(
-      userStories.map((story) => {
-        if (story.id === storyId) {
-          return { ...story, isExpanded: !story.isExpanded }
-        }
-        return story
-      }),
-    )
-  }
+
+  // Thêm hàm log debug trước hàm onDragEnd
+  const logStatusInfo = () => {
+    console.log("Danh sách statuses trong hệ thống:", statuses);
+  };
+
+  useEffect(() => {
+    if (statuses.length > 0) {
+      logStatusInfo();
+    }
+  }, [statuses]);
+
+  // Thêm hàm onDragStart
+  const onDragStart = (start) => {
+    const id = start.draggableId;
+    setDraggingItemId(id);
+    document.body.classList.add('is-dragging');
+  };
 
   const onDragEnd = (result) => {
-    const { source, destination } = result
+    // Đặt lại state khi kết thúc kéo
+    setDraggingItemId(null);
+    document.body.classList.remove('is-dragging');
+
+    const { source, destination } = result;
 
     // Nếu không có điểm đến, không làm gì cả
     if (!destination) {
-      return
+      return;
     }
 
     // Phân tích ID để lấy thông tin về storyId và status
-    const [sourceStoryId, sourceStatus] = source.droppableId.split(":")
-    const [destStoryId, destStatus] = destination.droppableId.split(":")
+    const [sourceStoryId, sourceStatusId] = source.droppableId.split(":");
+    const [destStoryId, destStatusId] = destination.droppableId.split(":");
 
-    // Nếu vị trí nguồn và đích giống nhau, không làm gì cả
-    if (sourceStoryId === destStoryId && sourceStatus === destStatus && source.index === destination.index) {
-      return
+    console.log("DEBUG - Kéo từ column:", sourceStatusId, "đến column:", destStatusId);
+
+    // Lấy đối tượng status từ ID của column
+    const targetStatus = statuses.find(s => s.id.toString() === destStatusId);
+
+    if (!targetStatus) {
+      console.error("Không tìm thấy status với ID:", destStatusId);
+      toast.error("Lỗi: Không tìm thấy trạng thái đích");
+      return;
     }
 
-    // Tạo bản sao của state tasks
-    const tasksCopy = JSON.parse(JSON.stringify(tasks))
+    console.log("Target status:", targetStatus);
 
-    console.log(tasksCopy)
+    // Nếu vị trí nguồn và đích giống nhau, không làm gì cả
+    if (sourceStoryId === destStoryId && sourceStatusId === destStatusId && source.index === destination.index) {
+      return;
+    }
 
-    // Lấy task từ nguồn
-    const sourceColumn = tasksCopy[sourceStoryId][sourceStatus]
-    const [movedTask] = sourceColumn.splice(source.index, 1)
+    try {
+      // Tạo bản sao của state tasks
+      const tasksCopy = JSON.parse(JSON.stringify(tasks));
 
-    fetchWithAuth(`${BASE_API_URL}/v1/task/update_status/${movedTask.id}?userStoryId=${destStoryId}&statusId=${destStatus}`, window.location, true, {
-      method: "POST"
-    })
-      .then(res => res.json())
-      .then(res => {
-        if(res.error) toast.error(res.message)
-        else fetchUserStories(statuses)
+      // Lấy task từ nguồn
+      const sourceColumn = tasksCopy[sourceStoryId][sourceStatusId];
+      const [movedTask] = sourceColumn.splice(source.index, 1);
+
+      // Lưu giữ thông tin task gốc để rollback nếu cần
+      const originalTask = { ...movedTask };
+
+      // Cập nhật UI trước khi gọi API (optimistic update)
+      if (!tasksCopy[destStoryId]) {
+        tasksCopy[destStoryId] = {};
+      }
+
+      if (!tasksCopy[destStoryId][destStatusId]) {
+        tasksCopy[destStoryId][destStatusId] = [];
+      }
+
+      // Cập nhật status của task trước khi thêm vào cột đích
+      movedTask.statusId = targetStatus.id;
+      movedTask.status = targetStatus.name;
+
+      // Thêm task vào vị trí mới
+      tasksCopy[destStoryId][destStatusId].splice(destination.index, 0, movedTask);
+      setTasks(tasksCopy);
+
+      // Gọi API để cập nhật vị trí mới của task
+      console.log(`Gửi request update task #${movedTask.id} đến status ID: ${targetStatus.id}`);
+
+      fetchWithAuth(`${BASE_API_URL}/v1/task/update_status/${movedTask.id}?userStoryId=${destStoryId}&statusId=${targetStatus.id}`, window.location, true, {
+        method: "POST",
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          statusId: targetStatus.id,
+          userStoryId: parseInt(destStoryId),
+          order: destination.index
+        })
       })
-  }
+        .then(res => res.json())
+        .then(res => {
+          console.log("API response:", res);
+          if (res.error) {
+            toast.error(res.message);
+            // Nếu có lỗi, rollback lại UI
+            const rollbackTasks = JSON.parse(JSON.stringify(tasks));
+            rollbackTasks[sourceStoryId][sourceStatusId].splice(source.index, 0, originalTask);
+            if (rollbackTasks[destStoryId] && rollbackTasks[destStoryId][destStatusId]) {
+              const targetIdx = rollbackTasks[destStoryId][destStatusId].findIndex(t => t.id === movedTask.id);
+              if (targetIdx >= 0) {
+                rollbackTasks[destStoryId][destStatusId].splice(targetIdx, 1);
+              }
+            }
+            setTasks(rollbackTasks);
+          } else {
+            toast.success("Cập nhật trạng thái task thành công");
+            // Nếu thành công, chỉ refresh để đảm bảo dữ liệu đồng bộ
+            fetchUserStories(statuses);
+          }
+        })
+        .catch(error => {
+          console.error("Lỗi khi cập nhật task:", error);
+          toast.error("Có lỗi xảy ra khi cập nhật task");
+          // Nếu có lỗi, rollback lại UI
+          const rollbackTasks = JSON.parse(JSON.stringify(tasks));
+          rollbackTasks[sourceStoryId][sourceStatusId].splice(source.index, 0, originalTask);
+          if (rollbackTasks[destStoryId] && rollbackTasks[destStoryId][destStatusId]) {
+            const targetIdx = rollbackTasks[destStoryId][destStatusId].findIndex(t => t.id === movedTask.id);
+            if (targetIdx >= 0) {
+              rollbackTasks[destStoryId][destStatusId].splice(targetIdx, 1);
+            }
+          }
+          setTasks(rollbackTasks);
+        });
+    } catch (error) {
+      console.error("Lỗi khi xử lý kéo thả:", error);
+      toast.error("Có lỗi xảy ra khi di chuyển task");
+    }
+  };
+
+  // Thêm CSS cho hiệu ứng kéo thả
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.innerHTML = `
+      .task-card-dragging {
+        opacity: 0.9 !important;
+        transform: rotate(1deg);
+        box-shadow: 0 5px 10px rgba(0,0,0,0.2) !important;
+      }
+      .column-drop-target-active {
+        background-color: rgba(59, 130, 246, 0.1) !important;
+        transition: background-color 0.2s ease;
+      }
+      .react-beautiful-dnd-placeholder {
+        background-color: rgba(203, 213, 225, 0.4) !important;
+        border: 2px dashed #64748b !important;
+        margin-bottom: 8px !important;
+        border-radius: 0.25rem !important;
+      }
+      .is-dragging * {
+        cursor: grabbing !important;
+      }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      document.head.removeChild(style);
+    }
+  }, []);
 
   // Tính tổng số task đang mở
   const countOpenTasks = () => {
@@ -354,6 +513,47 @@ export default function SprintPage() {
     });
   }
 
+  const toggleStoryExpand = (storyId) => {
+    setUserStories(
+      userStories.map((story) => {
+        if (story.id === storyId) {
+          return { ...story, isExpanded: !story.isExpanded }
+        }
+        return story
+      })
+    )
+  }
+
+  // Hàm xử lý khi click vào user story
+  const handleUserStoryClick = (storyId, event) => {
+    // Chỉ xử lý khi click không phải vào nút toggle
+    if (!event.target.closest('button.toggle-button')) {
+      navigate(`/projects/${projectId}/userstory/${storyId}`);
+    }
+  };
+
+  // Hàm xử lý khi click vào task
+  const handleTaskClick = (taskId, event) => {
+    // Ngăn việc kích hoạt sự kiện kéo thả
+    event.stopPropagation();
+    navigate(`/projects/${projectId}/task/${taskId}`);
+  };
+
+  // Add function to handle task creation
+  const handleCreateTask = (userStoryId) => {
+    setSelectedUserStory(userStoryId);
+    setShowCreateTaskModal(true);
+  };
+
+  const handleTaskCreated = async (newTask) => {
+    // Refresh tasks for the user story that got a new task
+    if (newTask && newTask.userStoryId) {
+      // Refresh the board to show the new task
+      toast.success(`Task #${newTask.id} created successfully`);
+      fetchUserStories(statuses);
+    }
+  };
+
   // Hiển thị loading khi đang tải dữ liệu
   if (loading) {
     return (
@@ -364,7 +564,7 @@ export default function SprintPage() {
   }
 
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
+    <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
       <div className="min-h-screen bg-gray-100">
         {/* Header */}
         <header className="bg-white border-b border-gray-200">
@@ -472,8 +672,16 @@ export default function SprintPage() {
                     onChange={(e) => setKeyword(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
-                        fetchTasks();
-                        fetchFilters();
+                        // Tải lại danh sách user stories khi tìm kiếm
+                        const loadData = async () => {
+                          try {
+                            fetchUserStories(statuses);
+                            fetchFilters();
+                          } catch (error) {
+                            console.error("Error reloading data:", error);
+                          }
+                        };
+                        loadData();
                       }
                     }}
                     className="border border-gray-300 rounded pl-8 pr-2 py-1 w-64"
@@ -540,24 +748,24 @@ export default function SprintPage() {
                         <h3 className="text-sm font-medium text-gray-700 mb-2">Bao gồm:</h3>
                         <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
                           {selectedFilters.include.map((filter, index) => (
-                            <div 
+                            <div
                               key={`include-${index}`}
                               className="flex items-center bg-blue-100 text-blue-800 rounded-full px-3 py-1 text-sm"
                             >
                               {filter.avatar ? (
-                                <img 
-                                  src={filter.avatar} 
+                                <img
+                                  src={filter.avatar}
                                   alt={filter.name}
                                   className="w-4 h-4 rounded-full mr-1"
                                 />
                               ) : filter.color ? (
-                                <div 
-                                  className="w-3 h-3 rounded-full mr-1" 
+                                <div
+                                  className="w-3 h-3 rounded-full mr-1"
                                   style={{ backgroundColor: filter.color }}
                                 />
                               ) : null}
                               <span className="truncate max-w-[120px]">{filter.name}</span>
-                              <button 
+                              <button
                                 onClick={() => removeFilter('include', index)}
                                 className="ml-2 text-blue-600 hover:text-blue-800"
                               >
@@ -573,24 +781,24 @@ export default function SprintPage() {
                         <h3 className="text-sm font-medium text-gray-700 mb-2">Loại trừ:</h3>
                         <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
                           {selectedFilters.exclude.map((filter, index) => (
-                            <div 
+                            <div
                               key={`exclude-${index}`}
                               className="flex items-center bg-red-100 text-red-800 rounded-full px-3 py-1 text-sm"
                             >
                               {filter.avatar ? (
-                                <img 
-                                  src={filter.avatar} 
+                                <img
+                                  src={filter.avatar}
                                   alt={filter.name}
                                   className="w-4 h-4 rounded-full mr-1"
                                 />
                               ) : filter.color ? (
-                                <div 
-                                  className="w-3 h-3 rounded-full mr-1" 
+                                <div
+                                  className="w-3 h-3 rounded-full mr-1"
                                   style={{ backgroundColor: filter.color }}
                                 />
                               ) : null}
                               <span className="truncate max-w-[120px]">{filter.name}</span>
-                              <button 
+                              <button
                                 onClick={() => removeFilter('exclude', index)}
                                 className="ml-2 text-red-600 hover:text-red-800"
                               >
@@ -606,20 +814,20 @@ export default function SprintPage() {
                   <div className="border-t border-gray-200">
                     {filterss.map((filter, idx) => (
                       <div key={filter} className="relative">
-                        <div 
+                        <div
                           className="p-3 border-b border-gray-200 flex justify-between items-center hover:bg-gray-50 cursor-pointer"
-                          onClick={() => handleShowDetailFilters(filter)}    
+                          onClick={() => handleShowDetailFilters(filter)}
                         >
                           <span className="text-gray-700">{filterNames[idx]}</span>
-                          <ChevronRight 
+                          <ChevronRight
                             className={`text-gray-500 transform transition-transform ${showDetailFilters[filter] ? 'rotate-90' : ''}`}
                           />
                         </div>
                         {showDetailFilters[filter] && (
                           <div className="bg-white border-t border-gray-200">
                             {filters[filter]?.map((item, index) => (
-                              <div 
-                                key={index} 
+                              <div
+                                key={index}
                                 className="p-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -631,8 +839,8 @@ export default function SprintPage() {
                                   {(filter === 'assigns' || filter === 'createdBy') ? (
                                     <div className="flex items-center">
                                       {item.avatar ? (
-                                        <img 
-                                          src={item.avatar} 
+                                        <img
+                                          src={item.avatar}
                                           alt={item.fullName}
                                           className="w-6 h-6 rounded-full mr-2"
                                         />
@@ -648,8 +856,8 @@ export default function SprintPage() {
                                   ) : (
                                     <div className="flex items-center">
                                       {filter === 'statuses' && item.color && (
-                                        <div 
-                                          className="w-3 h-3 rounded-full mr-2" 
+                                        <div
+                                          className="w-3 h-3 rounded-full mr-2"
                                           style={{ backgroundColor: item.color }}
                                         />
                                       )}
@@ -690,9 +898,15 @@ export default function SprintPage() {
               <div key={story.id} className="mb-4">
                 <div className="grid" style={{ gridTemplateColumns: `1fr repeat(${statuses.length}, 1fr)` }}>
                   {/* User Story Column */}
-                  <div className="bg-white rounded shadow p-2">
+                  <div
+                    className="bg-white rounded shadow p-2 cursor-pointer hover:bg-gray-50"
+                    onClick={(e) => handleUserStoryClick(story.id, e)}
+                  >
                     <div className="flex items-center">
-                      <button className="mr-2" onClick={() => toggleStoryExpand(story.id)}>
+                      <button
+                        className="mr-2 toggle-button"
+                        onClick={() => toggleStoryExpand(story.id)}
+                      >
                         {story.isExpanded ? (
                           <ChevronUp className="h-4 w-4 text-gray-500" />
                         ) : (
@@ -701,11 +915,18 @@ export default function SprintPage() {
                       </button>
                       <div className="flex-1">
                         <div className="flex items-center">
+                          <span className="text-teal-500 font-semibold">#{story.number}</span>
                           <span className={`${story.number ? "ml-2" : ""} text-gray-700`}>{story.name}</span>
                         </div>
                       </div>
                       <div className="flex items-center">
-                        <button className="mr-1">
+                        <button
+                          className="mr-1"
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent triggering the story click handler
+                            handleCreateTask(story.id);
+                          }}
+                        >
                           <Plus className="h-4 w-4 text-gray-500" />
                         </button>
                         <button>
@@ -724,6 +945,7 @@ export default function SprintPage() {
                       color={status.color}
                       tasks={tasks[story.id]?.[status.id] || []}
                       isExpanded={story.isExpanded}
+                      onTaskClick={handleTaskClick}
                     />
                   ))}
                 </div>
@@ -755,6 +977,16 @@ export default function SprintPage() {
             </div>
           </div>
         </div>
+
+        {/* Add CreateTaskModal component at the end, before the closing DragDropContext tag */}
+        <CreateTaskModal
+          show={showCreateTaskModal}
+          onHide={() => setShowCreateTaskModal(false)}
+          projectId={projectId}
+          userStoryId={selectedUserStory}
+          initialStatusId={1}
+          onTaskCreated={handleTaskCreated}
+        />
       </div>
     </DragDropContext>
   )
@@ -770,14 +1002,14 @@ function FilterOption({ label }) {
   )
 }
 
-function StatusColumn({ storyId, status, color, tasks, isExpanded }) {
+function StatusColumn({ storyId, status, color, tasks, isExpanded, onTaskClick }) {
   const droppableId = `${storyId}:${status}`
 
   return (
     <div className="bg-white rounded shadow p-2 min-h-[60px]">
-      <Droppable 
+      <Droppable
         ignoreContainerClipping={false}
-        isDropDisabled={false} 
+        isDropDisabled={false}
         droppableId={droppableId}
         isCombineEnabled={false}
       >
@@ -787,9 +1019,21 @@ function StatusColumn({ storyId, status, color, tasks, isExpanded }) {
             {...provided.droppableProps}
             className={`min-h-[50px] ${snapshot.isDraggingOver ? "bg-gray-50 rounded" : ""}`}
           >
-            {tasks && tasks.map((task, index) => (
-              task.status.id === status && <Task key={task.id} task={task} index={index} isExpanded={isExpanded} />
-            ))}
+            {tasks.length > 0 ? (
+              tasks.map((task, index) => (
+                <Task
+                  key={task.id}
+                  task={task}
+                  index={index}
+                  isExpanded={isExpanded}
+                  onClick={(e) => onTaskClick(task.id, e)}
+                />
+              ))
+            ) : (
+              <div className="h-[40px] flex items-center justify-center text-gray-400 text-sm">
+                {isExpanded && <p>Không có task</p>}
+              </div>
+            )}
             {provided.placeholder}
           </div>
         )}
@@ -798,7 +1042,7 @@ function StatusColumn({ storyId, status, color, tasks, isExpanded }) {
   )
 }
 
-function Task({ task, index, isExpanded }) {
+function Task({ task, index, isExpanded, onClick }) {
   return (
     <Draggable draggableId={String(task.id)} index={index}>
       {(provided, snapshot) => (
@@ -806,12 +1050,12 @@ function Task({ task, index, isExpanded }) {
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
-          className={`${isExpanded ? "p-3" : "p-1"} mb-2 bg-white border border-gray-200 rounded shadow-sm ${
-            snapshot.isDragging ? "opacity-75 shadow-md" : ""
-          }`}
+          className={`${isExpanded ? "p-3" : "p-1"} mb-2 bg-white border border-gray-200 rounded shadow-sm ${snapshot.isDragging ? "task-card-dragging" : ""
+            } cursor-pointer hover:bg-gray-50`}
           style={{
             ...provided.draggableProps.style,
           }}
+          onClick={onClick}
         >
           {isExpanded ? (
             // Hiển thị đầy đủ thông tin khi mở rộng
@@ -819,48 +1063,39 @@ function Task({ task, index, isExpanded }) {
               <div className="flex justify-between items-start">
                 <div className="flex items-center">
                   <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500 mr-2">
-                    {task.assigned ? (
-                      <img 
-                        src={task.assigned.avatar || "https://ui-avatars.com/api/?name=?"} 
-                        alt={task.assigned.name}
-                        className="w-full h-full rounded-full object-cover"
-                      />
+                    {task.assignees && task.assignees.length > 0 ? (
+                      <span>{task.assignees[0].fullName.substring(0, 2).toUpperCase()}</span>
                     ) : (
-                      <img 
-                        src="https://ui-avatars.com/api/?name=?" 
-                        alt="Unassigned"
-                        className="w-full h-full rounded-full object-cover"
-                      />
+                      <span>?</span>
                     )}
                   </div>
-                  <span className="text-gray-700">{task.name}</span>
+                  <div>
+                    <span className="text-gray-700 font-medium">{task.subject}</span>
+                    <div className="text-xs text-gray-500">#{task.id}</div>
+                  </div>
                 </div>
 
-                <button>
+                <button onClick={(e) => e.stopPropagation()}>
                   <MoreVertical className="h-4 w-4 text-gray-400" />
                 </button>
               </div>
 
-              {task.status === "N/E" && (
-                <div className="mt-1 bg-gray-200 text-gray-700 text-xs px-2 py-0.5 inline-block rounded">N/E</div>
+              {task.isBlocked && (
+                <div className="mt-1">
+                  <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded">
+                    Blocked
+                  </span>
+                </div>
               )}
             </>
           ) : (
             // Chỉ hiển thị avatar khi thu gọn
             <div className="flex justify-center">
               <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500">
-                {task.assigned ? (
-                  <img 
-                    src={task.assigned.avatar || "https://ui-avatars.com/api/?name=?"} 
-                    alt={task.assigned.name}
-                    className="w-full h-full rounded-full object-cover"
-                  />
+                {task.assignees && task.assignees.length > 0 ? (
+                  <span>{task.assignees[0].fullName.substring(0, 2).toUpperCase()}</span>
                 ) : (
-                  <img 
-                    src="https://ui-avatars.com/api/?name=?" 
-                    alt="Unassigned"
-                    className="w-full h-full rounded-full object-cover"
-                  />
+                  <span>?</span>
                 )}
               </div>
             </div>
