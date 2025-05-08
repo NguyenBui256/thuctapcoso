@@ -2,6 +2,9 @@ package edu.ptit.ttcs.service;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import edu.ptit.ttcs.entity.dto.ActivityDTO;
 
 public interface ActivityService {
@@ -20,4 +23,7 @@ public interface ActivityService {
     List<ActivityDTO> getUserStoryActivities(Integer userStoryId, Long requestUserId);
 
     List<ActivityDTO> getTaskActivities(Integer taskId, Long requestUserId);
+
+    Page<ActivityDTO> getProjectActivitiesPaginated(Long projectId, Pageable pageable);
+
 }

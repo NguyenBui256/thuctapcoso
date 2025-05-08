@@ -29,6 +29,7 @@ export async function checkAuthenticated() {
 
 export async function fetchWithAuth(url, from, isCompulsory, options = {}) {
     try {
+        console.log("fetchWithAuth called with URL:", url, "method:", options.method || "GET");
         const accessToken = localStorage.getItem("access_token")
         if (!accessToken) {
             if (isCompulsory) {
@@ -46,6 +47,8 @@ export async function fetchWithAuth(url, from, isCompulsory, options = {}) {
             },
             credentials: 'include'
         })
+
+        console.log("fetchWithAuth response:", url, "status:", res.status, "ok:", res.ok);
 
         if (!res.ok) {
             if (res.status === 401) {
@@ -80,7 +83,7 @@ export async function fetchWithAuth(url, from, isCompulsory, options = {}) {
         }
         return res
     } catch (error) {
-        console.error('Error in fetchWithAuth:', error)
+        console.error('Error in fetchWithAuth:', error, "URL:", url)
         if (isCompulsory) {
             window.location.assign('/login' + `${from ? '?from=' + from : ''}`)
         }

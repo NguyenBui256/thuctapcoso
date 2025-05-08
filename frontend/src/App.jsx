@@ -18,6 +18,7 @@ const BacklogPage = lazy(() => import('./pages/scrum/BacklogPage'));
 const SprintPage = lazy(() => import('./pages/scrum/SprintPage.jsx'))
 const IssueList = lazy(() => import('./pages/issue/IssueList.jsx'))
 const IssueDetail = lazy(() => import('./pages/issue/IssueDetail.jsx'));
+const ProtectedRoute = lazy(() => import('./components/auth/ProtectedRoute.jsx'));
 
 import { ERROR_TYPE } from './pages/ErrorPage.jsx';
 import React from 'react';
@@ -39,7 +40,11 @@ function App() {
       <Route path='/oauth/redirect' element={<HandleOauthRedirect />} />
       <Route path='/forgot-password' element={<ForgotPasswordPage />} />
       <Route path='/reset-password/:token' element={<ResetPasswordPage />} />
-      <Route path='/' element={<MainLayout />}>
+      <Route path='/' element={
+        <ProtectedRoute>
+          <MainLayout />
+        </ProtectedRoute>
+      }>
         <Route path="/" element={<Navigate to="/projects" replace />} />
         <Route path="/projects" element={<ProjectList />} />
         <Route path="/projects/new" element={<SelectProjectType />} />
@@ -54,6 +59,7 @@ function App() {
           <Route path="wiki" element={<WikiPage />} />
           <Route path="team" element={<TeamPage />} />
           <Route path="backlog" element={<BacklogPage />} />
+          <Route path="backlog/userstory/:userStoryId" element={<TaigaUserStoryDetail />} />
           <Route path="sprint/:sprintId" element={<SprintPage />} />
           <Route path='issues' element={<IssueList />} />
           <Route path='issue/:issueId' element={<IssueDetail />} />

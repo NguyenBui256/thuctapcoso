@@ -6,20 +6,86 @@ import { FiFolder, FiHelpCircle, FiChevronDown } from 'react-icons/fi';
 import { AiOutlineCompass } from "react-icons/ai";
 import { renderAvatar } from '../utils/UserUtils'
 import NotificationDropdown from '../components/notification/NotificationDropdown';
+import axios from '../common/axios-customize';
+import userSettingsService from '../services/userSettingsService';
 
 export default function Navbar() {
     const [authenticated, setAuthenticated] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
-    const userData = JSON.parse(localStorage.getItem('userData'));
+    const [userData, setUserData] = useState(null);
 
     const setAuth = async () => {
         const auth = await checkAuthenticated();
         setAuthenticated(auth);
+        if (auth) {
+            // Get userData from localStorage
+            const storedUserData = JSON.parse(localStorage.getItem('userData'));
+            setUserData(storedUserData);
+
+            // Fetch latest user settings to ensure avatar is updated
+            try {
+                // Get user settings from the correct endpoint
+                const userSettingsResponse = await userSettingsService.getUserSettings();
+                console.log("User settings response:", userSettingsResponse);
+
+                if (userSettingsResponse && userSettingsResponse.data) {
+                    // Get avatar from user_settings
+                    const settingsData = userSettingsResponse.data;
+                    const avatarUrl = settingsData.photoUrl || settingsData.avatar;
+
+                    console.log("Found avatar URL in settings:", avatarUrl);
+
+                    if (storedUserData && avatarUrl && avatarUrl !== storedUserData.avatarUrl) {
+                        console.log("Updating avatar in localStorage from user settings");
+                        const updatedUserData = { ...storedUserData, avatarUrl: avatarUrl };
+                        localStorage.setItem('userData', JSON.stringify(updatedUserData));
+                        setUserData(updatedUserData);
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching user settings:', error);
+            }
+        }
     }
 
     useEffect(() => {
         setAuth();
     }, []);
+
+    // Effect to update userData whenever localStorage changes
+    useEffect(() => {
+        const handleStorageChange = () => {
+            const storedUserData = JSON.parse(localStorage.getItem('userData'));
+            setUserData(storedUserData);
+        };
+
+        // Listen for storage changes (for when other components update localStorage)
+        window.addEventListener('storage', handleStorageChange);
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+        };
+    }, []);
+
+    // Custom avatar rendering for navbar
+    const renderUserAvatar = () => {
+        if (!userData) return null;
+
+        if (!userData.avatarUrl) {
+            return (
+                <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-white">
+                    {userData.username?.charAt(0)?.toUpperCase() || userData.fullName?.charAt(0)?.toUpperCase() || 'U'}
+                </div>
+            );
+        }
+
+        return (
+            <img
+                src={userData.avatarUrl}
+                alt="User avatar"
+                className="w-8 h-8 rounded-full"
+            />
+        );
+    };
 
     return (
         <div className="h-12 bg-gray-200 flex items-center fixed top-0 left-0 right-0 z-50">
@@ -61,7 +127,6 @@ export default function Navbar() {
                                 )}
                             </div>
 
-
                             <div className="relative mr-3 group">
                                 <button
                                     className="cursor-pointer flex items-center space-x-1"
@@ -71,7 +136,7 @@ export default function Navbar() {
                                         to={'#'}
                                         className="w-8 h-8 rounded-full flex items-center justify-center border-4 border-blue-400 hover:border-gray-400"
                                     >
-                                        {renderAvatar(userData.avatarUrl, true)}
+                                        {renderUserAvatar()}
                                     </Link>
                                     <FiChevronDown className="transition-transform duration-200 group-hover:transform group-hover:rotate-180" />
                                 </button>
@@ -86,14 +151,24 @@ export default function Navbar() {
                                     <div className="navbar-dropdown bg-white rounded-md shadow-lg border border-gray-200" style={{ zIndex: 9999, position: 'relative' }}>
                                         <div className="p-4 ">
                                             <div className="flex items-center">
-                                                <div className="w-12 h-12 rounded-full flex items-center justify-center">
-                                                    {renderAvatar(userData.avatarUrl, true)}
+                                                <div className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden">
+                                                    {userData?.avatarUrl ? (
+                                                        <img
+                                                            src={userData.avatarUrl}
+                                                            alt="User avatar"
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <div className="w-full h-full bg-purple-500 flex items-center justify-center text-white">
+                                                            {userData?.username?.charAt(0)?.toUpperCase() || userData?.fullName?.charAt(0)?.toUpperCase() || 'U'}
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div className="ml-3">
-                                                    <div className="font-semibold">{userData.fullName}</div>
-                                                    <div className="text-sm text-gray-500">{userData.email}</div>
+                                                    <div className="font-semibold">{userData?.fullName}</div>
+                                                    <div className="text-sm text-gray-500">{userData?.email}</div>
                                                     <a
-                                                        href="/"
+                                                        href="/account/settings"
                                                         className=" text-blue-500 text-sm hover:underline mt-1"
                                                     >
                                                         Sửa hồ sơ
