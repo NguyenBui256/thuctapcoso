@@ -554,54 +554,61 @@ export default function BacklogPage() {
                                         <div
                                             ref={provided.innerRef}
                                             {...provided.droppableProps}
-                                            className={`space-y-2 ${snapshot.isDraggingOver ? 'bg-gray-50' : ''}`}
+                                            className={`space-y-2 ${snapshot.isDraggingOver ? 'bg-gray-50' : ''} overflow-visible`}
+                                            style={{
+                                                minHeight: '100px',
+                                                maxWidth: '100%',
+                                                position: 'relative'
+                                            }}
                                         >
-                                            {userStories.map((us, index) => (
-                                                <UserStoryCard
-                                                    key={us.id}
-                                                    userStory={us}
-                                                    index={index}
-                                                />
-                                            ))}
+                                            {userStories.length > 0 ? (
+                                                <div className="w-full space-y-2">
+                                                    {userStories.map((us, index) => (
+                                                        <UserStoryCard
+                                                            key={us.id}
+                                                            userStory={us}
+                                                            index={index}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-col items-center justify-center py-16">
+                                                    <p className="text-gray-500 mb-6">The backlog is empty!</p>
+                                                    <button
+                                                        className="bg-green-400 hover:bg-green-500 text-white px-6 py-3 rounded flex items-center mb-10"
+                                                        onClick={addUserStory}
+                                                    >
+                                                        <FiPlus className="mr-2" /> ADD A USER STORY
+                                                    </button>
+
+                                                    <div className="w-full h-32 bg-yellow-100 rounded-full relative overflow-hidden">
+                                                        <div className="absolute left-1/4 bottom-2">
+                                                            <div className="text-green-600 text-4xl">
+                                                                <FaLeaf />
+                                                            </div>
+                                                        </div>
+                                                        <div className="absolute left-1/3 bottom-2">
+                                                            <div className="text-green-600 text-5xl">
+                                                                <FaLeaf />
+                                                            </div>
+                                                        </div>
+                                                        <div className="absolute right-1/4 bottom-2">
+                                                            <div className="text-green-600 text-4xl">
+                                                                <FaLeaf />
+                                                            </div>
+                                                        </div>
+                                                        <div className="absolute right-1/3 bottom-2">
+                                                            <div className="text-green-600 text-5xl">
+                                                                <FaLeaf />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
                                             {provided.placeholder}
                                         </div>
                                     )}
                                 </Droppable>
-
-                                {userStories.length === 0 && (
-                                    <div className="flex flex-col items-center justify-center py-16">
-                                        <p className="text-gray-500 mb-6">The backlog is empty!</p>
-                                        <button
-                                            className="bg-green-400 hover:bg-green-500 text-white px-6 py-3 rounded flex items-center mb-10"
-                                            onClick={addUserStory}
-                                        >
-                                            <FiPlus className="mr-2" /> ADD A USER STORY
-                                        </button>
-
-                                        <div className="w-full h-32 bg-yellow-100 rounded-full relative overflow-hidden">
-                                            <div className="absolute left-1/4 bottom-2">
-                                                <div className="text-green-600 text-4xl">
-                                                    <FaLeaf />
-                                                </div>
-                                            </div>
-                                            <div className="absolute left-1/3 bottom-2">
-                                                <div className="text-green-600 text-5xl">
-                                                    <FaLeaf />
-                                                </div>
-                                            </div>
-                                            <div className="absolute right-1/4 bottom-2">
-                                                <div className="text-green-600 text-4xl">
-                                                    <FaLeaf />
-                                                </div>
-                                            </div>
-                                            <div className="absolute right-1/3 bottom-2">
-                                                <div className="text-green-600 text-5xl">
-                                                    <FaLeaf />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         </div>
                     </div>
