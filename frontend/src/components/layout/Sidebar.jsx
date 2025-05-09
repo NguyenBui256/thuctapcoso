@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 const Sidebar = ({ currentProject, onToggleCollapse }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState('project');
+  const location = useLocation();
 
   // Custom styles for the new primary color
   const primaryColor = "rgb(153, 214, 220)";
@@ -11,6 +12,31 @@ const Sidebar = ({ currentProject, onToggleCollapse }) => {
     bgPrimary: { backgroundColor: primaryColor },
     textPrimary: { color: primaryColor },
   };
+
+  // Set active tab based on URL path
+  useEffect(() => {
+    const path = location.pathname;
+
+    if (path.includes('/backlog') || path.includes('/sprint')) {
+      setActiveTab('scrum');
+    } else if (path.includes('/epics')) {
+      setActiveTab('epics');
+    } else if (path.includes('/kanban')) {
+      setActiveTab('kanban');
+    } else if (path.includes('/issues') || path.includes('/issue/')) {
+      setActiveTab('issues');
+    } else if (path.includes('/wiki')) {
+      setActiveTab('wiki');
+    } else if (path.includes('/team')) {
+      setActiveTab('team');
+    } else if (path.includes('/search')) {
+      setActiveTab('search');
+    } else if (path.includes('/settings')) {
+      setActiveTab('settings');
+    } else if (path.match(/\/projects\/\d+$/)) {
+      setActiveTab('project');
+    }
+  }, [location.pathname]);
 
   // Notify parent component when sidebar collapses/expands
   useEffect(() => {
@@ -96,7 +122,12 @@ const Sidebar = ({ currentProject, onToggleCollapse }) => {
         </div>
 
         <div className="mt-auto space-y-1">
-          <Link to={currentProject?.id && `/projects/${currentProject.id}/search`} className={`flex items-center justify-${sidebarCollapsed ? 'center' : 'start'} px-3 py-2 text-sm text-gray-200 hover:bg-gray-700 rounded-md`}>
+          <Link
+            to={currentProject?.id && `/projects/${currentProject.id}/search`}
+            className={`flex items-center justify-${sidebarCollapsed ? 'center' : 'start'} px-3 py-2 text-sm rounded-md ${activeTab === 'search' ? 'text-white' : 'text-gray-200 hover:bg-gray-700'}`}
+            onClick={() => setActiveTab('search')}
+            style={activeTab === 'search' ? styles.bgPrimary : {}}
+          >
             <svg className="w-6 h-6 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
@@ -128,7 +159,12 @@ const Sidebar = ({ currentProject, onToggleCollapse }) => {
             </svg>
             {!sidebarCollapsed && <span className="ml-2 truncate">Team</span>}
           </Link>
-          <Link to={currentProject?.id && `/projects/${currentProject.id}/settings`} className={`flex items-center justify-${sidebarCollapsed ? 'center' : 'start'} px-3 py-2 text-sm text-gray-200 hover:bg-gray-700 rounded-md`}>
+          <Link
+            to={currentProject?.id && `/projects/${currentProject.id}/settings`}
+            className={`flex items-center justify-${sidebarCollapsed ? 'center' : 'start'} px-3 py-2 text-sm rounded-md ${activeTab === 'settings' ? 'text-white' : 'text-gray-200 hover:bg-gray-700'}`}
+            onClick={() => setActiveTab('settings')}
+            style={activeTab === 'settings' ? styles.bgPrimary : {}}
+          >
             <svg className="w-6 h-6 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="3"></circle>
               <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"></path>

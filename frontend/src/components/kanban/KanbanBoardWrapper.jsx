@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import axios from '../../common/axios-customize';
+import eventBus from '../../common/eventBus';
 import CreateUserStoryModal from './CreateUserStoryModal';
 import KanbanFilter from './KanbanFilter';
+import { toast } from 'react-toastify';
 
 const KanbanBoardWrapper = () => {
     const { projectId } = useParams();
@@ -28,6 +30,7 @@ const KanbanBoardWrapper = () => {
     const [selectedUserStory, setSelectedUserStory] = useState(null);
     const [activeFilters, setActiveFilters] = useState({});
     const [filterMode, setFilterMode] = useState('include');
+    const [activeSprint, setActiveSprint] = useState(null);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -39,6 +42,17 @@ const KanbanBoardWrapper = () => {
 
             try {
                 setLoading(true);
+
+                // Fetch active sprint
+                try {
+                    const activeSprintResponse = await axios.get(`/api/project/${projectId}/sprint/active`);
+                    if (activeSprintResponse.data) {
+                        setActiveSprint(activeSprintResponse.data);
+                    }
+                } catch (err) {
+                    console.error('Error fetching active sprint:', err);
+                    // Don't fail the whole component if we can't get the active sprint
+                }
 
                 const swimlanesResponse = await axios.get(`/api/kanban-swimlands/project/${projectId}`);
                 const fetchedSwimlanes = swimlanesResponse.data?.map(lane => ({
@@ -204,21 +218,18 @@ const KanbanBoardWrapper = () => {
 
     const handleCreateSwimland = async (e) => {
         e.preventDefault();
-        if (!newSwimlaneName.trim()) return;
-
         try {
             const response = await axios.post('/api/kanban-swimlands', {
                 name: newSwimlaneName,
-                projectId: parseInt(projectId),
-                order: swimlanes.length + 1
+                projectId: projectId
             });
-
-            setSwimlanes([...swimlanes, { ...response.data, expanded: true }]);
-            setNewSwimlaneName("");
             setShowCreateModal(false);
+            setNewSwimlaneName('');
+            setRefreshTrigger(prev => prev + 1);
+            toast.success(`Swimlane ${newSwimlaneName} created successfully`);
         } catch (error) {
             console.error('Error creating swimlane:', error);
-            alert('Failed to create swimlane. Please try again.');
+            toast.error('Failed to create swimlane');
         }
     };
 
@@ -256,6 +267,12 @@ const KanbanBoardWrapper = () => {
             const [_, columnId, __, swimlaneId] = destination.droppableId.split('-');
             const newStatusId = parseInt(columnId);
             const newSwimlaneId = parseInt(swimlaneId);
+
+            // Find the previous status for the user story
+            const previousStatusId = userStories.find(story => story.id === userStoryId)?.statusId;
+
+            // Find the column name for the toast message
+            const columnName = columns.find(col => col.id === newStatusId)?.name || 'new status';
 
             // Optimistically update the UI immediately for a smoother experience
             const updatedUserStories = [...userStories];
@@ -314,6 +331,22 @@ const KanbanBoardWrapper = () => {
                     };
                     return newFilteredStories;
                 });
+
+                // Show success toast
+                toast.success(`User story #${userStoryId} moved to ${columnName}`);
+
+                // Emit event to notify other components (like SprintProgressBar) about the status change
+                // Moving to or from Done status (status 5) affects progress
+                if (previousStatusId === 5 || newStatusId === 5) {
+                    console.log(`Emitting task-status-changed event: User story #${userStoryId} moved from status ${previousStatusId} to ${newStatusId}`);
+                    eventBus.emit('task-status-changed', {
+                        userStoryId,
+                        previousStatusId,
+                        newStatusId,
+                        sprintId: activeSprint?.id,
+                        timestamp: new Date().getTime() // Add timestamp to ensure uniqueness
+                    });
+                }
             }
 
             // Then send the API request asynchronously
@@ -326,6 +359,8 @@ const KanbanBoardWrapper = () => {
             fetchActivities(userStoryId);
         } catch (error) {
             console.error('Error updating user story status:', error);
+            // Show error toast
+            toast.error('Failed to update user story status');
             // Revert only if the API call fails
             setRefreshTrigger(prev => prev + 1);
         }
@@ -423,6 +458,8 @@ const KanbanBoardWrapper = () => {
     const handleCloseUserStoryModal = (wasCreated = false) => {
         setShowUserStoryModal(false);
         if (wasCreated) {
+            // Show success toast
+            toast.success('User story created successfully');
             // Trigger refresh by incrementing refreshTrigger
             setRefreshTrigger(prev => prev + 1);
         }

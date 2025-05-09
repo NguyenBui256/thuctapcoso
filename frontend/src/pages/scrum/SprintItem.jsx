@@ -79,10 +79,14 @@ export default function SprintItem({ sprintInp, onDelete, onRefreshUserStories }
                 <div
                   ref={provided.innerRef}
                   {...provided.droppableProps}
-                  className={`mb-4 ${snapshot.isDraggingOver ? 'bg-cyan-50' : ''}`}
+                  className={`mb-4 ${snapshot.isDraggingOver ? 'bg-cyan-50' : ''} overflow-hidden w-full`}
+                  style={{
+                    minHeight: '50px',
+                    maxWidth: '100%'
+                  }}
                 >
                   {sprint.userStories && sprint.userStories.length > 0 ? (
-                    <>
+                    <div className="space-y-2 max-w-full">
                       {sprint.userStories.map((us, index) => (
                         <UserStoryCard
                           key={us.id}
@@ -90,7 +94,7 @@ export default function SprintItem({ sprintInp, onDelete, onRefreshUserStories }
                           index={index}
                         />
                       ))}
-                    </>
+                    </div>
                   ) : (
                     <div className="mb-4">
                       <div className="border-2 border-dashed border-cyan-300 rounded-lg p-2 text-center text-gray-600">

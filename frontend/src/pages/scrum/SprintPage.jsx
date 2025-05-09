@@ -16,6 +16,7 @@ import { BASE_API_URL } from "../../common/constants"
 import { useParams, useNavigate } from "react-router-dom"
 import { toast } from "react-toastify"
 import CreateTaskModal from "../../components/kanban/CreateTaskModal"
+import SprintProgressBar from "../../components/sprint/SprintProgressBar"
 
 const filterss = ['statuses', 'assigns', 'createdBy', 'roles']
 const filterNames = ['Trạng thái', 'Phân công', 'Tạo bởi', 'Vai trò']
@@ -61,7 +62,10 @@ export default function SprintPage() {
     createdBy: false
   })
 
+  // State cho keyword tìm kiếm
   const [keyword, setKeyword] = useState('')
+  // State để lưu trữ danh sách tasks gốc (để phục vụ cho việc tìm kiếm)
+  const [originalTasks, setOriginalTasks] = useState({})
 
   // Thêm state để theo dõi task đang được kéo
   const [draggingItemId, setDraggingItemId] = useState(null)
@@ -235,7 +239,17 @@ export default function SprintPage() {
       }
 
       console.log("Organized tasks for all stories:", newTasks);
-      setTasks(newTasks);
+
+      // Lưu trữ bản sao gốc của tasks để phục vụ cho việc tìm kiếm
+      setOriginalTasks(JSON.parse(JSON.stringify(newTasks)));
+
+      // Filter tasks theo keyword hiện tại (nếu có)
+      if (keyword.trim()) {
+        const filteredTasks = filterTasksByKeyword(newTasks, keyword);
+        setTasks(filteredTasks);
+      } else {
+        setTasks(newTasks);
+      }
 
     } catch (error) {
       console.error("Error fetching user stories:", error);
@@ -554,6 +568,45 @@ export default function SprintPage() {
     }
   };
 
+  // Hàm filter tasks theo từ khóa tìm kiếm
+  const filterTasksByKeyword = (tasksData, searchKeyword) => {
+    if (!searchKeyword.trim()) {
+      return tasksData; // Trả về danh sách tasks ban đầu nếu không có từ khóa
+    }
+
+    const lowercaseKeyword = searchKeyword.toLowerCase();
+    const filteredTasks = {};
+
+    // Duyệt qua từng user story
+    Object.keys(tasksData).forEach(storyId => {
+      filteredTasks[storyId] = {};
+
+      // Duyệt qua từng status trong user story
+      Object.keys(tasksData[storyId]).forEach(statusId => {
+        // Lọc các tasks có tên chứa từ khóa tìm kiếm
+        const matchingTasks = tasksData[storyId][statusId].filter(task =>
+          task.subject && task.subject.toLowerCase().includes(lowercaseKeyword)
+        );
+
+        filteredTasks[storyId][statusId] = matchingTasks;
+      });
+    });
+
+    return filteredTasks;
+  };
+
+  // Xử lý thay đổi từ khóa tìm kiếm
+  const handleSearchChange = (e) => {
+    const newKeyword = e.target.value;
+    setKeyword(newKeyword);
+
+    // Lọc tasks theo từ khóa mới
+    if (Object.keys(originalTasks).length > 0) {
+      const filteredTasks = filterTasksByKeyword(originalTasks, newKeyword);
+      setTasks(filteredTasks);
+    }
+  };
+
   // Hiển thị loading khi đang tải dữ liệu
   if (loading) {
     return (
@@ -581,29 +634,19 @@ export default function SprintPage() {
           <div className="container mx-auto px-4 py-3">
             <div className="flex items-center flex-wrap">
               <div className="flex items-center mr-6">
-                <input type="text" className="bg-white text-black h-8 px-2 w-56" />
-                <div className="flex items-center ml-2">
-                  <span className="text-teal-400 text-2xl font-bold">0%</span>
-                  <ChevronDown className="h-5 w-5 ml-1" />
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Tìm kiếm task..."
+                    value={keyword}
+                    onChange={handleSearchChange}
+                    className="bg-white text-black h-8 px-2 pl-8 w-56"
+                  />
+                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
                 </div>
-              </div>
-
-              <div className="flex items-center mr-6">
-                <span className="text-2xl font-bold">0</span>
-                <span className="text-sm ml-1">
-                  total
-                  <br />
-                  points
-                </span>
-              </div>
-
-              <div className="flex items-center mr-6">
-                <span className="text-2xl font-bold">0</span>
-                <span className="text-sm ml-1">
-                  completed
-                  <br />
-                  points
-                </span>
+                <div className="ml-4 w-40">
+                  <SprintProgressBar sprintId={sprintId} autoRefresh={true} />
+                </div>
               </div>
 
               <div className="border-l border-gray-600 h-10 mx-4"></div>
@@ -623,20 +666,6 @@ export default function SprintPage() {
                   closed
                   <br />
                   tasks
-                </span>
-              </div>
-
-              <div className="mx-4">
-                <ArrowLeftRight className="h-6 w-6" />
-              </div>
-
-              <div className="flex items-center">
-                <Pill className="h-6 w-6 mr-2" />
-                <span className="text-2xl font-bold">0</span>
-                <span className="text-sm ml-1">
-                  iocaine
-                  <br />
-                  doses
                 </span>
               </div>
 
@@ -663,31 +692,6 @@ export default function SprintPage() {
                   <Filter className="h-5 w-5 mr-1 text-teal-500" />
                   <span className="text-teal-500">{showFilters ? "Hide filters" : "Filters"}</span>
                 </button>
-
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="subject or reference"
-                    value={keyword}
-                    onChange={(e) => setKeyword(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        // Tải lại danh sách user stories khi tìm kiếm
-                        const loadData = async () => {
-                          try {
-                            fetchUserStories(statuses);
-                            fetchFilters();
-                          } catch (error) {
-                            console.error("Error reloading data:", error);
-                          }
-                        };
-                        loadData();
-                      }
-                    }}
-                    className="border border-gray-300 rounded pl-8 pr-2 py-1 w-64"
-                  />
-                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                </div>
               </div>
 
               <div className="flex items-center">

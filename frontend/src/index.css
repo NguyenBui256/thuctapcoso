@@ -88,3 +88,25 @@ button:focus-visible {
     margin: 0;
   }
 }
+
+/* Drag and Drop Styles */
+.react-beautiful-dnd-dragging {
+  max-width: 250px !important;
+  overflow: hidden !important;
+}
+
+/* Prevent horizontal scroll during drag operations */
+html,
+body {
+  overflow-x: hidden;
+}
+
+/* Force drag layer to respect viewport width */
+[data-rbd-drag-handle-draggable-id] {
+  max-width: 100%;
+}
+
+/* Constrains the drag preview */
+[data-rbd-draggable-id] {
+  max-width: 100%;
+}

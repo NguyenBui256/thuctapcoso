@@ -17,4 +17,12 @@ public interface UserStoryRepository extends JpaRepository<UserStory, Integer>, 
     List<Task> findTasksByUserStoryId(@Param("userStoryId") Integer userStoryId);
 
     List<UserStory> findByProjectId(Long projectId);
+
+    /**
+     * Find all user stories in a specific sprint
+     * 
+     * @param sprintId the id of the sprint
+     * @return list of user stories
+     */
+    List<UserStory> findBySprintId(Long sprintId);
 }

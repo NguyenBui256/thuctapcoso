@@ -2,11 +2,13 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Plus, ChevronDown, X, Paperclip, Clock, Users, Lock, List, Save, Trash2, Eye, EyeOff, FileText, Download } from 'lucide-react';
 import axios from '../../common/axios-customize';
+import eventBus from '../../common/eventBus';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import { message } from 'antd';
 import { BASE_API_URL } from '../../common/constants';
 import { LoadingOutlined } from '@ant-design/icons';
+import { toast } from 'react-toastify';
 
 export default function TaigaUserStoryDetail() {
     const { userStoryId } = useParams();
@@ -52,6 +54,7 @@ export default function TaigaUserStoryDetail() {
     const [comments, setComments] = useState([]);
     const [newComment, setNewComment] = useState('');
     const [activitiesRefreshTrigger, setActivitiesRefreshTrigger] = useState(0);
+    const commentSectionRef = useRef(null);
 
     // Task related states
     const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -67,8 +70,9 @@ export default function TaigaUserStoryDetail() {
         { id: 1, name: 'New', color: 'bg-blue-400' },
         { id: 2, name: 'In progress', color: 'bg-orange-400' },
         { id: 3, name: 'Ready for test', color: 'bg-yellow-400' },
-        { id: 4, name: 'Closed', color: 'bg-green-500' },
-        { id: 5, name: 'Needs Info', color: 'bg-red-500' }
+        { id: 4, name: 'READY FOR TEST', color: 'bg-yellow-400' },
+        { id: 5, name: 'DONE', color: 'bg-green-500' },
+        { id: 6, name: 'ARCHIVED', color: 'bg-gray-400' }
     ];
 
     /* Attachments section */
@@ -383,6 +387,9 @@ export default function TaigaUserStoryDetail() {
 
     // Cập nhật hàm handleSaveChanges
     const handleSaveChanges = async () => {
+        setIsSaving(true);
+        setError(null);
+
         try {
             // Store original values for activity details
             const originalName = userStory.name || '';
@@ -451,14 +458,17 @@ export default function TaigaUserStoryDetail() {
             }
 
             // Show success message
-            message.success('User story updated successfully');
+            toast.success('User story updated successfully');
 
             // Trigger làm mới hoạt động
             triggerActivitiesRefresh();
 
         } catch (err) {
             console.error('Error updating user story:', err);
-            message.error('Failed to update user story. Please try again.');
+            setError('Failed to update user story. Please try again.');
+            toast.error('Failed to save user story changes');
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -506,11 +516,23 @@ export default function TaigaUserStoryDetail() {
             // Trigger làm mới hoạt động
             triggerActivitiesRefresh();
 
+            // Emit event to notify other components (like SprintProgressBar) about the status change
+            // Check if user story moved to/from Done status (status 5)
+            if (originalStatusId === 5 || statusId === 5) {
+                console.log('Emitting task-status-changed event for user story');
+                eventBus.emit('task-status-changed', {
+                    userStoryId: userStory.id,
+                    previousStatusId: originalStatusId,
+                    newStatusId: statusId,
+                    sprintId: userStory.sprintId
+                });
+            }
+
             // Show success message
-            message.success(`Status updated to ${newStatus?.name || statusId}`);
+            toast.success(`Status updated to ${newStatus?.name || statusId}`);
         } catch (err) {
             console.error('Error updating status:', err);
-            message.error('Failed to update status. Please try again.');
+            toast.error('Failed to update status');
         }
     };
 
@@ -574,9 +596,12 @@ export default function TaigaUserStoryDetail() {
 
             // Trigger làm mới hoạt động
             triggerActivitiesRefresh();
+
+            toast.success(`User story ${newBlockedState ? 'blocked' : 'unblocked'} successfully`);
         } catch (err) {
             console.error('Error toggling block status:', err);
             alert('Failed to update blocking status. Please try again.');
+            toast.error('Failed to update block status');
         }
     };
 
@@ -721,6 +746,10 @@ export default function TaigaUserStoryDetail() {
         if (newComment.trim() === '') return;
 
         try {
+            // Store current scroll position
+            const commentSection = commentSectionRef.current;
+            const scrollPosition = window.scrollY;
+
             console.log('Submitting comment:', newComment);
             const response = await axios.post(`/api/kanban/board/userstory/${userStoryId}/comments`, {
                 content: newComment,
@@ -733,6 +762,19 @@ export default function TaigaUserStoryDetail() {
 
             await recordActivity('comment_added', 'Added a new comment');
             triggerActivitiesRefresh();
+
+            // Restore scroll position after state updates
+            setTimeout(() => {
+                window.scrollTo({
+                    top: scrollPosition,
+                    behavior: 'auto'
+                });
+
+                // If new comment is added, scroll the comment section into view
+                if (commentSection) {
+                    commentSection.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                }
+            }, 100);
         } catch (error) {
             console.error('Error posting comment:', error);
             console.error('Error details:', error.response?.data);
@@ -1286,8 +1328,8 @@ export default function TaigaUserStoryDetail() {
 
                         {/* Tab content */}
                         {activeTab === 'comments' ? (
-                            <div className="mt-4">
-                                <div className="space-y-4">
+                            <div className="mt-6">
+                                <div ref={commentSectionRef} className="space-y-4">
                                     {comments?.map((comment) => (
                                         <div key={comment.id} className="border-b border-gray-100 pb-4">
                                             <div className="flex items-start">
@@ -1312,7 +1354,7 @@ export default function TaigaUserStoryDetail() {
                                         </div>
                                     ))}
                                 </div>
-                                <div className="mt-4">
+                                <div className="mt-6">
                                     <textarea
                                         className="w-full border border-gray-300 p-4 rounded"
                                         placeholder="Type a new comment here"
@@ -1332,7 +1374,7 @@ export default function TaigaUserStoryDetail() {
                                 </div>
                             </div>
                         ) : (
-                            <div className="mt-4">
+                            <div className="mt-6">
                                 <div className="space-y-4">
                                     {activities?.map((activity) => (
                                         <div key={activity.id} className="border-b border-gray-100 pb-4">

@@ -19,6 +19,8 @@ const SprintPage = lazy(() => import('./pages/scrum/SprintPage.jsx'))
 const IssueList = lazy(() => import('./pages/issue/IssueList.jsx'))
 const IssueDetail = lazy(() => import('./pages/issue/IssueDetail.jsx'));
 const ProtectedRoute = lazy(() => import('./components/auth/ProtectedRoute.jsx'));
+const SearchPage = lazy(() => import('./pages/search/SearchPage.jsx'));
+const SearchResultsPage = lazy(() => import('./pages/search/SearchResultsPage.jsx'));
 
 import { ERROR_TYPE } from './pages/ErrorPage.jsx';
 import React from 'react';
@@ -64,6 +66,8 @@ function App() {
           <Route path='issues' element={<IssueList />} />
           <Route path='issue/:issueId' element={<IssueDetail />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="search" element={<SearchPage />} />
+          <Route path="search/results" element={<SearchResultsPage />} />
         </Route>
         <Route path="/account/settings" element={<AccountSettings />} />
       </Route>

@@ -6,6 +6,8 @@ import axios from '../../common/axios-customize';
 import { Modal, message, Checkbox, DatePicker, TimePicker } from 'antd';
 import dayjs from 'dayjs';
 import { LoadingOutlined } from '@ant-design/icons';
+import { toast } from 'react-toastify';
+import eventBus from '../../common/eventBus';
 
 const TaskDetail = () => {
     const { taskId, projectId } = useParams();
@@ -52,6 +54,7 @@ const TaskDetail = () => {
 
     // Add activities state
     const [activitiesRefreshTrigger, setActivitiesRefreshTrigger] = useState(0);
+    const commentSectionRef = useRef(null);
 
     // Attachments handling
     const [isUploading, setIsUploading] = useState(false);
@@ -377,14 +380,14 @@ const TaskDetail = () => {
             // Refresh task data
             console.log("Assignment successful, refreshing task data");
             await fetchTaskDetails();
-            message.success('Gán nhiệm vụ thành công');
+            toast.success('Gán nhiệm vụ thành công');
             setShowAssigneeDropdown(false);
 
             // Tự động làm mới activities
             triggerActivitiesRefresh();
         } catch (error) {
             console.error('Error assigning task:', error.response?.data || error.message);
-            message.error('Không thể gán nhiệm vụ');
+            toast.error('Không thể gán nhiệm vụ');
         }
     };
 
@@ -421,7 +424,7 @@ const TaskDetail = () => {
             // Refresh task data từ server để đảm bảo đồng bộ
             console.log("Remove assignee successful, refreshing task data");
             await fetchTaskDetails();
-            message.success('Đã xóa người được gán');
+            toast.success('Đã xóa người được gán');
 
             // Tự động làm mới activities
             triggerActivitiesRefresh();
@@ -432,7 +435,7 @@ const TaskDetail = () => {
                 console.error('Response status:', error.response.status);
                 console.error('Response headers:', error.response.headers);
             }
-            message.error('Không thể xóa người được gán');
+            toast.error('Không thể xóa người được gán');
 
             // Refresh data để hiển thị trạng thái hiện tại từ server
             await fetchTaskDetails();
@@ -484,14 +487,14 @@ const TaskDetail = () => {
             // Refresh task data
             console.log("Add watcher successful, refreshing task data");
             await fetchTaskDetails();
-            message.success('Đã thêm người theo dõi');
+            toast.success('Đã thêm người theo dõi');
             setShowWatcherDropdown(false);
 
             // Tự động làm mới activities
             triggerActivitiesRefresh();
         } catch (error) {
             console.error('Error adding watcher:', error.response?.data || error.message);
-            message.error('Không thể thêm người theo dõi');
+            toast.error('Không thể thêm người theo dõi');
         }
     };
 
@@ -504,13 +507,13 @@ const TaskDetail = () => {
             // Refresh task data
             console.log("Remove watcher successful, refreshing task data");
             await fetchTaskDetails();
-            message.success('Đã xóa người theo dõi');
+            toast.success('Đã xóa người theo dõi');
 
             // Tự động làm mới activities
             triggerActivitiesRefresh();
         } catch (error) {
             console.error('Error removing watcher:', error.response?.data || error.message);
-            message.error('Không thể xóa người theo dõi');
+            toast.error('Không thể xóa người theo dõi');
         }
     };
 
@@ -554,27 +557,17 @@ const TaskDetail = () => {
     };
 
     const handleDeleteTask = async () => {
-        if (window.confirm('Bạn có chắc chắn muốn xóa nhiệm vụ này không?')) {
-            try {
-                // Ghi lại hoạt động trước khi xóa
-                await recordActivity('task_deleted', 'Task was deleted');
+        if (!window.confirm('Are you sure you want to delete this task?')) {
+            return;
+        }
 
-                // Tự động làm mới activities
-                triggerActivitiesRefresh();
-
-                await axios.delete(`/api/tasks/${taskId}`);
-                message.success('Task deleted successfully');
-
-                // Quay về kanban board của project sau khi xóa, dùng replace để tránh vòng lặp
-                if (projectId) {
-                    navigate(`/projects/${projectId}/kanban`, { replace: true });
-                } else {
-                    navigate(-1);
-                }
-            } catch (error) {
-                console.error('Error deleting task:', error);
-                message.error('Không thể xóa nhiệm vụ. Vui lòng thử lại sau.');
-            }
+        try {
+            await axios.delete(`/api/tasks/${taskId}`);
+            toast.success('Task deleted successfully');
+            navigate(-1);
+        } catch (error) {
+            console.error('Error deleting task:', error);
+            toast.error('Failed to delete task');
         }
     };
 
@@ -582,6 +575,10 @@ const TaskDetail = () => {
         if (newComment.trim() === '') return;
 
         try {
+            // Store current scroll position
+            const commentSection = commentSectionRef.current;
+            const scrollPosition = window.scrollY;
+
             // Gọi API để thêm comment mới
             await axios.post(`/api/tasks/${taskId}/comments`, {
                 content: newComment,
@@ -596,7 +593,7 @@ const TaskDetail = () => {
             }));
 
             setNewComment('');
-            message.success('Comment added successfully');
+            toast.success('Comment added successfully');
 
             // Ghi lại hoạt động
             await recordActivity(
@@ -606,136 +603,87 @@ const TaskDetail = () => {
 
             // Trigger làm mới hoạt động
             triggerActivitiesRefresh();
+
+            // Restore scroll position after state updates
+            setTimeout(() => {
+                window.scrollTo({
+                    top: scrollPosition,
+                    behavior: 'auto'
+                });
+
+                // If new comment is added, scroll the comment section into view
+                if (commentSection) {
+                    commentSection.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                }
+            }, 100);
         } catch (error) {
             console.error('Error posting comment:', error);
-            message.error('Failed to add comment. Please try again.');
+            toast.error('Failed to add comment. Please try again.');
         }
     };
 
     const handleSaveChanges = async () => {
+        setIsSaving(true);
+        setError(null);
+
         try {
-            // Store original values for activity details
-            const originalDescription = taskDetails.description;
-            const originalPoints = taskDetails.points || 0;
+            const updateData = {
+                id: taskDetails.id,
+                name: editedSubject,
+                description: editedDescription || '',
+                statusId: parseInt(editedStatusId),
+                assigneeIds: editedAssignees.map(a => parseInt(a.id)),
+                // Include any other fields that need to be updated
+            };
 
-            // Check what changed for activity logging
-            const descriptionChanged = originalDescription !== editedDescription;
-            const pointsChanged = originalPoints !== editedPoints;
-
-            // Lưu lại thông tin về các tệp đính kèm hiện tại
-            const currentAttachments = taskDetails.attachments || [];
-
-            // Update description
-            const descriptionResponse = await axios.put(`/api/tasks/${taskId}/description`, {
-                description: editedDescription
-            });
-
-            if (descriptionResponse.data) {
-                // Giữ lại tệp đính kèm khi cập nhật từ response
-                setTaskDetails(prevDetails => ({
-                    ...descriptionResponse.data,
-                    attachments: descriptionResponse.data.attachments || currentAttachments,
-                    comments: prevDetails.comments // Giữ lại comments hiện tại
-                }));
-            }
-
-            // Update points if changed
-            if (pointsChanged) {
-                const pointsResponse = await axios.put(`/api/tasks/${taskId}/points`, {
-                    points: editedPoints
-                });
-
-                if (pointsResponse.data) {
-                    setTaskDetails(prevDetails => ({
-                        ...prevDetails,
-                        points: editedPoints,
-                        // Đảm bảo giữ lại attachments nếu response không trả về
-                        attachments: pointsResponse.data.attachments || prevDetails.attachments
-                    }));
-                }
-            }
-
-            // Update due date if changed
-            if (editedDueDate !== taskDetails.dueDate) {
-                const dueDateResponse = await axios.put(`/api/tasks/${taskId}/due-date`, {
-                    dueDate: editedDueDate ? editedDueDate.toISOString().split('T')[0] : null
-                });
-
-                if (dueDateResponse.data) {
-                    setTaskDetails(prevDetails => ({
-                        ...dueDateResponse.data,
-                        attachments: dueDateResponse.data.attachments || prevDetails.attachments,
-                        comments: prevDetails.comments // Giữ lại comments hiện tại
-                    }));
-                }
-            }
-
+            const response = await axios.put(`/api/tasks/${taskDetails.id}`, updateData);
+            setTaskDetails(response.data);
             setEditMode(false);
-            message.success('Task updated successfully');
-
-            // Record activity for updates
-            if (descriptionChanged) {
-                await recordActivity(
-                    'description_updated',
-                    'Task description was updated'
-                );
-            }
-
-            if (pointsChanged) {
-                await recordActivity(
-                    'points_updated',
-                    `Points updated from ${originalPoints} to ${editedPoints}`
-                );
-            }
-
-            // Trigger làm mới hoạt động
-            triggerActivitiesRefresh();
-        } catch (error) {
-            console.error('Error updating task:', error);
-            message.error('Failed to update task: ' + (error.response?.data?.message || error.message));
+            toast.success('Task updated successfully');
+        } catch (err) {
+            console.error('Error saving changes:', err);
+            setError('Failed to save changes. Please try again.');
+            toast.error('Failed to save task changes');
+        } finally {
+            setIsSaving(false);
         }
     };
 
-    const handleStatusChange = async (statusId) => {
+    const handleStatusChange = async (newStatusId) => {
         try {
-            // Store original status for activity
-            const originalStatusId = taskDetails.statusId;
-            const statusNames = {
-                1: 'NEW',
-                2: 'READY',
-                3: 'IN PROGRESS',
-                4: 'READY FOR TEST',
-                5: 'DONE',
-                6: 'ARCHIVED'
-            };
+            // Get previous status ID before updating
+            const previousStatusId = taskDetails.statusId;
 
-            // Lưu lại thông tin về các tệp đính kèm hiện tại
-            const currentAttachments = taskDetails.attachments || [];
+            // Update UI optimistically
+            setTaskDetails(prev => ({
+                ...prev,
+                statusId: newStatusId
+            }));
 
-            // Call the status update API
-            const response = await axios.put(`/api/tasks/${taskId}/status/${statusNames[statusId]}`);
+            // Send API request
+            await axios.put(`/api/tasks/${taskDetails.id}/status/${newStatusId}`);
 
-            // Preserve existing comments and attachments
-            const currentComments = taskDetails.comments || [];
-            setTaskDetails({
-                ...response.data,
-                comments: currentComments,
-                attachments: response.data.attachments || currentAttachments
-            });
+            // Show success message
+            const statusName = statuses.find(s => s.id === newStatusId)?.name || 'new status';
+            toast.success(`Task status updated to ${statusName}`);
 
-            setShowStatusDropdown(false);
-
-            // Record activity for status change
-            await recordActivity(
-                'status_updated',
-                `Status changed from ${statusNames[originalStatusId] || originalStatusId} to ${statusNames[statusId] || statusId}`
-            );
-
-            // Trigger làm mới hoạt động
-            triggerActivitiesRefresh();
-        } catch (err) {
-            console.error('Error updating status:', err);
-            message.error('Failed to update status. Please try again.');
+            // Emit event to notify other components (like SprintProgressBar) about the status change
+            // Check if task moved to/from Done status (status 5)
+            if (previousStatusId === 5 || newStatusId === 5) {
+                const sprintId = taskDetails.sprintId;
+                console.log('Emitting task-status-changed event with sprintId:', sprintId);
+                eventBus.emit('task-status-changed', {
+                    taskId: taskDetails.id,
+                    previousStatusId,
+                    newStatusId,
+                    sprintId
+                });
+            }
+        } catch (error) {
+            console.error('Error updating task status:', error);
+            toast.error('Failed to update task status');
+            // Revert on error
+            setTaskDetails(prev => ({ ...prev }));
         }
     };
 
@@ -777,7 +725,7 @@ const TaskDetail = () => {
             });
             setTaskDetails(response.data);
             setShowDueDatePicker(false);
-            message.success('Due date updated successfully');
+            toast.success('Due date updated successfully');
 
             // Record activity for due date change
             await recordActivity(
@@ -789,7 +737,7 @@ const TaskDetail = () => {
             triggerActivitiesRefresh();
         } catch (err) {
             console.error('Error updating due date:', err);
-            message.error('Failed to update due date. Please try again.');
+            toast.error('Failed to update due date. Please try again.');
         }
     };
 
@@ -818,7 +766,7 @@ const TaskDetail = () => {
                 isBlocked: newBlockStatus
             });
 
-            message.success(`Task ${newBlockStatus ? 'blocked' : 'unblocked'} successfully`);
+            toast.success(`Task ${newBlockStatus ? 'blocked' : 'unblocked'} successfully`);
 
             // Record activity for block status change
             await recordActivity(
@@ -837,7 +785,7 @@ const TaskDetail = () => {
             }));
 
             console.error('Error updating block status:', err);
-            message.error('Failed to update block status. Please try again.');
+            toast.error('Failed to update block status. Please try again.');
         }
     };
 
@@ -913,18 +861,18 @@ const TaskDetail = () => {
                 const attachResponse = await axios.post(`/api/kanban/board/${taskId}/attachment`, attachmentData);
 
                 if (attachResponse.data) {
-                    message.success('File attached successfully!');
+                    toast.success('File attached successfully!');
                     // Refresh the task to show the new attachment
                     fetchTaskDetails();
                 } else {
-                    message.error('Failed to attach file to task');
+                    toast.error('Failed to attach file to task');
                 }
             } else {
-                message.error('Failed to upload file to cloud storage');
+                toast.error('Failed to upload file to cloud storage');
             }
         } catch (err) {
             console.error('Error uploading file:', err);
-            message.error('Error uploading file: ' + (err.message || 'Unknown error'));
+            toast.error('Error uploading file: ' + (err.message || 'Unknown error'));
         } finally {
             setIsUploading(false);
             // Clear the file input
@@ -963,7 +911,7 @@ const TaskDetail = () => {
                     })
                     .catch(err => {
                         console.error('Error downloading file:', err);
-                        message.error('Failed to download file. Try again or contact admin.');
+                        toast.error('Failed to download file. Try again or contact admin.');
                         // Fallback to direct open
                         window.open(attachment.url, '_blank');
                     });
@@ -979,7 +927,7 @@ const TaskDetail = () => {
             }
         } catch (error) {
             console.error('Error in download handler:', error);
-            message.error('Failed to download file');
+            toast.error('Failed to download file');
             // Fallback to direct open
             window.open(attachment.url, '_blank');
         }
@@ -1244,8 +1192,8 @@ const TaskDetail = () => {
 
                         {/* Tab content */}
                         {activeTab === 'comments' ? (
-                            <div className="mt-4">
-                                <div className="space-y-4">
+                            <div className="mt-6">
+                                <div className="space-y-4" ref={commentSectionRef}>
                                     {taskDetails.comments?.map((comment) => (
                                         <div key={comment.id} className="border-b border-gray-100 pb-4">
                                             <div className="flex items-start">
@@ -1270,7 +1218,7 @@ const TaskDetail = () => {
                                         </div>
                                     ))}
                                 </div>
-                                <div className="mt-4">
+                                <div className="mt-6">
                                     <textarea
                                         className="w-full border border-gray-300 p-4 rounded"
                                         placeholder="Type a new comment here"
@@ -1290,7 +1238,7 @@ const TaskDetail = () => {
                                 </div>
                             </div>
                         ) : (
-                            <div className="mt-4">
+                            <div className="mt-6">
                                 <div className="space-y-4">
                                     {activities?.map((activity) => (
                                         <div key={activity.id} className="border-b border-gray-100 pb-4">
@@ -1379,20 +1327,24 @@ const TaskDetail = () => {
                                                     } else if (taskDetails.userStoryId) {
                                                         console.log("No projectId, trying to get from userStory");
                                                         axios.get(`/api/kanban/board/userstory/${taskDetails.userStoryId}`)
-                                                            .then(response => {
-                                                                console.log("UserStory data:", response.data);
-                                                                if (response.data && response.data.projectId) {
-                                                                    fetchAvailableAssignees(response.data.projectId);
+                                                            .then(res => {
+                                                                console.log("UserStory data:", res.data);
+                                                                if (res.data && res.data.projectId) {
+                                                                    console.log("Found projectId in userStory:", res.data.projectId);
+                                                                    fetchAvailableAssignees(res.data.projectId);
+                                                                } else {
+                                                                    console.log("No projectId in userStory data");
                                                                 }
                                                             })
-                                                            .catch(error => console.error("Error fetching userStory:", error));
+                                                            .catch(err => console.error("Error fetching userStory:", err));
                                                     }
                                                 }}
-                                                className="text-xs text-blue-500 hover:underline"
+                                                className="text-sm text-blue-500 hover:text-blue-700"
                                             >
-                                                Reload users
+                                                Refresh list
                                             </button>
                                         </div>
+
                                         {availableAssignees
                                             .filter(user => !assignedUsers.some(assigned => assigned.id === user.id))
                                             .map(user => (
@@ -1405,29 +1357,11 @@ const TaskDetail = () => {
                                                         {user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'}
                                                     </div>
                                                     <div>
-                                                        <div className="font-medium">{user.fullName}</div>
+                                                        <div className="font-medium">{user.fullName || user.username}</div>
                                                         <div className="text-xs text-gray-500">@{user.username}</div>
                                                     </div>
                                                 </div>
                                             ))}
-                                        {availableAssignees.length === 0 && (
-                                            <div className="px-4 py-2 text-gray-500 text-sm">No available users to add</div>
-                                        )}
-                                        {availableAssignees.length > 0 &&
-                                            availableAssignees.filter(user => !assignedUsers.some(assigned => assigned.id === user.id)).length === 0 && (
-                                                <div className="px-4 py-2 text-gray-500 text-sm">All users are already assigned</div>
-                                            )}
-                                        {assignedUsers.length === 0 && (
-                                            <div
-                                                onClick={handleAssignToMe}
-                                                className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                                            >
-                                                <div className="flex items-center text-blue-500">
-                                                    <CheckIcon className="w-4 h-4 mr-1" />
-                                                    <span>Assign to me</span>
-                                                </div>
-                                            </div>
-                                        )}
                                     </div>
                                 )}
                             </div>
@@ -1437,66 +1371,35 @@ const TaskDetail = () => {
                     <div className="mb-6">
                         <div className="text-gray-500 text-sm mb-2">WATCHERS</div>
                         <div className="space-y-2">
-                            {watchers && watchers.length > 0 ? (
-                                watchers.map(user => (
-                                    <div key={user.id} className="flex items-center justify-between">
-                                        <div className="flex items-center">
-                                            <div className="w-8 h-8 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2">
-                                                {user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'}
-                                            </div>
-                                            <div>
-                                                <div className="font-medium">{user.fullName || user.username}</div>
-                                                <div className="text-xs text-gray-500">@{user.username}</div>
-                                            </div>
+                            {watchers && watchers.map(user => (
+                                <div key={user.id} className="flex items-center justify-between">
+                                    <div className="flex items-center">
+                                        <div className="w-8 h-8 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2">
+                                            {user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'}
                                         </div>
-                                        <button
-                                            onClick={() => handleRemoveWatcher(user.id)}
-                                            className="text-gray-400 hover:text-gray-600"
-                                        >
-                                            <X size={16} />
-                                        </button>
+                                        <div>
+                                            <div className="font-medium">{user.fullName || user.username}</div>
+                                            <div className="text-xs text-gray-500">@{user.username}</div>
+                                        </div>
                                     </div>
-                                ))
-                            ) : (
-                                <div className="text-sm text-gray-500">No watchers</div>
-                            )}
+                                    <button
+                                        onClick={() => handleRemoveWatcher(user.id)}
+                                        className="text-gray-400 hover:text-gray-600"
+                                    >
+                                        <X size={16} />
+                                    </button>
+                                </div>
+                            ))}
 
                             <div className="relative">
                                 <button
-                                    onClick={() => {
-                                        console.log("Current watchers:", watchers);
-                                        console.log("Current availableAssignees for watchers:", availableAssignees);
-                                        setShowWatcherDropdown(!showWatcherDropdown);
-                                    }}
+                                    onClick={() => setShowWatcherDropdown(!showWatcherDropdown)}
                                     className="text-gray-500 flex items-center text-sm"
                                 >
                                     <Plus size={14} className="mr-1" /> Add watchers
                                 </button>
                                 {showWatcherDropdown && (
                                     <div className="dropdown-menu dropdown-arrow-down absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded shadow-lg">
-                                        <div className="px-4 py-2 text-right">
-                                            <button
-                                                onClick={() => {
-                                                    console.log("Reloading available assignees for watchers...");
-                                                    if (taskDetails.projectId) {
-                                                        fetchAvailableAssignees(taskDetails.projectId);
-                                                    } else if (taskDetails.userStoryId) {
-                                                        console.log("No projectId, trying to get from userStory for watchers");
-                                                        axios.get(`/api/kanban/board/userstory/${taskDetails.userStoryId}`)
-                                                            .then(response => {
-                                                                console.log("UserStory data for watchers:", response.data);
-                                                                if (response.data && response.data.projectId) {
-                                                                    fetchAvailableAssignees(response.data.projectId);
-                                                                }
-                                                            })
-                                                            .catch(error => console.error("Error fetching userStory for watchers:", error));
-                                                    }
-                                                }}
-                                                className="text-xs text-blue-500 hover:underline"
-                                            >
-                                                Reload users
-                                            </button>
-                                        </div>
                                         {availableAssignees
                                             .filter(user => !watchers.some(watcher => watcher.id === user.id))
                                             .map(user => (
@@ -1509,51 +1412,12 @@ const TaskDetail = () => {
                                                         {user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'}
                                                     </div>
                                                     <div>
-                                                        <div className="font-medium">{user.fullName}</div>
+                                                        <div className="font-medium">{user.fullName || user.username}</div>
                                                         <div className="text-xs text-gray-500">@{user.username}</div>
                                                     </div>
                                                 </div>
                                             ))}
                                     </div>
-                                )}
-                            </div>
-                            <div className="flex items-center justify-end text-sm mt-2">
-                                <button
-                                    className="text-gray-500 flex items-center hover:text-blue-500"
-                                    onClick={handleToggleWatch}
-                                >
-                                    {isCurrentUserWatching() ? (
-                                        <>
-                                            <EyeOff size={14} className="mr-1" /> Unwatch
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Eye size={14} className="mr-1" /> Watch
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Points display for tasks - This is different from UserStory */}
-                    <div className="mb-6">
-                        <div className="flex justify-between items-center mb-2">
-                            <div className="text-gray-500 text-sm">POINTS</div>
-                        </div>
-                        <div className="space-y-2">
-                            <div className="flex justify-between items-center">
-                                <div>Points</div>
-                                {editMode ? (
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        value={editedPoints}
-                                        onChange={(e) => setEditedPoints(parseInt(e.target.value) || 0)}
-                                        className="w-16 text-right border border-gray-300 rounded px-2 py-1"
-                                    />
-                                ) : (
-                                    <div className="text-gray-500">{taskDetails.points || '?'}</div>
                                 )}
                             </div>
                         </div>
@@ -1590,12 +1454,11 @@ const TaskDetail = () => {
                         >
                             <Trash2 size={16} />
                         </button>
-
                     </div>
                 </div>
             </div>
 
-            {/* Due Date Modal */}
+            {/* Due Date Picker Modal */}
             {showDueDatePicker && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
@@ -1609,36 +1472,34 @@ const TaskDetail = () => {
                             </button>
                         </div>
 
-                        <div className="mb-4 relative">
+                        <div className="mb-4">
                             <DatePicker
+                                className="w-full border border-gray-300 rounded p-2"
+                                onChange={date => setEditedDueDate(date)}
                                 value={editedDueDate ? dayjs(editedDueDate) : null}
-                                onChange={(date) => setEditedDueDate(date)}
-                                className="w-full"
+                                placeholder="Select date"
                             />
                         </div>
 
-                        <div className="flex space-x-2 mb-4">
+                        <div className="flex flex-wrap space-x-2 mb-4">
                             <button
-                                onClick={() => handleQuickDateSelect(7)}
-                                className="bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded text-sm"
+                                onClick={() => setShowQuickDateSelect(!showQuickDateSelect)}
+                                className="bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded text-sm mb-2"
                             >
-                                In one week
+                                Quick select... <ChevronDown size={14} className="inline" />
                             </button>
-                            <button
-                                onClick={() => handleQuickDateSelect(14)}
-                                className="bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded text-sm"
-                            >
-                                In two weeks
-                            </button>
-                            <button
-                                onClick={() => handleQuickDateSelect(30)}
-                                className="bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded text-sm"
-                            >
-                                In one month
-                            </button>
+
+                            {showQuickDateSelect && (
+                                <div className="w-full bg-gray-50 p-2 rounded mt-1 space-y-1">
+                                    <button onClick={() => handleQuickDateSelect(1)} className="w-full text-left px-2 py-1 hover:bg-gray-200 rounded">Tomorrow</button>
+                                    <button onClick={() => handleQuickDateSelect(7)} className="w-full text-left px-2 py-1 hover:bg-gray-200 rounded">In one week</button>
+                                    <button onClick={() => handleQuickDateSelect(14)} className="w-full text-left px-2 py-1 hover:bg-gray-200 rounded">In two weeks</button>
+                                    <button onClick={() => handleQuickDateSelect(30)} className="w-full text-left px-2 py-1 hover:bg-gray-200 rounded">In one month</button>
+                                </div>
+                            )}
                         </div>
 
-                        <div className="flex justify-between items-center mt-4">
+                        <div className="flex justify-between items-center">
                             <button
                                 onClick={() => {
                                     setEditedDueDate(null);
@@ -1646,7 +1507,7 @@ const TaskDetail = () => {
                                 }}
                                 className="text-gray-500"
                             >
-                                <X size={16} className="inline mr-1" /> Clear
+                                <X size={16} className="inline" /> Clear
                             </button>
                             <button
                                 onClick={handleSaveDueDate}

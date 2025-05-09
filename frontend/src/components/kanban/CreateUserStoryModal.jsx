@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from '../../common/axios-customize';
+import { toast } from 'react-toastify';
 // Import icons từ heroicons
 import { PlusIcon, UserIcon, ClockIcon, PaperClipIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
@@ -174,6 +175,8 @@ const CreateUserStoryModal = ({
                 data: assignRequest
             });
 
+            toast.success('User story created successfully');
+
             if (onUserStoryCreated) {
                 onUserStoryCreated(response.data);
             }
@@ -182,7 +185,9 @@ const CreateUserStoryModal = ({
             onHide();
         } catch (err) {
             console.error('Error creating user story:', err);
-            setError(err.response?.data?.message || 'Failed to create user story. Please try again.');
+            const errorMessage = err.response?.data?.message || 'Failed to create user story. Please try again.';
+            setError(errorMessage);
+            toast.error(errorMessage);
         } finally {
             setIsLoading(false);
         }
