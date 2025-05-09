@@ -174,6 +174,10 @@ const CreateBacklogUserStoryModal = ({
         }
 
         try {
+            // Log selected sprint info for debugging
+            console.log('Selected Sprint ID:', sprintId);
+            console.log('Selected Sprint ID type:', typeof sprintId);
+
             // Create the user story data object
             const userStoryData = {
                 name: title,
@@ -195,15 +199,21 @@ const CreateBacklogUserStoryModal = ({
                 dueDate: dueDate ? new Date(dueDate).toISOString() : null,
                 assignedUsers: [],
                 watchers: [],
-                tags: []
+                tags: [],
+                // Add direct sprintId field to ensure it's recognized by the backend
+                sprintId: sprintId ? parseInt(sprintId) : null
             };
+
+            console.log('Sending user story data:', userStoryData);
+            console.log('Sprint data in payload:', JSON.stringify({
+                sprint: userStoryData.sprint,
+                sprintId: userStoryData.sprintId
+            }));
 
             // Include userIds directly in the main payload
             if (assignee) {
                 userStoryData.userIds = [parseInt(assignee)];
             }
-
-            console.log('Sending user story data:', userStoryData);
 
             // Using the customized axios instance
             const response = await axios.post('/api/kanban/board/userstory', userStoryData);
@@ -391,7 +401,11 @@ const CreateBacklogUserStoryModal = ({
                                         <label className="block text-xs font-medium text-gray-500 uppercase mb-1">SPRINT</label>
                                         <select
                                             value={sprintId || ''}
-                                            onChange={(e) => setSprintId(e.target.value ? parseInt(e.target.value) : null)}
+                                            onChange={(e) => {
+                                                const value = e.target.value;
+                                                console.log('Sprint selected:', value);
+                                                setSprintId(value ? parseInt(value) : null);
+                                            }}
                                             className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         >
                                             <option value="">Backlog (No Sprint)</option>

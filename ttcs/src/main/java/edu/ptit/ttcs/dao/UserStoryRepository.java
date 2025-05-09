@@ -27,4 +27,12 @@ public interface UserStoryRepository extends JpaRepository<UserStory, Integer> {
     List<UserStory> findByIsBlockTrue();
 
     List<UserStory> findAllByProjectAndSprint(Project project, Sprint sprint);
+
+    /**
+     * Find all user stories in a specific sprint
+     *
+     * @param sprintId the id of the sprint
+     * @return list of user stories
+     */
+    List<UserStory> findBySprintId(Long sprintId);
 }

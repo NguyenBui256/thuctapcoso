@@ -4,6 +4,7 @@ import edu.ptit.ttcs.entity.UserStory;
 import edu.ptit.ttcs.entity.Task;
 import edu.ptit.ttcs.entity.TaskAttachment;
 import edu.ptit.ttcs.entity.ProjectSettingStatus;
+import edu.ptit.ttcs.entity.Sprint;
 import edu.ptit.ttcs.dao.UserStoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -20,8 +21,10 @@ import java.util.stream.Collectors;
 import java.util.ArrayList;
 import java.time.LocalDate;
 import java.util.HashSet;
-import java.util.Set;
+import java.util.HashMap;
 import java.time.LocalDateTime;
+import java.util.Set;
+import java.util.Arrays;
 
 import edu.ptit.ttcs.entity.dto.UserStoryDTO;
 import edu.ptit.ttcs.entity.dto.TaskDTO;
@@ -186,6 +189,15 @@ public class UserStoryController {
                     KanbanSwimland swimlane = new KanbanSwimland();
                     swimlane.setId(((Number) swimlaneMap.get("id")).intValue());
                     userStory.setSwimlane(swimlane);
+                }
+            }
+
+            if (requestMap.containsKey("sprint")) {
+                Map<String, Object> springMap = (Map<String, Object>) requestMap.get("sprint");
+                if (springMap != null && springMap.containsKey("id")) {
+                    Sprint sprint = new Sprint();
+                    sprint.setId(((Number) springMap.get("id")).longValue());
+                    userStory.setSprint(sprint);
                 }
             }
 
@@ -1625,6 +1637,103 @@ public class UserStoryController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Failed to add attachment: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Calculate the progress of a sprint based on tasks completion status
+     * 
+     * @param sprintId ID of the sprint
+     * @return ResponseEntity with progress percentage and task counts
+     */
+    @GetMapping("/sprint/{sprintId}/progress")
+    public ResponseEntity<?> getSprintProgress(@PathVariable Long sprintId) {
+        try {
+            System.out.println("Getting progress for sprint ID: " + sprintId);
+
+            // Find all tasks associated with user stories in this sprint
+            List<Task> tasks = taskRepository.findTasksBySprintId(sprintId);
+            System.out.println("Found " + tasks.size() + " tasks for sprint ID: " + sprintId);
+
+            for (Task task : tasks) {
+                System.out.println("Task ID: " + task.getId() +
+                        ", Name: " + task.getName() +
+                        ", Status ID: " + (task.getStatus() != null ? task.getStatus().getId() : "null") +
+                        ", Status Name: " + (task.getStatus() != null ? task.getStatus().getName() : "null") +
+                        ", Is Closed: " + (task.getStatus() != null ? task.getStatus().getClosed() : "null"));
+            }
+
+            if (tasks.isEmpty()) {
+                Map<String, Object> emptyResponse = new HashMap<>();
+                emptyResponse.put("percentage", 0);
+                emptyResponse.put("totalTasks", 0);
+                emptyResponse.put("completedTasks", 0);
+                System.out.println("No tasks found for sprint ID: " + sprintId + ", returning zeros");
+                return ResponseEntity.ok(emptyResponse);
+            }
+
+            // Count completed tasks (status.closed = true hoặc status.id trong danh sách
+            // các status ID đánh dấu hoàn thành)
+            // Từ giao diện, ta thấy cột DONE là ID 5
+            Set<Integer> doneStatusIds = new HashSet<>(Arrays.asList(5)); // Thêm các ID khác nếu cần
+
+            System.out.println("Danh sách các status ID được coi là đã hoàn thành: " + doneStatusIds);
+
+            // Debug các task được coi là hoàn thành
+            List<Task> completedTasksList = tasks.stream()
+                    .filter(task -> task.getStatus() != null &&
+                            (task.getStatus().getClosed() != null && task.getStatus().getClosed()
+                                    || doneStatusIds.contains(task.getStatus().getId())
+                                    || (task.getStatus().getName() != null &&
+                                            task.getStatus().getName().toUpperCase().equals("DONE"))))
+                    .collect(Collectors.toList());
+
+            System.out.println("Số task được coi là hoàn thành: " + completedTasksList.size());
+            for (Task task : completedTasksList) {
+                System.out.println("Completed Task: " + task.getId() + " - " + task.getName() +
+                        ", Status ID: " + (task.getStatus().getId()) +
+                        ", Status Name: " + (task.getStatus().getName()));
+            }
+
+            long completedTasks = completedTasksList.size();
+
+            // Calculate percentage - đơn giản chỉ là số task hoàn thành / tổng số task
+            double percentage = ((double) completedTasks / tasks.size()) * 100;
+            System.out.println(
+                    "Tính toán phần trăm: " + completedTasks + " / " + tasks.size() + " * 100 = " + percentage);
+
+            // Round the percentage
+            long roundedPercentage = Math.round(percentage);
+            System.out.println("Phần trăm sau khi làm tròn: " + roundedPercentage + "%");
+
+            // Create response
+            Map<String, Object> response = new HashMap<>();
+            response.put("percentage", roundedPercentage);
+            response.put("totalTasks", tasks.size());
+            response.put("completedTasks", completedTasks);
+
+            // Thêm thông tin về status để dễ debug
+            if (tasks.size() > 0) {
+                List<Map<String, Object>> taskStatusInfo = tasks.stream()
+                        .map(task -> {
+                            Map<String, Object> info = new HashMap<>();
+                            info.put("id", task.getId());
+                            info.put("name", task.getName());
+                            if (task.getStatus() != null) {
+                                info.put("statusId", task.getStatus().getId());
+                                info.put("statusName", task.getStatus().getName());
+                                info.put("isClosed", task.getStatus().getClosed());
+                            }
+                            return info;
+                        })
+                        .collect(Collectors.toList());
+                response.put("taskDetails", taskStatusInfo);
+            }
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to calculate sprint progress: " + e.getMessage());
         }
     }
 }
