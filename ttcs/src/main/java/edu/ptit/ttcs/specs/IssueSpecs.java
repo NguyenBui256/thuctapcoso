@@ -17,12 +17,12 @@ public class IssueSpecs {
 
     public static Specification<Issue> belongToSprint(long sprintId){
         return (root, query, cb)->
-                cb.equal(root.get("sprint").get("id"), sprintId);
+                        cb.equal(root.get("sprint").get("id"), sprintId);
     }
 
-    public static Specification<Issue> belongToEpic(long epicId){
+    public static Specification<Issue> notBelongToSprint(){
         return (root, query, cb)->
-                cb.equal(root.get("epic").get("id"), epicId);
+                cb.isNull(root.get("sprint"));
     }
 
     public static Specification<Issue> hasKeyword(String keyword){
