@@ -6,6 +6,7 @@ import edu.ptit.ttcs.dao.UserRepository;
 import edu.ptit.ttcs.dao.UserStoryRepository;
 import edu.ptit.ttcs.dao.ProjectMemberRepository;
 import edu.ptit.ttcs.dao.CommentRepository;
+import edu.ptit.ttcs.dao.NotificationRepository;
 import edu.ptit.ttcs.dao.AttachmentRepository;
 import edu.ptit.ttcs.dao.TaskAttachmentRepository;
 import edu.ptit.ttcs.entity.dto.TaskDTO;
@@ -17,12 +18,14 @@ import edu.ptit.ttcs.entity.UserStory;
 import edu.ptit.ttcs.entity.ProjectMember;
 import edu.ptit.ttcs.entity.ProjectSettingStatus;
 import edu.ptit.ttcs.entity.Comment;
+import edu.ptit.ttcs.entity.Notification;
 import edu.ptit.ttcs.entity.dto.CommentDTO;
 import edu.ptit.ttcs.entity.dto.ActivityDTO;
 import edu.ptit.ttcs.service.ActivityService;
 import edu.ptit.ttcs.entity.Attachment;
 import edu.ptit.ttcs.entity.TaskAttachment;
 import edu.ptit.ttcs.entity.dto.AttachmentDTO;
+import edu.ptit.ttcs.service.NotificationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -71,6 +74,12 @@ public class TaskController {
 
     @Autowired
     private TaskAttachmentRepository taskAttachmentRepository;
+
+    @Autowired
+    private NotificationRepository notificationRepository;
+
+    @Autowired
+    private NotificationService notificationService;
 
     private Long getUserIdFromHeader() {
         try {
@@ -362,6 +371,9 @@ public class TaskController {
                             userId,
                             "assignee_added",
                             "User " + newAssignee.getUser().getUsername() + " assigned to task");
+
+                    // Send notification to the new assignee
+                    createAssigneeNotification(newAssignee.getUser(), updatedTask, userId);
                 }
             }
 
@@ -420,36 +432,21 @@ public class TaskController {
             }
 
             Task task = taskOptional.get();
-            User user = userOptional.get();
-
-            // Kiểm tra xem người dùng có thuộc project không
-            Long projectId = null;
-            if (task.getUserStory() != null && task.getUserStory().getProject() != null) {
-                projectId = task.getUserStory().getProject().getId();
-            } else {
-                return ResponseEntity.badRequest().build(); // Task phải thuộc một project
-            }
-
-            boolean isInProject = projectMemberRepository.existsByProjectIdAndUserIdAndIsDeleteFalse(
-                    projectId, user.getId());
-
-            if (!isInProject) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(null); // Người dùng không thuộc project
-            }
-
             ProjectMember projectMember = projectMemberRepository.findByProjectIdAndUserIdAndIsDeleteFalse(
-                    task.getProject().getId(), user.getId());
+                    task.getProject().getId(), userId.longValue());
 
-            // Initialize list if null
+            // Add user if not already in list
             if (task.getAssignees() == null) {
                 task.setAssignees(new ArrayList<>());
             }
 
-            // Add user if not already in list
             if (!task.getAssignees().contains(projectMember)) {
                 task.getAssignees().add(projectMember);
                 task = taskRepository.save(task);
+
+                // Send notification to the added assignee
+                Long currentUserId = getUserIdFromHeader();
+                createAssigneeNotification(userOptional.get(), task, currentUserId);
             }
 
             return ResponseEntity.ok(convertToDTO(task));
@@ -577,6 +574,9 @@ public class TaskController {
                             userId,
                             "watcher_added",
                             "User " + newWatcher.getUser().getUsername() + " started watching task");
+
+                    // Send notification to the new watcher
+                    createWatcherNotification(newWatcher.getUser(), updatedTask, userId);
                 }
             }
 
@@ -620,36 +620,21 @@ public class TaskController {
             }
 
             Task task = taskOptional.get();
-            User user = userOptional.get();
+            ProjectMember projectMember = projectMemberRepository.findByProjectIdAndUserIdAndIsDeleteFalse(
+                    task.getProject().getId(), userId.longValue());
 
-            // Kiểm tra xem người dùng có thuộc project không
-            Long projectId = null;
-            if (task.getUserStory() != null && task.getUserStory().getProject() != null) {
-                projectId = task.getUserStory().getProject().getId();
-            } else {
-                return ResponseEntity.badRequest().build(); // Task phải thuộc một project
-            }
-
-            boolean isInProject = projectMemberRepository.existsByProjectIdAndUserIdAndIsDeleteFalse(
-                    projectId, user.getId());
-
-            if (!isInProject) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(null); // Người dùng không thuộc project
-            }
-
-            // Initialize list if null
+            // Add user if not already in list
             if (task.getWatchers() == null) {
                 task.setWatchers(new ArrayList<>());
             }
 
-            ProjectMember projectMember = projectMemberRepository.findByProjectIdAndUserIdAndIsDeleteFalse(
-                    task.getProject().getId(), user.getId());
-
-            // Add user if not already in list
             if (!task.getWatchers().contains(projectMember)) {
                 task.getWatchers().add(projectMember);
                 task = taskRepository.save(task);
+
+                // Send notification to the added watcher
+                Long currentUserId = getUserIdFromHeader();
+                createWatcherNotification(userOptional.get(), task, currentUserId);
             }
 
             return ResponseEntity.ok(convertToDTO(task));
@@ -1281,5 +1266,31 @@ public class TaskController {
         public void setPoints(Integer points) {
             this.points = points;
         }
+    }
+
+    /**
+     * Create notification for user added as an assignee to a task
+     */
+    private void createAssigneeNotification(User receiver, Task task, Long senderId) {
+        String description = "You have been assigned to task: " + task.getName();
+        notificationService.createNotification(
+                receiver,
+                description,
+                task.getId(),
+                "TASK_ASSIGNED",
+                senderId);
+    }
+
+    /**
+     * Create notification for user added as a watcher to a task
+     */
+    private void createWatcherNotification(User receiver, Task task, Long senderId) {
+        String description = "You have been added as a watcher to task: " + task.getName();
+        notificationService.createNotification(
+                receiver,
+                description,
+                task.getId(),
+                "TASK_WATCHING",
+                senderId);
     }
 }
