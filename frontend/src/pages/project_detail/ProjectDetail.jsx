@@ -4,6 +4,7 @@ import ProjectActivities from '../../components/project/ProjectActivities';
 import ProjectInfo from '../../components/project/ProjectInfo';
 import ProjectSelector from '../../components/project/ProjectSelector';
 import TeamMembers from '../../components/project/TeamMembers';
+import ContactProjectModal from '../../components/project/ContactProjectModal';
 import { fetchProjectsByUserId, fetchProjectActivities, fetchProjectMembers, fetchProjectById } from '../../utils/api';
 import { formatDate, getUserInitials } from '../../utils/helpers';
 import { getCurrentUserId } from '../../utils/AuthUtils';
@@ -17,6 +18,7 @@ function ProjectDetail() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const navigate = useNavigate();
   const { projectId } = useParams();
 
@@ -155,6 +157,11 @@ function ProjectDetail() {
     if (currentPage < totalPages) {
       setCurrentPage(currentPage + 1);
     }
+  };
+
+  // New function to handle opening the contact modal
+  const handleContactButtonClick = () => {
+    setIsContactModalOpen(true);
   };
 
   const sampleActivities = [
@@ -349,7 +356,10 @@ function ProjectDetail() {
             <div className="p-4">
               <h3 className="text-base font-medium mb-2 text-center">This project is looking for people</h3>
               <p className="text-sm text-gray-700 mb-4 text-center">Tôi cần người giỏi</p>
-              <button className="flex items-center justify-center w-full bg-gray-200 text-gray-700 py-2 rounded hover:bg-gray-300">
+              <button
+                onClick={handleContactButtonClick}
+                className="flex items-center justify-center w-full bg-gray-200 text-gray-700 py-2 rounded hover:bg-gray-300"
+              >
                 <span className="mr-2">✉</span>
                 Contact the project
               </button>
@@ -365,6 +375,14 @@ function ProjectDetail() {
           )}
         </div>
       </div>
+
+      {/* Contact Project Modal */}
+      <ContactProjectModal
+        isOpen={isContactModalOpen}
+        onClose={() => setIsContactModalOpen(false)}
+        projectId={projectId}
+        projectName={currentProject?.name || 'this project'}
+      />
     </>
   );
 }

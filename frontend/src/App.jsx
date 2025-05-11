@@ -30,6 +30,8 @@ const IssueDetail = lazy(() => import('./pages/issue/IssueDetail.jsx'));
 const ProtectedRoute = lazy(() => import('./components/auth/ProtectedRoute.jsx'));
 const SearchPage = lazy(() => import('./pages/search/SearchPage.jsx'));
 const SearchResultsPage = lazy(() => import('./pages/search/SearchResultsPage.jsx'));
+const ProjectsDashboard = lazy(() => import('./pages/ProjectsDashboard.jsx'));
+const ManageProjects = lazy(() => import('./pages/ManageProjects.jsx'));
 
 import { ERROR_TYPE } from './pages/ErrorPage.jsx';
 import React from 'react';
@@ -59,7 +61,9 @@ function App() {
         </ProtectedRoute>
       }>
         <Route path="/" element={<Navigate to="/projects" replace />} />
-        <Route path="/projects" element={<ProjectList />} />
+        <Route path="/projects" element={<ProjectsDashboard />} />
+        <Route path="/projects/manage" element={<ManageProjects />} />
+        <Route path="/projects/list" element={<ProjectList />} />
         <Route path="/projects/new" element={<SelectProjectType />} />
         <Route path="/projects/create/:projectType" element={<CreateProject />} />
         <Route path="/projects/duplicate" element={<DuplicateProject />} />

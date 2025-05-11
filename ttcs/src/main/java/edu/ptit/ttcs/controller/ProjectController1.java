@@ -114,7 +114,6 @@ public class ProjectController1 {
         return ResponseEntity.ok(projectService.getTaskStatuses(projectId));
     }
 
-
     @GetMapping("/members/{projectId}")
     public ResponseEntity<List<ProjectMemberDTO>> getProjectMembers(@PathVariable Long projectId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -131,6 +130,76 @@ public class ProjectController1 {
         try {
             List<ProjectMemberDTO> projects = projectMemberService.getUserProjects(userId);
             return ResponseEntity.ok(new ApiResponse<>("success", "User projects retrieved successfully", projects));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
+        }
+    }
+
+    @GetMapping("/assigned")
+    public ResponseEntity<ApiResponse<List<ProjectDTO>>> getAssignedProjects() {
+        try {
+            // Get current user from SecurityContext
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>("error", "User not authenticated", null));
+            }
+
+            // Get user ID from authentication
+            String username = authentication.getName();
+            User currentUser = userService.getUserByLogin(username);
+            if (currentUser == null) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>("error", "User not found", null));
+            }
+
+            List<ProjectDTO> projects = projectService.findAssignedProjects(currentUser.getId());
+            return ResponseEntity
+                    .ok(new ApiResponse<>("success", "Assigned projects retrieved successfully", projects));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
+        }
+    }
+
+    @GetMapping("/watched")
+    public ResponseEntity<ApiResponse<List<ProjectDTO>>> getWatchedProjects() {
+        try {
+            // Get current user from SecurityContext
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>("error", "User not authenticated", null));
+            }
+
+            // Get user ID from authentication
+            String username = authentication.getName();
+            User currentUser = userService.getUserByLogin(username);
+            if (currentUser == null) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>("error", "User not found", null));
+            }
+
+            List<ProjectDTO> projects = projectService.findWatchedProjects(currentUser.getId());
+            return ResponseEntity.ok(new ApiResponse<>("success", "Watched projects retrieved successfully", projects));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
+        }
+    }
+
+    @GetMapping("/joined")
+    public ResponseEntity<ApiResponse<List<ProjectDTO>>> getJoinedProjects() {
+        try {
+            // Get current user from SecurityContext
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>("error", "User not authenticated", null));
+            }
+
+            // Get user ID from authentication
+            String username = authentication.getName();
+            User currentUser = userService.getUserByLogin(username);
+            if (currentUser == null) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>("error", "User not found", null));
+            }
+
+            List<ProjectDTO> projects = projectService.findJoinedProjects(currentUser.getId());
+            return ResponseEntity.ok(new ApiResponse<>("success", "Joined projects retrieved successfully", projects));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
         }

@@ -193,5 +193,38 @@ export const projectService = {
             console.error('Error updating notification settings:', error.response?.data || error.message);
             throw error;
         }
+    },
+
+    // Get projects where user is an assignee
+    getAssignedProjects: async () => {
+        try {
+            const response = await api.get('/v1/projects/assigned');
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching assigned projects:', error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    // Get projects where user is a watcher
+    getWatchedProjects: async () => {
+        try {
+            const response = await api.get('/v1/projects/watched');
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching watched projects:', error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    // Get projects user is a member of
+    getJoinedProjects: async () => {
+        try {
+            const response = await api.get('/v1/projects/joined');
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching joined projects:', error.response?.data || error.message);
+            throw error;
+        }
     }
 }; 
