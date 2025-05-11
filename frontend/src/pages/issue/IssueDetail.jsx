@@ -4,6 +4,7 @@ import { BASE_API_URL } from "../../common/constants"
 import { useEffect, useState, useRef } from "react"
 import { Avatar, Tag, Tooltip, Button, Divider, List, Input, Tabs } from "antd"
 import { UserOutlined, EyeOutlined, PlusOutlined, LockOutlined, LinkOutlined, DeleteOutlined, FileTextOutlined, ClockCircleOutlined, EditOutlined, SendOutlined, UploadOutlined, DownloadOutlined, FileOutlined, LoadingOutlined } from '@ant-design/icons'
+import { EyeOff } from 'lucide-react'
 import { updateIssue } from '../../api/issue'
 import DropdownPortal from './DropdownPortal'
 import { toast } from "react-toastify"
@@ -52,6 +53,12 @@ export default function IssueDetail() {
     const [commentContent, setCommentContent] = useState('')
     const [activeTab, setActiveTab] = useState('comments')
     const [isLoadingComment, setIsLoadingComment] = useState(false)
+
+    // Add states for watchers and available users
+    const [watchers, setWatchers] = useState([])
+    const [showWatcherDropdown, setShowWatcherDropdown] = useState(false)
+    const watcherRef = useRef(null)
+    const [availableUsers, setAvailableUsers] = useState([])
 
     const filteredTags = filters.tags?.filter(t => t.name.toLowerCase().includes(tagInput.toLowerCase()) && !issue.tags?.some(st => st.id === t.id));
 
@@ -199,10 +206,16 @@ export default function IssueDetail() {
             if (showPrioDropdown && prioRef.current && !prioRef.current.contains(event.target)) {
                 setShowPrioDropdown(false);
             }
+            if (showAssignDropdown && assignRef.current && !assignRef.current.contains(event.target)) {
+                setShowAssignDropdown(false);
+            }
+            if (showWatcherDropdown && watcherRef.current && !watcherRef.current.contains(event.target)) {
+                setShowWatcherDropdown(false);
+            }
         }
         document.addEventListener('click', handleClickOutside);
         return () => document.removeEventListener('click', handleClickOutside);
-    }, [showStatusDropdown, showTypeDropdown, showSeverityDropdown, showPrioDropdown]);
+    }, [showStatusDropdown, showTypeDropdown, showSeverityDropdown, showPrioDropdown, showAssignDropdown, showWatcherDropdown]);
 
     const fetchIssue = () => {
         fetchWithAuth(`${BASE_API_URL}/v1/issue/get?projectId=${projectId}&issueId=${issueId}`)
@@ -354,6 +367,93 @@ export default function IssueDetail() {
             })
     }
 
+    // Function to fetch available users for watchers
+    const fetchAvailableUsers = async () => {
+        try {
+            const res = await fetchWithAuth(`${BASE_API_URL}/v1/project/${projectId}/users`);
+            const data = await res.json();
+            if (!data.error && data.data) {
+                setAvailableUsers(data.data);
+            }
+        } catch (error) {
+            console.error('Error fetching available users:', error);
+            toast.error('Failed to load available users');
+        }
+    }
+
+    // Function to fetch watchers
+    const fetchWatchers = async () => {
+        try {
+            const res = await fetchWithAuth(`${BASE_API_URL}/v1/issue/${issueId}/watchers`);
+            const data = await res.json();
+            if (!data.error && data.data) {
+                setWatchers(data.data);
+            }
+        } catch (error) {
+            console.error('Error fetching watchers:', error);
+            toast.error('Failed to load watchers');
+        }
+    }
+
+    // Function to add a watcher
+    const handleAddWatcher = async (userId) => {
+        try {
+            const res = await fetchWithAuth(`${BASE_API_URL}/v1/issue/${issueId}/watchers`, window.location, true, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ userId })
+            });
+            const data = await res.json();
+            if (data.error) {
+                toast.error('Failed to add watcher');
+            } else {
+                fetchWatchers(); // Refresh watchers
+                fetchActivities(); // Refresh activities
+                toast.success('Watcher added successfully');
+                setShowWatcherDropdown(false);
+            }
+        } catch (error) {
+            console.error('Error adding watcher:', error);
+            toast.error('Failed to add watcher');
+        }
+    }
+
+    // Function to remove a watcher
+    const handleRemoveWatcher = async (watcherId) => {
+        try {
+            const res = await fetchWithAuth(`${BASE_API_URL}/v1/issue/${issueId}/watchers/${watcherId}`, window.location, true, {
+                method: 'DELETE'
+            });
+            const data = await res.json();
+            if (data.error) {
+                toast.error('Failed to remove watcher');
+            } else {
+                fetchWatchers(); // Refresh watchers
+                fetchActivities(); // Refresh activities
+                toast.success('Watcher removed successfully');
+            }
+        } catch (error) {
+            console.error('Error removing watcher:', error);
+            toast.error('Failed to remove watcher');
+        }
+    }
+
+    // Check if current user is watching
+    const isCurrentUserWatching = () => {
+        return watchers.some(watcher => watcher.id === parseInt(userId));
+    }
+
+    // Toggle watch function
+    const handleToggleWatch = async () => {
+        if (isCurrentUserWatching()) {
+            await handleRemoveWatcher(userId);
+        } else {
+            await handleAddWatcher(userId);
+        }
+    }
+
     // Format date for better display
     const formatDate = (dateString) => {
         if (!dateString) return '';
@@ -366,6 +466,8 @@ export default function IssueDetail() {
         fetchFilters();
         fetchComments();
         fetchActivities();
+        fetchWatchers();
+        fetchAvailableUsers();
     }, [issueId]);
 
     if (!issue) return (
@@ -806,67 +908,148 @@ export default function IssueDetail() {
                         style={{ background: '#fff', borderRadius: 8, padding: 16, marginBottom: 16 }}
                     >
                         <div style={{ fontWeight: 500, marginBottom: 8 }}>ASSIGNED</div>
-                        <Button
-                            ref={assignRef}
-                            icon={<PlusOutlined />} size="small" style={{ marginRight: 8 }}
-                            onClick={() => setShowAssignDropdown(v => !v)}
-                        >
-                            Change assigned
-                        </Button>
-                        {(issue.assignee === null || issue.assignee?.userId != userId) && (
+                        <div ref={assignRef} style={{ position: 'relative' }}>
                             <Button
-                                icon={<UserOutlined />} size="small"
-                                onClick={() => handleUpdate('assignee', filters.assigns.find(v => v.userId == userId))}
+                                icon={<PlusOutlined />}
+                                size="small"
+                                style={{ marginRight: 8 }}
+                                onClick={() => setShowAssignDropdown(v => !v)}
                             >
-                                Assign to me
+                                Change assigned
                             </Button>
-                        )}
-                        <div style={{ marginTop: 12 }}>
-                            {issue.assignee ? (
-                                <Tooltip title={issue.assignee.fullName}>
-                                    <Avatar src={issue.assignee.avatar} />
-                                    <span style={{ marginLeft: 8 }}>{issue.assignee.fullName}</span>
-                                </Tooltip>
-                            ) : <span style={{ color: '#aaa' }}>Chưa có</span>}
-                        </div>
-                        <DropdownPortal anchorRef={assignRef} show={showAssignDropdown}>
-                            <div className="bg-white border border-gray-200 rounded shadow z-30 w-48 max-h-60 overflow-y-auto min-w-[120px]">
-                                <div
-                                    className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
-                                    onClick={() => {
-                                        setShowAssignDropdown(false);
-                                        handleUpdate('assignee', { id: -1 });
-                                    }}
+                            {(issue.assignee === null || issue.assignee?.userId != userId) && (
+                                <Button
+                                    icon={<UserOutlined />}
+                                    size="small"
+                                    onClick={() => handleUpdate('assignee', filters.assigns.find(v => v.userId == userId))}
                                 >
-                                    Không phân công
-                                </div>
-                                {filters.assigns?.map(user => (
+                                    Assign to me
+                                </Button>
+                            )}
+                            <DropdownPortal anchorRef={assignRef} show={showAssignDropdown}>
+                                <div className="bg-white border border-gray-200 rounded shadow z-30 w-48 max-h-60 overflow-y-auto min-w-[120px]">
                                     <div
-                                        key={user.id}
                                         className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
                                         onClick={() => {
                                             setShowAssignDropdown(false);
-                                            handleUpdate('assignee', user);
+                                            handleUpdate('assignee', { id: -1 });
                                         }}
                                     >
-                                        {user.avatar ? (
-                                            <img src={user.avatar} alt={user.fullName} className="w-7 h-7 rounded-full object-cover" />
-                                        ) : (
-                                            <div className="w-7 h-7 rounded-full bg-gray-300 flex items-center justify-center text-xs text-gray-600">
-                                                {user.fullName?.charAt(0)?.toUpperCase()}
-                                            </div>
-                                        )}
-                                        <span>{user.fullName}</span>
+                                        Không phân công
                                     </div>
-                                ))}
-                            </div>
-                        </DropdownPortal>
+                                    {filters.assigns?.map(user => (
+                                        <div
+                                            key={user.id}
+                                            className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                                            onClick={() => {
+                                                setShowAssignDropdown(false);
+                                                handleUpdate('assignee', user);
+                                            }}
+                                        >
+                                            {user.avatar ? (
+                                                <img src={user.avatar} alt={user.fullName} className="w-7 h-7 rounded-full object-cover" />
+                                            ) : (
+                                                <div className="w-7 h-7 rounded-full bg-gray-300 flex items-center justify-center text-xs text-gray-600">
+                                                    {user.fullName?.charAt(0)?.toUpperCase()}
+                                                </div>
+                                            )}
+                                            <span>{user.fullName}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </DropdownPortal>
+                        </div>
+                        <div style={{ marginTop: 12 }}>
+                            {issue.assignee ? (
+                                <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                                    <div className="flex items-center">
+                                        <Avatar src={issue.assignee.avatar}>
+                                            {!issue.assignee.avatar && issue.assignee.fullName?.charAt(0)?.toUpperCase()}
+                                        </Avatar>
+                                        <span className="ml-2">{issue.assignee.fullName}</span>
+                                    </div>
+                                    <Button
+                                        type="text"
+                                        danger
+                                        icon={<DeleteOutlined />}
+                                        onClick={() => handleUpdate('assignee', { id: -1 })}
+                                        size="small"
+                                    />
+                                </div>
+                            ) : <span style={{ color: '#aaa' }}>Chưa có</span>}
+                        </div>
                     </div>
                     {/* Watchers */}
                     <div style={{ background: '#fff', borderRadius: 8, padding: 16, marginBottom: 16 }}>
                         <div style={{ fontWeight: 500, marginBottom: 8 }}>WATCHERS</div>
-                        <Button icon={<PlusOutlined />} size="small" style={{ marginRight: 8 }}>Add watchers</Button>
-                        <Button icon={<EyeOutlined />} size="small">Watch</Button>
+                        <div ref={watcherRef} style={{ position: 'relative' }}>
+                            <Button
+                                icon={<PlusOutlined />}
+                                size="small"
+                                style={{ marginRight: 8 }}
+                                onClick={() => setShowWatcherDropdown(!showWatcherDropdown)}
+                            >
+                                Add watchers
+                            </Button>
+                            <Button
+                                icon={isCurrentUserWatching() ? <EyeOutlined /> : <EyeOff />}
+                                size="small"
+                                onClick={handleToggleWatch}
+                            >
+                                {isCurrentUserWatching() ? "Unwatch" : "Watch"}
+                            </Button>
+
+                            {showWatcherDropdown && (
+                                <DropdownPortal anchorRef={watcherRef} show={showWatcherDropdown}>
+                                    <div className="bg-white border border-gray-200 rounded shadow z-30 w-48 max-h-60 overflow-y-auto min-w-[120px]">
+                                        {availableUsers
+                                            .filter(user => !watchers.some(watcher => watcher.id === user.id))
+                                            .map(user => (
+                                                <div
+                                                    key={user.id}
+                                                    className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                                                    onClick={() => handleAddWatcher(user.id)}
+                                                >
+                                                    {user.avatar ? (
+                                                        <img src={user.avatar} alt={user.fullName} className="w-7 h-7 rounded-full object-cover" />
+                                                    ) : (
+                                                        <div className="w-7 h-7 rounded-full bg-gray-300 flex items-center justify-center text-xs text-gray-600">
+                                                            {user.fullName?.charAt(0)?.toUpperCase()}
+                                                        </div>
+                                                    )}
+                                                    <span>{user.fullName}</span>
+                                                </div>
+                                            ))}
+                                    </div>
+                                </DropdownPortal>
+                            )}
+                        </div>
+
+                        <div style={{ marginTop: 12 }}>
+                            {watchers && watchers.length > 0 ? (
+                                <div className="space-y-2">
+                                    {watchers.map(watcher => (
+                                        <div key={watcher.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                                            <div className="flex items-center">
+                                                <Avatar src={watcher.avatar}>
+                                                    {!watcher.avatar && watcher.fullName?.charAt(0)?.toUpperCase()}
+                                                </Avatar>
+                                                <span className="ml-2">{watcher.fullName}</span>
+                                            </div>
+                                            <Button
+                                                type="text"
+                                                danger
+                                                icon={<DeleteOutlined />}
+                                                onClick={() => handleRemoveWatcher(watcher.id)}
+                                                size="small"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-gray-400">No watchers</div>
+                            )}
+                        </div>
                     </div>
                     {/* Các nút chức năng */}
                     <div

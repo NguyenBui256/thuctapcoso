@@ -42,6 +42,8 @@ public class IssueFacadeService {
     private final SecurityUtils securityUtils;
     private final SprintRepository sprintRepository;
     private final EpicRepository epicRepository;
+    private final UserRepository userRepository;
+    private final NotificationRepository notificationRepository;
 
     public List<IssueDTO> getList(long projectId,
             Long sprintId,
@@ -381,6 +383,11 @@ public class IssueFacadeService {
                             && !issue.getAssignee().getId().equals(assignee.getId()))) {
                 changes.append("Assignee changed to ")
                         .append(assignee != null ? assignee.getUser().getFullName() : "unassigned").append(". ");
+
+                // Create notification for new assignee if one is assigned
+                if (assignee != null) {
+                    createAssigneeNotification(assignee.getUser(), issue, member.getUser().getId());
+                }
             }
 
             issue.setAssignee(assignee);
@@ -543,5 +550,30 @@ public class IssueFacadeService {
         dto.setCreatedAt(comment.getCreatedAt());
         dto.setUpdatedAt(comment.getUpdatedAt());
         return dto;
+    }
+
+    /**
+     * Create notification for user assigned to an issue
+     */
+    private void createAssigneeNotification(User receiver, Issue issue, Long senderId) {
+        Notification notification = new Notification();
+        notification.setReceiver(receiver);
+        notification.setDescription("You have been assigned to issue: " + issue.getSubject());
+        notification.setObjectId(issue.getId().intValue());
+        notification.setType("ISSUE_ASSIGNED");
+        notification.setCreatedAt(LocalDateTime.now());
+        notification.setUpdatedAt(LocalDateTime.now());
+
+        User sender = userRepository.findById(senderId)
+                .orElse(null);
+
+        if (sender != null) {
+            notification.setCreatedBy(sender);
+            notification.setUpdatedBy(sender);
+        }
+
+        notification.setIsSeen(false);
+
+        notificationRepository.save(notification);
     }
 }
