@@ -226,5 +226,31 @@ export const projectService = {
             console.error('Error fetching joined projects:', error.response?.data || error.message);
             throw error;
         }
+    },
+
+    // Get project roles
+    getProjectRoles: async (projectId, userId) => {
+        try {
+            const response = await api.get(`/v1/user/${userId}/project/${projectId}/roles`);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching project roles:', error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    // Update project member role
+    updateMemberRole: async (projectId, memberId, roleId, userId) => {
+        try {
+            const response = await api.put(`/v1/user/${userId}/project/${projectId}/members/${memberId}`, {
+                userId: memberId,
+                roleId: roleId,
+                isAdmin: false
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error updating member role:', error.response?.data || error.message);
+            throw error;
+        }
     }
 }; 

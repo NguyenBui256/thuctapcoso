@@ -16,24 +16,24 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
   const [rolesLoading, setRolesLoading] = useState(false);
   const [leavingProject, setLeavingProject] = useState(false);
   const navigate = useNavigate();
-  
+
   // Check if current user is a project manager (has admin rights)
   const isProjectManager = currentUser?.isAdmin || false;
-  
+
   // Mock badges for demonstration
   const mockBadges = ['Title 1', 'Title 2', 'Title 3'];
-  
+
   // Fetch project roles when modal opens
   useEffect(() => {
     if (showInviteModal) {
       fetchProjectRoles();
     }
   }, [showInviteModal, projectId]);
-  
+
   // Function to fetch project roles from the backend
   const fetchProjectRoles = async () => {
     if (!projectId || !currentUser) return;
-    
+
     setRolesLoading(true);
     try {
       const response = await fetchWithAuth(
@@ -42,17 +42,17 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
         true, // auth is required
         { method: 'GET' }
       );
-      
+
       if (!response) {
         throw new Error('Authentication failed');
       }
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch project roles: ${response.statusText}`);
       }
-      
+
       const data = await response.json();
-      
+
       // Process response based on data structure
       let roles = [];
       if (Array.isArray(data)) {
@@ -62,9 +62,9 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
       } else {
         throw new Error('Invalid API response format for roles');
       }
-      
+
       setProjectRoles(roles);
-      
+
       // Set default role to the first one if available
       if (roles.length > 0) {
         setInviteRole(roles[0].id.toString());
@@ -76,7 +76,7 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
       setRolesLoading(false);
     }
   };
-  
+
   // Function to get random badges for demonstration
   const getRandomBadges = (userId) => {
     if (!userId) return [];
@@ -84,41 +84,41 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
     const num = parseInt(userId.toString().slice(-1)) % 3 + 1;
     return mockBadges.slice(0, num);
   };
-  
+
   // Get sort status text for display
   const getSortStatusText = () => {
     if (sortOption === 'none') return null;
-    
+
     const direction = sortDirection === 'asc' ? 'ascending' : 'descending';
     const type = sortOption === 'power' ? 'total power' : 'number of badges';
-    
+
     return `Sorted by ${type} (${direction})`;
   };
-  
+
   const handleImageError = (e, member) => {
     e.target.style.display = 'none';
     e.target.parentElement.style.backgroundColor = 'rgb(153, 214, 220)';
     e.target.parentElement.innerHTML = `<span class="text-sm font-medium">${getUserInitials(member.username)}</span>`;
   };
-  
+
   const handleInviteSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Validate email
     if (!inviteEmail.trim() || !inviteEmail.includes('@')) {
       setInviteError('Please enter a valid email address');
       return;
     }
-    
+
     // Validate role
     if (!inviteRole) {
       setInviteError('Please select a role');
       return;
     }
-    
+
     setInviting(true);
     setInviteError(null);
-    
+
     try {
       // Prepare the invitation data
       const inviteData = {
@@ -126,7 +126,7 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
         roleId: Number(inviteRole), // Convert role selection to actual roleId
         isAdmin: false
       };
-      
+
       // Call the API to invite the user using fetchWithAuth
       const response = await fetchWithAuth(
         `${BASE_API_URL}/v1/user/${currentUser.userId}/project/${projectId}/members/invite`,
@@ -140,17 +140,17 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
           body: JSON.stringify(inviteData),
         }
       );
-      
+
       if (!response) {
         throw new Error('Authentication failed');
       }
-      
+
       const data = await response.json();
-      
+
       if (response.ok) {
         setInviteSuccess(true);
         setInviteEmail('');
-        
+
         // Reset success message after 3 seconds
         setTimeout(() => {
           setInviteSuccess(false);
@@ -166,7 +166,7 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
       setInviting(false);
     }
   };
-  
+
   const handleRemoveMember = (memberId) => {
     if (window.confirm('Are you sure you want to remove this team member?')) {
       // Mock successful removal
@@ -181,14 +181,14 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
     if (!window.confirm('Are you sure you want to leave this project?')) {
       return;
     }
-    
+
     if (!projectId || !currentUser) {
       console.error('Missing project ID or user information');
       return;
     }
-    
+
     setLeavingProject(true);
-    
+
     try {
       const response = await fetchWithAuth(
         `${BASE_API_URL}/v1/user/${currentUser.userId}/project/${projectId}/members/leave`,
@@ -196,24 +196,24 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
         true,
         { method: 'POST' }
       );
-      
+
       if (!response) {
         throw new Error('Authentication failed');
       }
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to leave project');
       }
-      
+
       // Navigate back to projects list
       navigate('/projects');
-      
+
       // If onLeaveProject is provided as a prop, call it
       if (onLeaveProject && typeof onLeaveProject === 'function') {
         onLeaveProject();
       }
-      
+
     } catch (error) {
       console.error('Error leaving project:', error);
       alert(error.message || 'Failed to leave project. Please try again.');
@@ -224,14 +224,14 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
 
   const MemberCard = ({ member, isCurrentUser }) => {
     const badges = getRandomBadges(member.userId);
-    
+
     return (
       <div className={`bg-white rounded-lg shadow-sm p-4 mb-4 ${isCurrentUser ? 'border-2 border-blue-400' : ''}`}>
         <div className="flex items-start">
           <div className="w-12 h-12 bg-taiga-primary flex items-center justify-center text-white rounded-full mr-4">
             {member?.avatar ? (
-              <img 
-                src={member.avatar} 
+              <img
+                src={member.avatar}
                 alt={member.username}
                 className="w-full h-full object-cover rounded-full"
                 onError={(e) => handleImageError(e, member)}
@@ -240,7 +240,7 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
               <span className="text-sm font-medium">{getUserInitials(member.username || member.userFullName)}</span>
             )}
           </div>
-          
+
           <div className="flex-1">
             <div className="flex justify-between items-start">
               <div>
@@ -254,10 +254,10 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
                 </h3>
                 <p className="text-sm text-gray-600">{member.roleName || 'Team Member'}</p>
               </div>
-              
+
               <div>
                 {isCurrentUser ? (
-                  <button 
+                  <button
                     onClick={handleLeaveProject}
                     disabled={leavingProject}
                     className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
@@ -274,7 +274,7 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
                     )}
                   </button>
                 ) : isProjectManager && (
-                  <button 
+                  <button
                     onClick={() => handleRemoveMember(member.id)}
                     className="inline-flex items-center px-3 py-1 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                   >
@@ -283,7 +283,7 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
                 )}
               </div>
             </div>
-            
+
             <div className="mt-3">
               <div className="flex items-center">
                 <span className="text-sm font-medium text-gray-500 mr-2">Badges:</span>
@@ -291,8 +291,8 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
                   {badges.length > 0 ? (
                     <>
                       {badges.map((badge, index) => (
-                        <span 
-                          key={index} 
+                        <span
+                          key={index}
                           className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
                         >
                           {badge}
@@ -308,7 +308,7 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
                   )}
                 </div>
               </div>
-              
+
               <div className="mt-2 flex items-center">
                 <span className="text-sm font-medium text-gray-500 mr-2">Total Power:</span>
                 <span className="text-sm font-bold">{member.totalPoint || 0}</span>
@@ -331,7 +331,7 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
             </div>
           )}
         </div>
-        
+
         <button
           onClick={() => setShowInviteModal(true)}
           className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-taiga-primary hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -339,20 +339,20 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
           <FiUserPlus className="mr-2" /> Invite Member
         </button>
       </div>
-      
+
       {loading && (
         <div className="text-center py-4">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-taiga-primary mx-auto"></div>
           <p className="mt-2 text-gray-600">Loading team members...</p>
         </div>
       )}
-      
+
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
           <p>{error}</p>
         </div>
       )}
-      
+
       {!loading && !error && (
         <div>
           {/* Current User Section */}
@@ -362,7 +362,7 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
               <MemberCard member={currentUser} isCurrentUser={true} />
             </div>
           )}
-          
+
           {/* Other Members Section */}
           <div>
             <h3 className="text-lg font-medium text-gray-900 mb-3">All Team Members</h3>
