@@ -65,9 +65,9 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
       } else {
         throw new Error('Invalid API response format for roles');
       }
-
+      
       setProjectRoles(roles);
-
+      
       // Set default role to the first one if available
       if (roles.length > 0) {
         setInviteRole(roles[0].id.toString());
@@ -112,13 +112,13 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
       setInviteError('Please enter a valid email address');
       return;
     }
-
+    
     // Validate role
     if (!inviteRole) {
       setInviteError('Please select a role');
       return;
     }
-
+    
     setInviting(true);
     setInviteError(null);
     
@@ -184,14 +184,14 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
     if (!window.confirm('Are you sure you want to leave this project?')) {
       return;
     }
-
+    
     if (!projectId || !currentUser) {
       console.error('Missing project ID or user information');
       return;
     }
-
+    
     setLeavingProject(true);
-
+    
     try {
       const response = await fetchWithAuth(
         `${BASE_API_URL}/v1/user/${currentUser.userId}/project/${projectId}/members/leave`,
@@ -199,24 +199,24 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
         true,
         { method: 'POST' }
       );
-
+      
       if (!response) {
         throw new Error('Authentication failed');
       }
-
+      
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to leave project');
       }
-
+      
       // Navigate back to projects list
       navigate('/projects');
-
+      
       // If onLeaveProject is provided as a prop, call it
       if (onLeaveProject && typeof onLeaveProject === 'function') {
         onLeaveProject();
       }
-
+      
     } catch (error) {
       console.error('Error leaving project:', error);
       alert(error.message || 'Failed to leave project. Please try again.');

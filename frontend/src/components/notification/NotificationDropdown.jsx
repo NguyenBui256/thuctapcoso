@@ -21,14 +21,14 @@ const NotificationDropdown = ({ userId }) => {
     if (userId) {
       fetchNotifications();
     }
-    
+
     // Set up polling
     const intervalId = setInterval(() => {
       if (userId) {
         fetchNotifications(true); // silent refresh
       }
     }, 30000); // 30 seconds
-    
+
     // Clean up interval on component unmount
     return () => clearInterval(intervalId);
   }, [userId]);
@@ -40,37 +40,37 @@ const NotificationDropdown = ({ userId }) => {
         setShowNotifications(false);
       }
     };
-    
+
     document.addEventListener('mousedown', handleClickOutside);
-    
+
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
-  
+
   // Separate function to calculate unread count
   const calculateUnreadCount = (notificationList) => {
     return notificationList.filter(notification => notification.isSeen === false).length;
   };
-  
+
   // Function to sort notifications - sort by creation time (most recent first)
   const sortNotifications = (notifications) => {
     if (!Array.isArray(notifications)) return [];
-    
+
     return [...notifications].sort((a, b) => {
       // Sort by creation time (newer first)
       return new Date(b.createdAt) - new Date(a.createdAt);
     });
   };
-  
+
   const fetchNotifications = async (silent = false) => {
     if (!userId) return;
-    
+
     if (!silent) {
       setLoading(true);
       setError(null);
     }
-    
+
     try {
       const response = await fetchWithAuth(
         `${BASE_API_URL}/v1/user/${userId}/notifications`,
@@ -78,11 +78,11 @@ const NotificationDropdown = ({ userId }) => {
         true,
         { method: 'GET' }
       );
-      
+
       if (!response || !response.ok) {
         throw new Error(`Failed to fetch notifications: ${response?.statusText || 'Unknown error'}`);
       }
-      
+
       // Safely parse JSON response
       let result;
       try {
@@ -92,10 +92,10 @@ const NotificationDropdown = ({ userId }) => {
         console.error('JSON parsing error:', parseError);
         throw new Error(`Invalid response format: ${parseError.message}`);
       }
-      
+
       // Process data based on API response structure
       let notificationList = [];
-      
+
       if (result && result.data) {
         notificationList = result.data;
       } else if (Array.isArray(result)) {
@@ -104,17 +104,17 @@ const NotificationDropdown = ({ userId }) => {
         console.warn('Unexpected response format:', result);
         notificationList = [];
       }
-      
+
       // Sort notifications - sort by creation time (most recent first)
       const sortedNotifications = sortNotifications(notificationList);
-      
+
       // Update state with the sorted notifications
       setNotifications(sortedNotifications);
-      
+
       // Calculate and update unread count
       const unread = calculateUnreadCount(notificationList);
       setUnreadCount(unread);
-      
+
     } catch (error) {
       console.error('Error fetching notifications:', error);
       if (!silent) {
@@ -126,7 +126,7 @@ const NotificationDropdown = ({ userId }) => {
       }
     }
   };
-  
+
   const handleNotificationClick = async (notification) => {
     // Mark notification as seen if not already
     if (notification.isSeen === false) {
@@ -137,13 +137,13 @@ const NotificationDropdown = ({ userId }) => {
           true,
           { method: 'PUT' }
         );
-        
+
         // Update local state
         setNotifications(prev => {
-          const updated = prev.map(n => n.id === notification.id ? {...n, isSeen: true} : n);
+          const updated = prev.map(n => n.id === notification.id ? { ...n, isSeen: true } : n);
           return sortNotifications(updated);
         });
-        
+
         // Recalculate unread count
         setUnreadCount(prev => Math.max(0, prev - 1));
       } catch (error) {
@@ -151,35 +151,35 @@ const NotificationDropdown = ({ userId }) => {
       }
     }
   };
-  
+
   const handleMarkAsUnread = async (e, notification) => {
     e.stopPropagation(); // Prevent triggering parent click event
-    
+
     // Don't allow PROJECT_INVITE notifications to be marked as unread once seen
     if (notification.type === "PROJECT_INVITE" && notification.isSeen === true) {
       return;
     }
-    
+
     if (notification.isSeen === true) {
       try {
         // We'll use the same endpoint but toggle the status in the frontend
         // since there's no direct "mark as unread" endpoint
-        
+
         // Update local state first for immediate feedback
         setNotifications(prev => {
-          const updated = prev.map(n => n.id === notification.id ? {...n, isSeen: false} : n);
+          const updated = prev.map(n => n.id === notification.id ? { ...n, isSeen: false } : n);
           return sortNotifications(updated);
         });
-        
+
         // Increase unread count
         setUnreadCount(prev => prev + 1);
-        
+
       } catch (error) {
         console.error('Error marking notification as unread:', error);
       }
     }
   };
-  
+
   const handleAcceptInvitation = async (notification) => {
     try {
       const response = await fetchWithAuth(
@@ -188,24 +188,24 @@ const NotificationDropdown = ({ userId }) => {
         true,
         { method: 'POST' }
       );
-      
+
       if (!response || !response.ok) {
         throw new Error('Failed to accept invitation');
       }
-      
+
       // Update notification in state to reflect acceptance
-      setNotifications(prev => 
+      setNotifications(prev =>
         prev.filter(n => n.id !== notification.id)
       );
-      
+
       // Recalculate unread count
       if (notification.isSeen === false) {
         setUnreadCount(prev => Math.max(0, prev - 1));
       }
-      
+
       // Refresh notifications
       fetchNotifications(true);
-      
+
       // Navigate to the project if needed
       if (notification.objectId) {
         navigate(`/projects/${notification.objectId}`);
@@ -215,7 +215,7 @@ const NotificationDropdown = ({ userId }) => {
       alert('Failed to accept invitation: ' + error.message);
     }
   };
-  
+
   const handleRejectInvitation = async (notification) => {
     try {
       const response = await fetchWithAuth(
@@ -224,21 +224,21 @@ const NotificationDropdown = ({ userId }) => {
         true,
         { method: 'POST' }
       );
-      
+
       if (!response || !response.ok) {
         throw new Error('Failed to reject invitation');
       }
-      
+
       // Update notification in state
-      setNotifications(prev => 
+      setNotifications(prev =>
         prev.filter(n => n.id !== notification.id)
       );
-      
+
       // Recalculate unread count
       if (notification.isSeen === false) {
         setUnreadCount(prev => Math.max(0, prev - 1));
       }
-      
+
       // Refresh notifications
       fetchNotifications(true);
     } catch (error) {
@@ -246,34 +246,34 @@ const NotificationDropdown = ({ userId }) => {
       alert('Failed to reject invitation: ' + error.message);
     }
   };
-  
+
   const formatNotificationTime = (timestamp) => {
     if (!timestamp) return 'Unknown';
     try {
       const date = new Date(timestamp);
       if (isNaN(date.getTime())) return 'Unknown';
-      
+
       // Format as hh:mm dd/MM/yyyy
       const hours = String(date.getHours()).padStart(2, '0');
       const minutes = String(date.getMinutes()).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
       const month = String(date.getMonth() + 1).padStart(2, '0'); // Month is 0-based
       const year = date.getFullYear();
-      
+
       return `${hours}:${minutes} ${day}/${month}/${year}`;
     } catch (error) {
       return 'Unknown';
     }
   };
-  
+
   const renderNotificationItem = (notification) => {
     const isProjectInvite = notification.type === "PROJECT_INVITE";
     const isUnread = notification.isSeen === false;
     const canMarkAsUnread = notification.isSeen === true && notification.type !== "PROJECT_INVITE";
-    
+
     return (
-      <div 
-        key={notification.id} 
+      <div
+        key={notification.id}
         className={`p-3 border-b hover:bg-gray-50 ${isUnread ? 'bg-blue-50' : ''}`}
         onClick={() => handleNotificationClick(notification)}
       >
@@ -285,7 +285,7 @@ const NotificationDropdown = ({ userId }) => {
             {notification.description}
           </div>
           {canMarkAsUnread && (
-            <button 
+            <button
               onClick={(e) => handleMarkAsUnread(e, notification)}
               className="ml-2 px-2 text-xs rounded text-blue-500 hover:underline"
               title="Mark as unread"
@@ -302,10 +302,10 @@ const NotificationDropdown = ({ userId }) => {
             </span>
           )}
         </div>
-        
+
         {isProjectInvite && isUnread && (
           <div className="mt-2 flex gap-2">
-            <button 
+            <button
               onClick={(e) => {
                 e.stopPropagation();
                 handleAcceptInvitation(notification);
@@ -314,7 +314,7 @@ const NotificationDropdown = ({ userId }) => {
             >
               <FiCheck className="mr-1" /> Accept
             </button>
-            <button 
+            <button
               onClick={(e) => {
                 e.stopPropagation();
                 handleRejectInvitation(notification);
@@ -331,7 +331,7 @@ const NotificationDropdown = ({ userId }) => {
 
   return (
     <div className="relative" ref={notificationRef}>
-      <button 
+      <button
         className="cursor-pointer text-2xl p-2 text-blue-600 hover:text-gray-700 rounded-full relative"
         onClick={() => setShowNotifications(!showNotifications)}
         aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
@@ -343,7 +343,7 @@ const NotificationDropdown = ({ userId }) => {
           </span>
         )}
       </button>
-      
+
       {showNotifications && (
         <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg z-10 max-h-[70vh] overflow-y-auto">
           <div className="p-3 border-b flex justify-between items-center">
@@ -352,7 +352,7 @@ const NotificationDropdown = ({ userId }) => {
               <span className="text-xs text-blue-600">{unreadCount} unread</span>
             )}
           </div>
-          
+
           {loading ? (
             <div className="p-4 text-center text-gray-500">
               <div className="inline-block animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-blue-500 mr-2"></div>
@@ -361,7 +361,7 @@ const NotificationDropdown = ({ userId }) => {
           ) : error ? (
             <div className="p-4 text-center text-red-500">
               <p className="mb-2">{error}</p>
-              <button 
+              <button
                 className="text-sm text-blue-600 hover:text-blue-800"
                 onClick={() => fetchNotifications()}
               >
@@ -375,9 +375,9 @@ const NotificationDropdown = ({ userId }) => {
               No notifications yet
             </div>
           )}
-          
+
           <div className="p-2 text-center">
-            <button 
+            <button
               className="text-sm text-blue-600 hover:text-blue-800"
               onClick={() => fetchNotifications()}
               disabled={loading}
