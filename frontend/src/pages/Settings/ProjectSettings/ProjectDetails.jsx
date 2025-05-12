@@ -25,7 +25,7 @@ const ProjectDetails = ({ projectId }) => {
       try {
         setLoading(true);
         setError(null);
-        
+
         const response = await fetchWithAuth(
           `${BASE_API_URL}/v1/projects/${projectId}`,
           `/projects/${projectId}/settings`,
@@ -34,7 +34,7 @@ const ProjectDetails = ({ projectId }) => {
 
         if (response && response.ok) {
           const data = await response.json();
-          
+
           setProject({
             id: data.id,
             name: data.name,
@@ -97,7 +97,7 @@ const ProjectDetails = ({ projectId }) => {
     try {
       setSaving(true);
       setError(null);
-      
+
       const projectDTO = {
         name: project.name,
         description: project.description,
@@ -108,7 +108,7 @@ const ProjectDetails = ({ projectId }) => {
         isPrivate: project.isPrivate,
         logoUrl: project.logo
       };
-      
+
       const response = await fetchWithAuth(
         `${BASE_API_URL}/api/v1/projects/${projectId}`,
         `/projects/${projectId}/settings`,
@@ -121,7 +121,7 @@ const ProjectDetails = ({ projectId }) => {
           body: JSON.stringify(projectDTO)
         }
       );
-      
+
       if (response && response.ok) {
         const updatedProject = await response.json();
         setProject({
@@ -147,7 +147,7 @@ const ProjectDetails = ({ projectId }) => {
     if (window.confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
       try {
         setLoading(true);
-        
+
         const response = await fetchWithAuth(
           `${BASE_API_URL}/api/v1/projects/${projectId}`,
           `/projects`,
@@ -156,7 +156,7 @@ const ProjectDetails = ({ projectId }) => {
             method: 'DELETE'
           }
         );
-        
+
         if (response && response.ok) {
           alert('Project deleted successfully!');
           // Navigate to projects page
@@ -187,7 +187,7 @@ const ProjectDetails = ({ projectId }) => {
           }));
         };
         reader.readAsDataURL(file);
-        
+
         // In a real implementation, you would upload the file to the server
         // and get back a URL to store in the project object
       } catch (err) {
@@ -299,7 +299,7 @@ const ProjectDetails = ({ projectId }) => {
                 {project.tags.map((tag, index) => (
                   <div key={index} className="bg-gray-100 rounded-full px-3 py-1 text-sm flex items-center">
                     {tag}
-                    <button 
+                    <button
                       onClick={() => handleRemoveTag(tag)}
                       className="ml-2 text-gray-500 hover:text-gray-700"
                     >
@@ -353,7 +353,7 @@ const ProjectDetails = ({ projectId }) => {
                   <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                 </label>
               </div>
-              
+
               {project.isLookingForPeople && (
                 <div>
                   <label htmlFor="lookingForDescription" className="block text-sm font-medium text-gray-700 mb-1">Who are you looking for?</label>
@@ -387,13 +387,13 @@ const ProjectDetails = ({ projectId }) => {
 
             <div className="flex justify-between">
               <div className="flex space-x-2">
-                <button 
+                <button
                   onClick={() => handleVisibilityChange(false)}
                   className={`border border-gray-300 rounded-md px-4 py-2 ${!project.isPrivate ? 'bg-teal-500 text-white' : 'bg-white text-gray-700'}`}
                 >
                   PUBLIC PROJECT
                 </button>
-                <button 
+                <button
                   onClick={() => handleVisibilityChange(true)}
                   className={`border border-gray-300 rounded-md px-4 py-2 ${project.isPrivate ? 'bg-teal-500 text-white' : 'bg-white text-gray-700'}`}
                 >
@@ -416,7 +416,7 @@ const ProjectDetails = ({ projectId }) => {
               >
                 {saving ? 'SAVING...' : 'SAVE'}
               </button>
-              
+
               <div className="border-t border-gray-200 pt-4">
                 <button
                   onClick={handleDeleteProject}

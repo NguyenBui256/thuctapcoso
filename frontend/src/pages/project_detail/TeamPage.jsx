@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import MemberSidebar from './MemberSidebar';
 import MemberContent from './MemberContent';
+import MemberRoleManager from '../../components/project/MemberRoleManager';
 import { fetchWithAuth, getCurrentUserId } from '../../utils/AuthUtils';
 import { fetchProjectMembers } from '../../utils/api';
 import { BASE_API_URL } from '../../common/constants';
@@ -19,6 +20,7 @@ const TeamPage = () => {
   const [sortDirection, setSortDirection] = useState('desc');
   const userId = getCurrentUserId();
   const [currentUser, setCurrentUser] = useState(null);
+  const [showRoleManager, setShowRoleManager] = useState(false);
 
   // Fetch members
   useEffect(() => {
@@ -26,14 +28,14 @@ const TeamPage = () => {
       try {
         setLoading(true);
         const membersData = await fetchProjectMembers(projectId);
-        
+
         // Extract unique teams (roles) from members
         const uniqueTeams = [...new Set(membersData.map(member => member.roleName || 'Unknown'))];
         setTeams(['ALL', ...uniqueTeams]);
-        
+
         setMembers(membersData);
         setFilteredMembers(membersData);
-        
+
         // Find current user in members
         const current = membersData.find(member => member.userId.toString() === userId);
         setCurrentUser(current || null);
@@ -61,25 +63,25 @@ const TeamPage = () => {
   // Filter and sort members based on search term, selected team, and sorting options
   useEffect(() => {
     let filtered = [...members];
-    
+
     // Filter by search term
     if (searchTerm) {
-      filtered = filtered.filter(member => 
-        member.username.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      filtered = filtered.filter(member =>
+        member.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (member.userFullName && member.userFullName.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
-    
+
     // Filter by team (role)
     if (selectedTeam !== 'ALL') {
       filtered = filtered.filter(member => member.roleName === selectedTeam);
     }
-    
+
     // Sort by selected option
     if (sortOption !== 'none') {
       filtered.sort((a, b) => {
         let valueA, valueB;
-        
+
         if (sortOption === 'power') {
           valueA = a.totalPoint || 0;
           valueB = b.totalPoint || 0;
@@ -87,7 +89,7 @@ const TeamPage = () => {
           valueA = getBadgeCount(a.userId);
           valueB = getBadgeCount(b.userId);
         }
-        
+
         if (sortDirection === 'asc') {
           return valueA - valueB;
         } else {
@@ -95,7 +97,7 @@ const TeamPage = () => {
         }
       });
     }
-    
+
     setFilteredMembers(filtered);
   }, [searchTerm, selectedTeam, sortOption, sortDirection, members]);
 
@@ -106,7 +108,7 @@ const TeamPage = () => {
   const handleTeamSelect = (team) => {
     setSelectedTeam(team);
   };
-  
+
   const handleSort = (option, direction) => {
     setSortOption(option);
     setSortDirection(direction);
@@ -116,7 +118,7 @@ const TeamPage = () => {
     if (!window.confirm('Are you sure you want to leave this project?')) {
       return;
     }
-    
+
     try {
       const response = await fetchWithAuth(
         `${BASE_API_URL}/v1/user/${userId}/project/${projectId}/leave`,
@@ -124,7 +126,7 @@ const TeamPage = () => {
         true,
         { method: 'POST' }
       );
-      
+
       if (response && response.ok) {
         window.location.href = '/projects';
       } else {
@@ -140,7 +142,7 @@ const TeamPage = () => {
     try {
       // This would be an actual API call in the future
       console.log('Inviting member with email:', email, 'and role:', role);
-      
+
       // Mock API call for now
       // In a real application, you would call an API endpoint to send an invitation
       // return await fetchWithAuth(
@@ -153,10 +155,10 @@ const TeamPage = () => {
       //     body: JSON.stringify({ email, role })
       //   }
       // );
-      
+
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
       // For demonstration, just return a mock success response
       return { ok: true };
     } catch (err) {
@@ -165,21 +167,38 @@ const TeamPage = () => {
     }
   };
 
+  // Handle role update
+  const handleRoleUpdate = (updatedMembers) => {
+    // Update members list
+    setMembers(updatedMembers);
+
+    // Extract updated teams from members
+    const uniqueTeams = [...new Set(updatedMembers.map(member => member.roleName || 'Unknown'))];
+    setTeams(['ALL', ...uniqueTeams]);
+  };
+
+  // Toggle role manager
+  const toggleRoleManager = () => {
+    setShowRoleManager(!showRoleManager);
+  };
+
   return (
     <div className="flex h-full w-full">
       {/* Member Sidebar */}
-      <MemberSidebar 
+      <MemberSidebar
         className="flex-shrink-0 w-64 h-full flex-col overflow-y-auto border-r border-gray-200 bg-white"
-        teams={teams} 
+        teams={teams}
         selectedTeam={selectedTeam}
         onTeamSelect={handleTeamSelect}
         onSearch={handleSearch}
         onSort={handleSort}
+        showRoleManagement={currentUser?.isAdmin}
+        onManageRoles={toggleRoleManager}
       />
-      
+
       {/* Main Member Content Area */}
       <div className="flex-1 overflow-y-auto">
-        <MemberContent 
+        <MemberContent
           members={filteredMembers}
           currentUser={currentUser}
           loading={loading}
@@ -191,6 +210,16 @@ const TeamPage = () => {
           sortDirection={sortDirection}
         />
       </div>
+
+      {/* Role Manager Modal */}
+      {showRoleManager && (
+        <MemberRoleManager
+          projectId={projectId}
+          userId={userId}
+          onClose={toggleRoleManager}
+          onRoleUpdate={handleRoleUpdate}
+        />
+      )}
     </div>
   );
 };
