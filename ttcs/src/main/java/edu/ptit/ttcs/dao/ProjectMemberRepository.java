@@ -7,11 +7,8 @@ import edu.ptit.ttcs.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import javax.swing.text.html.Option;
 import java.util.List;
 import java.util.Optional;
 
@@ -52,7 +49,7 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, Lo
 
         /**
          * Find project members by project and project role
-         *
+         * 
          * @param project     the project
          * @param projectRole the project role
          * @return list of project members
@@ -63,7 +60,7 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, Lo
 
         /**
          * Find project members by project and admin status
-         *
+         * 
          * @param project the project
          * @param isAdmin the admin status
          * @return list of project members

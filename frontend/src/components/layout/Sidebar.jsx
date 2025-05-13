@@ -48,7 +48,7 @@ const Sidebar = ({ currentProject, onToggleCollapse }) => {
   };
 
   return (
-      <aside className={`${sidebarCollapsed ? 'w-20' : 'w-64'} bg-taiga-dark text-white flex-shrink-0 fixed left-0 top-12 h-[calc(100vh-3rem)] transition-all duration-300`}>
+    <aside className={`${sidebarCollapsed ? 'w-20' : 'w-64'} bg-taiga-dark text-white flex-shrink-0 fixed left-0 top-12 h-[calc(100vh-3rem)] transition-all duration-300`}>
       <div className="p-4 h-full flex flex-col">
         <div className="mb-6">
           <Link

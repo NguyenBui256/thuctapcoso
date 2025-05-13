@@ -13,17 +13,8 @@ const ProjectDetail = lazy(() => import('./pages/project_detail/ProjectDetail'))
 const WikiPage = lazy(() => import('./pages/Wiki/WikiPage'));
 const TeamPage = lazy(() => import('./pages/project_detail/TeamPage'));
 const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage'));
-const TeamPage = lazy(() => import('./pages/project_detail/TeamPage'));
-const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage'));
-const MainLayout = lazy(() => import ('./pages/MainLayout.jsx'))
 const MainLayout = lazy(() => import('./pages/MainLayout.jsx'))
 const BacklogPage = lazy(() => import('./pages/scrum/BacklogPage'));
-const SprintPage = lazy(() => import ('./pages/scrum/SprintPage.jsx'))
-const MainLayout = lazy(() => import('./pages/MainLayout.jsx'))
-const BacklogPage = lazy(() => import('./pages/scrum/BacklogPage.jsx'));
-const SprintPage = lazy(() => import('./pages/scrum/SprintPage.jsx'));
-const IssuePage = lazy(() => import ('./pages/issue/IssuePage.jsx'))
-const IssueList = lazy(() => import ('./pages/issue/IssueList.jsx'))
 const SprintPage = lazy(() => import('./pages/scrum/SprintPage.jsx'))
 const IssueList = lazy(() => import('./pages/issue/IssueList.jsx'))
 const IssueDetail = lazy(() => import('./pages/issue/IssueDetail.jsx'));
@@ -35,7 +26,6 @@ const ManageProjects = lazy(() => import('./pages/ManageProjects.jsx'));
 
 import { ERROR_TYPE } from './pages/ErrorPage.jsx';
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
 import ProjectList from './components/project/ProjectList.jsx';
 import SelectProjectType from './components/project/SelectProjectType.jsx';
 import CreateProject from './components/project/CreateProject.jsx';
@@ -44,7 +34,6 @@ import AccountSettings from './components/account/AccountSettings.jsx';
 import KanbanBoardWrapper from './components/kanban/KanbanBoardWrapper.jsx';
 import TaigaUserStoryDetail from './components/kanban/TaigaUserStoryDetail';
 import TaigaTaskDetail from './components/kanban/TaigaTaskDetail.jsx';
-
 
 function App() {
 
@@ -74,17 +63,6 @@ function App() {
           <Route path="/projects/:projectId/task/:taskId" element={<TaigaTaskDetail />} />
           <Route index element={< ProjectDetail />} />
           <Route path="wiki" element={<WikiPage />} />
-          <Route path="team" element={<TeamPage />} />
-          <Route path="backlog" element={<BacklogPage/>}/>
-          <Route path="sprint/:sprintId" element={<SprintPage/>}/>
-          <Route path='issues' element={<IssuePage/>}/>
-        </Route>
-        <Route path="/projects/:projectId" element={<ProjectDetail />}>
-          <Route path='backlog' element={<BacklogPage/>}/>
-          <Route path='sprint/:sprintId' element={<SprintPage/>}/>
-          <Route path='issues' element={<IssueList/>}/>
-          <Route path='issue/:issueId' element={<IssueDetail/>}/>
-          <Route path="settings" element={<SettingsPage />} />
           <Route path="team" element={<TeamPage />} />
           <Route path="backlog" element={<BacklogPage />} />
           <Route path="backlog/userstory/:userStoryId" element={<TaigaUserStoryDetail />} />

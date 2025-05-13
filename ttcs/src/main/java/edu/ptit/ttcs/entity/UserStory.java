@@ -34,7 +34,7 @@ public class UserStory extends BaseEntity {
     private String description;
 
     @Column(name = "due_date")
-    private LocalDateTime dueDate;
+    private LocalDate dueDate;
 
     @ManyToOne
     @JoinColumn(name = "status_id")
@@ -73,18 +73,6 @@ public class UserStory extends BaseEntity {
     @ManyToMany
     @JoinTable(name = "user_story_watcher", joinColumns = @JoinColumn(name = "user_story_id"), inverseJoinColumns = @JoinColumn(name = "project_member_id"))
     private Set<ProjectMember> watchers = new HashSet<>();
-
-    @ManyToOne
-    @JoinColumn(name = "assigned_to")
-    private User assignedTo;
-
-    public User getAssignedTo() {
-        return assignedTo;
-    }
-
-    public void setAssignedTo(User assignedTo) {
-        this.assignedTo = assignedTo;
-    }
 
     @ManyToMany
     @JoinTable(name = "user_story_attachment", joinColumns = @JoinColumn(name = "user_story_id"), inverseJoinColumns = @JoinColumn(name = "attachment_id"))

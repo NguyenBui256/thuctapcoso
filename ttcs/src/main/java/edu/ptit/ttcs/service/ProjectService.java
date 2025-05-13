@@ -11,6 +11,7 @@ import edu.ptit.ttcs.entity.dto.PageResponse;
 import edu.ptit.ttcs.entity.dto.ProjectDTO;
 import edu.ptit.ttcs.entity.dto.response.PjStatusDTO;
 import edu.ptit.ttcs.entity.enums.ProjectRoleName;
+import edu.ptit.ttcs.entity.enums.StatusType;
 import edu.ptit.ttcs.exception.RequestException;
 import edu.ptit.ttcs.mapper.ProjectMapper;
 import edu.ptit.ttcs.util.ModelMapper;
@@ -22,13 +23,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.ui.ModelMap;
 
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -117,6 +115,8 @@ public class ProjectService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Project project = projectMapper.toEntity(createProjectDTO);
+        // Không set createdBy lúc này
+        project.setCreatedBy(null);
         project.setIsDeleted(false);
         log.info("Project CREATED AT: {}", project.getCreatedAt());
         project = projectRepository.save(project);
@@ -159,25 +159,17 @@ public class ProjectService {
         creatorMember.setProjectRole(toSetForAdminProjectRole);
         creatorMember.setCreatedBy(creatorMember);
         creatorMember.setUpdatedBy(creatorMember);
-        creatorMember.setCreatedAt(LocalDateTime.now());
-        creatorMember.setUpdatedAt(LocalDateTime.now());
         projectMemberRepository.save(creatorMember);
         log.info("ProjectMember ID: {}", creatorMember.getId());
 
-        for(ProjectRole projectRole : projectRoleList) {
-            projectRole.setCreatedBy(projectMember);
-            projectRole.setUpdatedBy(projectMember);
-            projectRoleRepository.save(projectRole);
-        }
         return project;
     }
 
     @Transactional
     public Project createProject(CreateProjectDTO createProjectDTO, Long currentUserId) {
         try {
+            User currentUser = securityUtils.getCurrentUser();
             // Get user from repository
-            User creator = userRepository.findById(currentUserId)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
 
             log.info("Creating project for user ID: {}", currentUserId);
 
@@ -186,7 +178,8 @@ public class ProjectService {
             project.setDescription(createProjectDTO.getDescription());
             project.setIsPublic(createProjectDTO.getIsPublic());
             project.setLogoUrl(createProjectDTO.getLogoUrl());
-            // Can't set createdBy until we have a ProjectMember
+            project.setCreatedBy(currentUser);
+            // Không set createdBy lúc này
             project.setCreatedAt(LocalDateTime.now());
             project.setIsDeleted(false);
             project = projectRepository.save(project);
@@ -198,16 +191,17 @@ public class ProjectService {
             // Create project member first
             ProjectMember creatorMember = new ProjectMember();
             creatorMember.setProject(project);
-            creatorMember.setUser(creator);
+            creatorMember.setUser(currentUser);
             creatorMember.setIsAdmin(true);
             creatorMember.setCreatedAt(LocalDateTime.now());
             creatorMember.setUpdatedAt(LocalDateTime.now());
             creatorMember = projectMemberRepository.save(creatorMember);
             log.info("Project member created with ID: {}", creatorMember.getId());
 
-            // Now we can set the project's createdBy
-            project.setCreatedBy(creator);
+            // Sau khi đã tạo xong ProjectMember, cập nhật lại createdBy cho Project
+            project.setCreatedBy(currentUser);
             project = projectRepository.save(project);
+            log.info("Updated project with creator ID: {}", currentUser.getId());
 
             for (ProjectRoleName roleName : ProjectRoleName.values()) {
                 ProjectRole projectRole = new ProjectRole();

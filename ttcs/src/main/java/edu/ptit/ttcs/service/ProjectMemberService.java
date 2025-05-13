@@ -46,28 +46,4 @@ public interface ProjectMemberService {
      * @param userId ID of the user leaving the project
      */
     void leaveProject(Long projectId, Long userId);
-
-    void inviteUserByEmail(Long projectId, ProjectInviteDTO invite, Long requestUserId);
-    
-    /**
-     * Accept a project invitation from notification
-     * @param notificationId ID of the notification containing the invitation
-     * @param userId ID of the user accepting the invitation
-     * @return The created project member
-     */
-    ProjectMemberDTO acceptProjectInvitation(Integer notificationId, Long userId);
-    
-    /**
-     * Reject a project invitation from notification
-     * @param notificationId ID of the notification containing the invitation
-     * @param userId ID of the user rejecting the invitation
-     */
-    void rejectProjectInvitation(Integer notificationId, Long userId);
-    
-    /**
-     * User leaves a project
-     * @param projectId ID of the project to leave
-     * @param userId ID of the user leaving the project
-     */
-    void leaveProject(Long projectId, Long userId);
 }
