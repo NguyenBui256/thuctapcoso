@@ -1,5 +1,6 @@
 package edu.ptit.ttcs.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -29,9 +30,7 @@ public class Permission extends BaseEntity {
     @Column(nullable = false)
     private String name;
 
-    @Column(name ="is_enabled")
-    private Boolean isEnabled = true;
-
     @ManyToMany(mappedBy = "permissions")
+    @JsonIgnore
     private Set<ProjectRole> projectRoles = new HashSet<>();
 }
