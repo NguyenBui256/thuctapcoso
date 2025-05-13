@@ -11,4 +11,6 @@ public class PermissionDTO {
 
     private String name;
 
+    private Boolean isEnabled;
+
 }

@@ -17,20 +17,30 @@ import edu.ptit.ttcs.entity.dto.ProjectRoleDTO;
 import edu.ptit.ttcs.entity.dto.ProjectRoleRequestDTO;
 import edu.ptit.ttcs.service.ProjectRoleService;
 import edu.ptit.ttcs.util.ApiResponse;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/v1/user/{userId}/project/{projectId}/roles")
+@Slf4j
 public class ProjectRoleController {
 
     @Autowired
     private ProjectRoleService projectRoleService;
 
     @PostMapping
-    public ResponseEntity createRole(
+    public ResponseEntity<?> createRole(
             @PathVariable Long projectId,
             @RequestBody ProjectRoleRequestDTO request,
             @PathVariable Long userId) {
         try {
+            if (userId == null) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>("error", "User ID cannot be null", null));
+            }
+
+            if (projectId == null) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>("error", "Project ID cannot be null", null));
+            }
+
             request.validate();
 
             ProjectRoleDTO role = projectRoleService.createProjectRole(
@@ -40,42 +50,77 @@ public class ProjectRoleController {
                     userId);
             return ResponseEntity.ok(role);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(null);
+            log.error("Error creating role", e);
+            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
         }
     }
 
     @GetMapping
-    public ResponseEntity getProjectRoles(
+    public ResponseEntity<?> getProjectRoles(
             @PathVariable Long projectId,
             @PathVariable Long userId) {
         try {
+            if (userId == null) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>("error", "User ID cannot be null", null));
+            }
+
+            if (projectId == null) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>("error", "Project ID cannot be null", null));
+            }
+
             List<ProjectRoleDTO> roles = projectRoleService.getProjectRoles(projectId, userId);
             return ResponseEntity.ok(roles);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(null);
+            log.error("Error getting project roles", e);
+            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
         }
     }
 
     @GetMapping("/{roleId}")
-    public ResponseEntity getRole(
+    public ResponseEntity<?> getRole(
             @PathVariable Long projectId,
             @PathVariable Long roleId,
             @PathVariable Long userId) {
         try {
+            if (userId == null) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>("error", "User ID cannot be null", null));
+            }
+
+            if (projectId == null) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>("error", "Project ID cannot be null", null));
+            }
+
+            if (roleId == null) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>("error", "Role ID cannot be null", null));
+            }
+
             ProjectRoleDTO role = projectRoleService.getProjectRoleById(roleId, userId);
             return ResponseEntity.ok(role);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(null);
+            log.error("Error getting role", e);
+            return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
         }
     }
 
     @PutMapping("/{roleId}")
-    public ResponseEntity updateRole(
+    public ResponseEntity<?> updateRole(
             @PathVariable Long projectId,
             @PathVariable Long roleId,
             @RequestBody ProjectRoleRequestDTO request,
             @PathVariable Long userId) {
         try {
+            if (userId == null) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>("error", "User ID cannot be null", null));
+            }
+
+            if (projectId == null) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>("error", "Project ID cannot be null", null));
+            }
+
+            if (roleId == null) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>("error", "Role ID cannot be null", null));
+            }
+
             request.validate();
 
             ProjectRoleDTO role = projectRoleService.updateProjectRole(
@@ -85,19 +130,33 @@ public class ProjectRoleController {
                     userId);
             return ResponseEntity.ok(new ApiResponse<>("success", "Role updated successfully", role));
         } catch (Exception e) {
+            log.error("Error updating role", e);
             return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
         }
     }
 
     @DeleteMapping("/{roleId}")
-    public ResponseEntity<ApiResponse<Void>> deleteRole(
+    public ResponseEntity<?> deleteRole(
             @PathVariable Long projectId,
             @PathVariable Long roleId,
             @PathVariable Long userId) {
         try {
+            if (userId == null) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>("error", "User ID cannot be null", null));
+            }
+
+            if (projectId == null) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>("error", "Project ID cannot be null", null));
+            }
+
+            if (roleId == null) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>("error", "Role ID cannot be null", null));
+            }
+
             projectRoleService.deleteProjectRole(roleId, userId);
             return ResponseEntity.ok(new ApiResponse<>("success", "Role deleted successfully", null));
         } catch (Exception e) {
+            log.error("Error deleting role", e);
             return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
         }
     }

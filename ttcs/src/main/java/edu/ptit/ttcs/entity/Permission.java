@@ -29,6 +29,9 @@ public class Permission extends BaseEntity {
     @Column(nullable = false)
     private String name;
 
+    @Column(name ="is_enabled")
+    private Boolean isEnabled = true;
+
     @ManyToMany(mappedBy = "permissions")
     private Set<ProjectRole> projectRoles = new HashSet<>();
 }

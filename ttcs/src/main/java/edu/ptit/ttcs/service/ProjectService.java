@@ -2,6 +2,7 @@ package edu.ptit.ttcs.service;
 
 import edu.ptit.ttcs.dao.*;
 import edu.ptit.ttcs.dao.ModuleRepository;
+import edu.ptit.ttcs.dao.ProjectModuleRepository;
 import edu.ptit.ttcs.dao.ProjectRepository;
 import edu.ptit.ttcs.dao.UserRepository;
 import edu.ptit.ttcs.entity.*;
@@ -27,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -34,6 +36,7 @@ import java.util.List;
 public class ProjectService {
 
     private final ProjectRepository projectRepository;
+    private final ProjectModuleRepository projectModuleRepository;
     private final ModuleRepository moduleRepository;
     private final ProjectMapper projectMapper;
     private final SecurityUtils securityUtils;
@@ -41,6 +44,8 @@ public class ProjectService {
     private final ProjectRoleRepository projectRoleRepository;
     private final ProjectMemberRepository projectMemberRepository;
     private final PjSettingStatusRepository pjSettingStatusRepository;
+    private final ModuleService moduleService;
+    private final PermissionRepository permissionRepository;
 
     @Transactional
     public Project save(Project project) {
@@ -148,7 +153,11 @@ public class ProjectService {
             projectRole.setUpdatedBy(creatorMember);
             projectRole.setCreatedAt(LocalDateTime.now());
             projectRole.setUpdatedAt(LocalDateTime.now());
-            projectRoleRepository.save(projectRole);
+
+            // Initialize default permissions based on role
+            initializeRolePermissions(projectRole);
+
+            projectRole = projectRoleRepository.save(projectRole);
             if (roleName == ProjectRoleName.PROJECT_MANAGER) {
                 toSetForAdminProjectRole = projectRole;
             }
@@ -169,8 +178,6 @@ public class ProjectService {
     public Project createProject(CreateProjectDTO createProjectDTO, Long currentUserId) {
         try {
             User currentUser = securityUtils.getCurrentUser();
-            // Get user from repository
-
             log.info("Creating project for user ID: {}", currentUserId);
 
             Project project = new Project();
@@ -179,11 +186,23 @@ public class ProjectService {
             project.setIsPublic(createProjectDTO.getIsPublic());
             project.setLogoUrl(createProjectDTO.getLogoUrl());
             project.setCreatedBy(currentUser);
-            // Không set createdBy lúc này
             project.setCreatedAt(LocalDateTime.now());
+            project.setUpdatedBy(currentUser);
+            project.setUpdatedAt(LocalDateTime.now());
             project.setIsDeleted(false);
+            project.setOwner(currentUser);
+
             project = projectRepository.save(project);
             log.info("Project created with ID: {}", project.getId());
+
+            // Initialize default modules for the new project
+            try {
+                moduleService.initializeProjectModules(project.getId());
+                log.info("Successfully initialized default modules for project ID: {}", project.getId());
+            } catch (Exception e) {
+                log.error("Error initializing modules for project ID: {} - Error: {}", project.getId(), e.getMessage());
+                // Continue with project creation even if module initialization fails
+            }
 
             // Create default project roles and first member
             ProjectRole managerRole = null;
@@ -211,6 +230,10 @@ public class ProjectService {
                 projectRole.setUpdatedBy(creatorMember);
                 projectRole.setCreatedAt(LocalDateTime.now());
                 projectRole.setUpdatedAt(LocalDateTime.now());
+
+                // Initialize default permissions based on role
+                initializeRolePermissions(projectRole);
+
                 projectRole = projectRoleRepository.save(projectRole);
                 if (roleName == ProjectRoleName.PROJECT_MANAGER) {
                     managerRole = projectRole;
@@ -320,13 +343,77 @@ public class ProjectService {
                 .toList();
     }
 
+    @Transactional
+    public ProjectRole initializeRolePermissions(ProjectRole role) {
+        log.info("Initializing permissions for role: {}", role.getRoleName());
+        Set<Permission> permissions = new HashSet<>();
+        String roleName = role.getRoleName();
+
+        try {
+            // Common permissions for all roles - read access to basic modules
+            List<Permission> viewPermissions = permissionRepository.findAll().stream()
+                    .filter(p -> p.getMethod().equals("GET"))
+                    .collect(Collectors.toList());
+            permissions.addAll(viewPermissions);
+
+            if (roleName.equals(ProjectRoleName.PROJECT_MANAGER.name())) {
+                // Project Manager gets all permissions
+                permissions.addAll(permissionRepository.findAll());
+            } else if (roleName.equals(ProjectRoleName.FRONTEND_DEVELOPER.name()) ||
+                    roleName.equals(ProjectRoleName.BACKEND_DEVELOPER.name())) {
+                // Developers get task and User Story related permissions
+                permissions.addAll(permissionRepository.findByModule("Tasks"));
+                permissions.addAll(permissionRepository.findByModule("User Stories"));
+
+                // Add ability to comment on issues
+                permissions.addAll(permissionRepository.findByMethodAndModule("POST", "Issues"));
+
+                // Wiki access
+                permissions.addAll(permissionRepository.findByModule("Wiki"));
+            } else if (roleName.equals(ProjectRoleName.QA_ENGINEER.name()) ||
+                    roleName.equals(ProjectRoleName.TESTER.name())) {
+                // QA and Testers get issue permissions
+                permissions.addAll(permissionRepository.findByModule("Issues"));
+
+                // Read-only access to tasks and user stories
+                permissions.addAll(permissionRepository.findByMethodAndModule("GET", "Tasks"));
+                permissions.addAll(permissionRepository.findByMethodAndModule("GET", "User Stories"));
+
+                // Comment ability
+                permissions.addAll(permissionRepository.findByMethodAndModule("POST", "Tasks"));
+                permissions.addAll(permissionRepository.findByMethodAndModule("POST", "User Stories"));
+
+                // Wiki access
+                permissions.addAll(permissionRepository.findByModule("Wiki"));
+            } else if (roleName.equals(ProjectRoleName.BUSINESS_ANALYST.name())) {
+                // Business analysts get epic and user story permissions
+                permissions.addAll(permissionRepository.findByModule("Epics"));
+                permissions.addAll(permissionRepository.findByModule("User Stories"));
+
+                // Read-only access to tasks
+                permissions.addAll(permissionRepository.findByMethodAndModule("GET", "Tasks"));
+
+                // Wiki full access
+                permissions.addAll(permissionRepository.findByModule("Wiki"));
+            }
+
+            // Assign permissions to the role
+            role.setPermissions(permissions);
+            log.info("Initialized {} permissions for role {}", permissions.size(), roleName);
+        } catch (Exception e) {
+            log.error("Error initializing permissions for role {}: {}", roleName, e.getMessage(), e);
+        }
+
+        return role;
+    }
+
     public boolean userHasAccessToProject(Long userId, Long projectId) {
         return isUserProjectMember(projectId, userId);
     }
 
     /**
      * Find projects where user is assigned to tasks
-     * 
+     *
      * @param userId The ID of the user
      * @return List of projects
      */
@@ -337,7 +424,7 @@ public class ProjectService {
 
     /**
      * Find projects where user is watching tasks
-     * 
+     *
      * @param userId The ID of the user
      * @return List of projects
      */
@@ -348,7 +435,7 @@ public class ProjectService {
 
     /**
      * Find projects where user is a member
-     * 
+     *
      * @param userId The ID of the user
      * @return List of projects
      */

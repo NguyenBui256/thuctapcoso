@@ -7,6 +7,7 @@ import edu.ptit.ttcs.entity.dto.PageResponse;
 import edu.ptit.ttcs.entity.dto.ProjectDTO;
 import edu.ptit.ttcs.entity.dto.response.PjStatusDTO;
 import edu.ptit.ttcs.entity.dto.ProjectMemberDTO;
+import edu.ptit.ttcs.entity.dto.response.PjStatusDTO;
 import edu.ptit.ttcs.mapper.ProjectMapper;
 import edu.ptit.ttcs.service.ProjectService;
 import edu.ptit.ttcs.service.ProjectMemberService;
@@ -78,8 +79,27 @@ public class ProjectController1 {
     public ResponseEntity<ProjectDTO> updateProject(
             @PathVariable Long id,
             @RequestBody CreateProjectDTO updateProjectDTO) {
-        Project project = projectService.updateProject(id, updateProjectDTO);
-        return ResponseEntity.ok(projectMapper.toDTO(project));
+        // Get current user from SecurityContext
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        // Get user ID from authentication
+        String username = authentication.getName();
+        User currentUser = userService.getUserByLogin(username);
+        if (currentUser == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        // Verify user has permission to update project
+        Project project = projectService.findById(id);
+        if (project == null || !project.getOwner().getId().equals(currentUser.getId())) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        Project updatedProject = projectService.updateProject(id, updateProjectDTO);
+        return ResponseEntity.ok(projectMapper.toDTO(updatedProject));
     }
 
     @DeleteMapping("/{id}")
