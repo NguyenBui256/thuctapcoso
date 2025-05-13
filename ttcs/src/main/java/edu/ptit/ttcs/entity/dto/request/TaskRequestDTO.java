@@ -12,7 +12,7 @@ public class TaskRequestDTO {
     private Integer userId;
     private Integer userStoryId;
     private List<Integer> assigneeIds;
-    private List<Integer> tagIds;
+    private List<Long> tagIds;
     private List<Integer> watcherIds;
 
     public String getName() {
@@ -79,11 +79,11 @@ public class TaskRequestDTO {
         this.assigneeIds = assigneeIds;
     }
 
-    public List<Integer> getTagIds() {
+    public List<Long> getTagIds() {
         return tagIds;
     }
 
-    public void setTagIds(List<Integer> tagIds) {
+    public void setTagIds(List<Long> tagIds) {
         this.tagIds = tagIds;
     }
 

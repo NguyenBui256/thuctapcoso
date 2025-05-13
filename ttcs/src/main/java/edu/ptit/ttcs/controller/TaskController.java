@@ -1195,7 +1195,7 @@ public class TaskController {
         // Set tags if provided
         if (taskRequestDTO.getTagIds() != null && !taskRequestDTO.getTagIds().isEmpty()) {
             List<ProjectSettingTag> tags = new ArrayList<>();
-            for (Integer tagId : taskRequestDTO.getTagIds()) {
+            for (Long tagId : taskRequestDTO.getTagIds()) {
                 Optional<ProjectSettingTag> tagOptional = tagRepository.findById(tagId);
                 if (tagOptional.isPresent()) {
                     tags.add(tagOptional.get());

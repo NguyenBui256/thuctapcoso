@@ -12,6 +12,7 @@ public class ProjectDTO {
     private String logoUrl;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Long ownerId;
     private String ownerUsername;
     private Long moduleId;
 }

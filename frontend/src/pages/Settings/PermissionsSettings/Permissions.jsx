@@ -1,397 +1,306 @@
 import React, { useState, useEffect } from 'react';
+import { fetchWithAuth } from '../../../utils/AuthUtils';
+import { BASE_API_URL } from '../../../common/constants';
+import PermissionsTable from './PermissionsTable';
 
-const Permissions = ({ projectId, roleId }) => {
-  const [role, setRole] = useState({
-    id: 'front',
-    name: 'Front',
-    permissions: {
-      epics: {
-        view: true,
-        add: true,
-        modify: true,
-        comment: true,
-        delete: true
-      },
-      sprints: {
-        view: true,
-        add: true,
-        modify: true,
-        delete: true
-      },
-      userStories: {
-        view: true,
-        add: true,
-        modify: true,
-        comment: true,
-        delete: true
-      }
-    }
-  });
-  const [loading, setLoading] = useState(false);
+const Permissions = ({ projectId, roleId: initialRoleId, isNewRole = false }) => {
+  const [roles, setRoles] = useState([]);
+  const [selectedRoleId, setSelectedRoleId] = useState(initialRoleId);
+  const [role, setRole] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isAddingRole, setIsAddingRole] = useState(isNewRole);
+  const [newRoleName, setNewRoleName] = useState('');
+  const [addingRoleLoading, setAddingRoleLoading] = useState(false);
+  const [userId, setUserId] = useState(null);
 
   useEffect(() => {
-    // In a real implementation, fetch role permissions here
-    setLoading(true);
-    setTimeout(() => {
-      // Mock data for different roles
-      if (roleId === 'front') {
-        setRole({
-          id: 'front',
-          name: 'Front',
-          permissions: {
-            epics: {
-              view: true,
-              add: true,
-              modify: true,
-              comment: true,
-              delete: true
-            },
-            sprints: {
-              view: true,
-              add: true,
-              modify: true,
-              delete: true
-            },
-            userStories: {
-              view: true,
-              add: true,
-              modify: true,
-              comment: true,
-              delete: true
-            }
-          }
-        });
-      } else if (roleId === 'back') {
-        setRole({
-          id: 'back',
-          name: 'Back',
-          permissions: {
-            epics: {
-              view: true,
-              add: false,
-              modify: false,
-              comment: true,
-              delete: false
-            },
-            sprints: {
-              view: true,
-              add: true,
-              modify: true,
-              delete: false
-            },
-            userStories: {
-              view: true,
-              add: true,
-              modify: true,
-              comment: true,
-              delete: false
-            }
-          }
-        });
-      } else {
-        // Default role if not found
-        setRole({
-          id: roleId,
-          name: roleId.charAt(0).toUpperCase() + roleId.slice(1).replace('_', ' '),
-          permissions: {
-            epics: {
-              view: true,
-              add: false,
-              modify: false,
-              comment: false,
-              delete: false
-            },
-            sprints: {
-              view: true,
-              add: false,
-              modify: false,
-              delete: false
-            },
-            userStories: {
-              view: true,
-              add: false,
-              modify: false,
-              comment: false,
-              delete: false
-            }
-          }
-        });
-      }
-      setLoading(false);
-    }, 500);
-  }, [roleId]);
-
-  const handleTogglePermission = (category, permission) => {
-    setRole(prevRole => ({
-      ...prevRole,
-      permissions: {
-        ...prevRole.permissions,
-        [category]: {
-          ...prevRole.permissions[category],
-          [permission]: !prevRole.permissions[category][permission]
+    // Get user ID from local storage
+    const userJson = localStorage.getItem('userData');
+    if (userJson) {
+      try {
+        const userData = JSON.parse(userJson);
+        if (userData && userData.userId) {
+          setUserId(userData.userId);
         }
+      } catch (e) {
+        console.error('Error parsing user data:', e);
+        setError('Failed to get user information. Please try logging in again.');
       }
-    }));
+    }
+  }, []);
+
+  useEffect(() => {
+    // Only fetch roles if we have both projectId and userId
+    if (projectId && userId) {
+      fetchRoles();
+    }
+  }, [projectId, userId]);
+
+  useEffect(() => {
+    if (projectId && selectedRoleId && userId) {
+      fetchRoleDetails();
+    }
+  }, [projectId, selectedRoleId, userId]);
+
+  // Update selectedRoleId when initialRoleId changes (from URL)
+  useEffect(() => {
+    if (initialRoleId) {
+      setSelectedRoleId(initialRoleId);
+    }
+  }, [initialRoleId]);
+
+  const fetchRoles = async () => {
+    if (!userId) {
+      setError('User ID not available. Please log in again.');
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetchWithAuth(
+        `${BASE_API_URL}/v1/user/${userId}/project/${projectId}/roles`,
+        null,
+        true
+      );
+
+      if (!res.ok) {
+        throw new Error(`Failed to fetch roles: ${res.status} ${res.statusText}`);
+      }
+
+      const response = await res.json();
+      console.log('Roles response:', response);
+      
+      // Extract roles from the response
+      let rolesData = [];
+      if (response && response.data && Array.isArray(response.data)) {
+        rolesData = response.data;
+      } else if (Array.isArray(response)) {
+        rolesData = response;
+      }
+      
+      setRoles(rolesData);
+
+      // If no role is selected and we have roles, select the first one
+      if (!selectedRoleId && rolesData.length > 0) {
+        setSelectedRoleId(rolesData[0].id);
+      }
+    } catch (err) {
+      console.error('Error fetching roles:', err);
+      setError(err.message || 'An error occurred while fetching roles');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  if (loading) {
-    return <div>Loading permissions...</div>;
+  const fetchRoleDetails = async () => {
+    if (!userId || !selectedRoleId) {
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const res = await fetchWithAuth(
+        `${BASE_API_URL}/v1/user/${userId}/project/${projectId}/roles/${selectedRoleId}`,
+        null,
+        true
+      );
+      
+      if (!res.ok) {
+        throw new Error(`Failed to fetch role details: ${res.status} ${res.statusText}`);
+      }
+      
+      const response = await res.json();
+      console.log('Role details response:', response);
+      
+      // Extract role data from the response
+      let roleData = response;
+      if (response && response.data) {
+        roleData = response.data;
+      }
+      
+      setRole(roleData);
+    } catch (err) {
+      console.error('Error fetching role details:', err);
+      setError(err.message || 'An error occurred while fetching role details');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRoleChange = (roleId) => {
+    // Use window.location to change the URL
+    window.location.href = `/projects/${projectId}/settings?section=permissions&subsection=${roleId}`;
+  };
+
+  const handleAddRole = async () => {
+    if (!userId) {
+      setError('User ID not available. Please log in again.');
+      return;
+    }
+    
+    if (!newRoleName.trim()) {
+      setError('Role name cannot be empty');
+      return;
+    }
+
+    setAddingRoleLoading(true);
+    setError(null);
+
+    try {
+      // Create a new role with empty permissions - they will be initialized on the backend
+      const res = await fetchWithAuth(
+        `${BASE_API_URL}/v1/user/${userId}/project/${projectId}/roles`,
+        null,
+        true,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            roleName: newRoleName,
+            permissionIds: [] // Empty permissions - backend will initialize default ones
+          })
+        }
+      );
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData?.message || `Failed to create role: ${res.status} ${res.statusText}`);
+      }
+
+      const response = await res.json();
+      console.log('Create role response:', response);
+      
+      // Extract new role from response
+      let newRole = response;
+      if (response && response.data) {
+        newRole = response.data;
+      }
+      
+      // Show success message
+      setError(null);
+      
+      // Refresh roles list
+      await fetchRoles();
+      
+      // Select the newly created role
+      if (newRole && newRole.id) {
+        handleRoleChange(newRole.id);
+      }
+      
+      // Reset form
+      setNewRoleName('');
+      setIsAddingRole(false);
+    } catch (err) {
+      console.error('Error creating role:', err);
+      setError(err.message || 'An error occurred while creating the role');
+    } finally {
+      setAddingRoleLoading(false);
+    }
+  };
+
+  if (loading && !role && !roles.length) {
+    return <div className="p-6">Loading roles...</div>;
+  }
+
+  if (!userId) {
+    return <div className="p-6 text-red-500">Error: User information not available. Please log in again.</div>;
   }
 
   return (
-    <div className="max-w-4xl">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold text-gray-800">Permissions: {role.name}</h1>
-        <div className="flex space-x-2">
-          <button className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-            Save
-          </button>
-        </div>
-      </div>
+    <div className="max-w-full">
+      {!selectedRoleId || isAddingRole ? (
+        <div className="bg-white shadow rounded-lg mb-6">
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-800">
+                {isAddingRole ? 'Create New Role' : 'Select a Role'}
+              </h2>
+              {!isAddingRole && (
+                <button
+                  onClick={() => setIsAddingRole(true)}
+                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none"
+                >
+                  + New Role
+                </button>
+              )}
+            </div>
+          
+            {isAddingRole ? (
+              <div className="mb-6 p-4 bg-gray-50 rounded-md">
+                <h3 className="text-lg font-medium mb-2">Role Details</h3>
+                <div className="flex items-center">
+                  <input 
+                    type="text"
+                    value={newRoleName}
+                    onChange={(e) => setNewRoleName(e.target.value)}
+                    placeholder="Role Name"
+                    className="flex-1 p-2 border rounded mr-2"
+                  />
+                  <button
+                    onClick={handleAddRole}
+                    disabled={addingRoleLoading || !newRoleName.trim()}
+                    className={`px-4 py-2 rounded ${
+                      addingRoleLoading || !newRoleName.trim()
+                        ? 'bg-gray-300 cursor-not-allowed'
+                        : 'bg-blue-500 text-white hover:bg-blue-600'
+                    }`}
+                  >
+                    {addingRoleLoading ? 'Creating...' : 'Create'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsAddingRole(false);
+                      setNewRoleName('');
+                      // Redirect back to the main settings page
+                      window.location.href = `/projects/${projectId}/settings?section=permissions&subsection=roles`;
+                    }}
+                    className="px-4 py-2 ml-2 text-gray-600 hover:text-gray-800"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {error && (
+                  <div className="bg-red-100 text-red-700 p-3 mb-4 rounded">
+                    {error}
+                  </div>
+                )}
 
-      <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-        <div className="p-4 bg-gray-50 border-b border-gray-200">
-          <p className="text-gray-600">
-            This role is part of the roles involved in estimating user story points.
-          </p>
-          <div className="mt-2 flex items-center">
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" className="sr-only peer" checked={true} />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-            </label>
+                <div className="flex flex-wrap gap-2">
+                  {roles.map((roleItem) => (
+                    <button
+                      key={roleItem.id}
+                      onClick={() => handleRoleChange(roleItem.id)}
+                      className="px-4 py-2 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    >
+                      {roleItem.roleName}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
-
-        {/* Epics Section */}
-        <div className="border-b border-gray-200">
-          <div className="flex justify-between items-center p-4 cursor-pointer hover:bg-gray-50">
-            <h2 className="text-lg font-medium text-gray-700">Epics</h2>
-            <div className="flex flex-shrink-0">
-              <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-            </div>
+      ) : (
+        <>
+          <div className="mb-6 p-6 pb-0">
+            <h1 className="text-2xl font-semibold text-gray-800">
+              Permissions: {role ? role.roleName : ''}
+            </h1>
           </div>
           
-          <div className="px-4 pb-4">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-gray-100 py-2">
-                <span className="text-gray-700">View epics</span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="sr-only peer" 
-                    checked={role.permissions.epics.view}
-                    onChange={() => handleTogglePermission('epics', 'view')}
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-              
-              <div className="flex items-center justify-between border-b border-gray-100 py-2">
-                <span className="text-gray-700">Add epics</span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="sr-only peer" 
-                    checked={role.permissions.epics.add}
-                    onChange={() => handleTogglePermission('epics', 'add')}
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-              
-              <div className="flex items-center justify-between border-b border-gray-100 py-2">
-                <span className="text-gray-700">Modify epics</span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="sr-only peer" 
-                    checked={role.permissions.epics.modify}
-                    onChange={() => handleTogglePermission('epics', 'modify')}
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-              
-              <div className="flex items-center justify-between border-b border-gray-100 py-2">
-                <span className="text-gray-700">Comment epics</span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="sr-only peer" 
-                    checked={role.permissions.epics.comment}
-                    onChange={() => handleTogglePermission('epics', 'comment')}
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-              
-              <div className="flex items-center justify-between py-2">
-                <span className="text-gray-700">Delete epics</span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="sr-only peer" 
-                    checked={role.permissions.epics.delete}
-                    onChange={() => handleTogglePermission('epics', 'delete')}
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Sprints Section */}
-        <div className="border-b border-gray-200">
-          <div className="flex justify-between items-center p-4 cursor-pointer hover:bg-gray-50">
-            <h2 className="text-lg font-medium text-gray-700">Sprints</h2>
-            <div className="flex flex-shrink-0">
-              <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-            </div>
-          </div>
-          
-          <div className="px-4 pb-4">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-gray-100 py-2">
-                <span className="text-gray-700">View sprints</span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="sr-only peer" 
-                    checked={role.permissions.sprints.view}
-                    onChange={() => handleTogglePermission('sprints', 'view')}
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-              
-              <div className="flex items-center justify-between border-b border-gray-100 py-2">
-                <span className="text-gray-700">Add sprints</span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="sr-only peer" 
-                    checked={role.permissions.sprints.add}
-                    onChange={() => handleTogglePermission('sprints', 'add')}
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-              
-              <div className="flex items-center justify-between border-b border-gray-100 py-2">
-                <span className="text-gray-700">Modify sprints</span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="sr-only peer" 
-                    checked={role.permissions.sprints.modify}
-                    onChange={() => handleTogglePermission('sprints', 'modify')}
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-              
-              <div className="flex items-center justify-between py-2">
-                <span className="text-gray-700">Delete sprints</span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="sr-only peer" 
-                    checked={role.permissions.sprints.delete}
-                    onChange={() => handleTogglePermission('sprints', 'delete')}
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* User Stories Section */}
-        <div>
-          <div className="flex justify-between items-center p-4 cursor-pointer hover:bg-gray-50">
-            <h2 className="text-lg font-medium text-gray-700">User Stories</h2>
-            <div className="flex flex-shrink-0">
-              <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-            </div>
-          </div>
-          
-          <div className="px-4 pb-4">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-gray-100 py-2">
-                <span className="text-gray-700">View user stories</span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="sr-only peer" 
-                    checked={role.permissions.userStories.view}
-                    onChange={() => handleTogglePermission('userStories', 'view')}
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-              
-              <div className="flex items-center justify-between border-b border-gray-100 py-2">
-                <span className="text-gray-700">Add user stories</span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="sr-only peer" 
-                    checked={role.permissions.userStories.add}
-                    onChange={() => handleTogglePermission('userStories', 'add')}
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-              
-              <div className="flex items-center justify-between border-b border-gray-100 py-2">
-                <span className="text-gray-700">Modify user stories</span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="sr-only peer" 
-                    checked={role.permissions.userStories.modify}
-                    onChange={() => handleTogglePermission('userStories', 'modify')}
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-              
-              <div className="flex items-center justify-between border-b border-gray-100 py-2">
-                <span className="text-gray-700">Comment user stories</span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="sr-only peer" 
-                    checked={role.permissions.userStories.comment}
-                    onChange={() => handleTogglePermission('userStories', 'comment')}
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-              
-              <div className="flex items-center justify-between py-2">
-                <span className="text-gray-700">Delete user stories</span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="sr-only peer" 
-                    checked={role.permissions.userStories.delete}
-                    onChange={() => handleTogglePermission('userStories', 'delete')}
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+          <PermissionsTable projectId={projectId} roleId={selectedRoleId} />
+        </>
+      )}
     </div>
   );
 };
