@@ -58,25 +58,18 @@ public class ProjectMapper {
     }
 
     public Project updateEntity(Project project, CreateProjectDTO dto) {
-        project.setName(dto.getName());
-        project.setDescription(dto.getDescription());
-        project.setIsPublic(dto.getIsPublic());
-        project.setLogoUrl(dto.getLogoUrl());
-
-        // Map project type to module
-        Long moduleId = switch (dto.getProjectType()) {
-            case "SCRUM" -> 1L;
-            case "KANBAN" -> 2L;
-            default -> throw new IllegalArgumentException("Invalid project type: " + dto.getProjectType());
-        };
-
-        Module module = moduleRepository.findById(moduleId)
-                .orElseThrow(() -> new RuntimeException("Module not found for ID: " + moduleId));
-
-        Set<Module> modules = new HashSet<>();
-        modules.add(module);
-        project.setModules(modules);
-
+        if (dto.getName() != null && !dto.getName().isEmpty()) {
+            project.setName(dto.getName());
+        }
+        if (dto.getDescription() != null) {
+            project.setDescription(dto.getDescription());
+        }
+        if (dto.getIsPublic() != null) {
+            project.setIsPublic(dto.getIsPublic());
+        }
+        if (dto.getLogoUrl() != null) {
+            project.setLogoUrl(dto.getLogoUrl());
+        }
         return project;
     }
 
@@ -89,6 +82,7 @@ public class ProjectMapper {
         dto.setLogoUrl(project.getLogoUrl());
         dto.setCreatedAt(project.getCreatedAt());
         dto.setUpdatedAt(project.getUpdatedAt());
+        dto.setOwnerId(project.getOwner().getId());
         dto.setOwnerUsername(
                 project.getCreatedBy() != null ? project.getCreatedBy().getUsername() : "Unknown");
 

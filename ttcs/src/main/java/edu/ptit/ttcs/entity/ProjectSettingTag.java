@@ -23,6 +23,7 @@ public class ProjectSettingTag {
 
     @ManyToOne
     @JoinColumn(name = "project_id")
+    @JsonIgnore
     private Project project;
 
 }

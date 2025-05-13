@@ -13,9 +13,14 @@ const ProjectDetailLayout = () => {
   const [errorProject, setErrorProject] = useState(null);
   const { projectId } = useParams(); // Get projectId from the route
   const [showScrollTop, setShowScrollTop] = useState(false); // State for button
+  const [moduleSettingsVersion, setModuleSettingsVersion] = useState(0); // Add this line
 
   const handleSidebarToggle = (collapsed) => {
     setSidebarCollapsed(collapsed);
+  };
+
+  const refreshModuleSettings = () => {
+    setModuleSettingsVersion(prev => prev + 1);
   };
 
   // Fetch project details if projectId is available, for the Sidebar
@@ -81,13 +86,16 @@ const ProjectDetailLayout = () => {
         <Sidebar
           currentProject={currentProject}
           onToggleCollapse={handleSidebarToggle}
+          moduleSettingsVersion={moduleSettingsVersion}
         />
 
         <main className={`relative flex-1 overflow-y-auto ${sidebarCollapsed ? 'ml-20' : 'ml-64'} transition-all duration-300`}>
             <div className="">
               {loadingProject && <div>Loading project context...</div>}
               {errorProject && <ErrorPage errorType={ERROR_TYPE.UNKNOWN_ERROR} />}
-              {!loadingProject && !errorProject && currentProject && <Outlet />}
+              {!loadingProject && !errorProject && currentProject && (
+                <Outlet context={{ refreshModuleSettings }} />
+              )}
             </div>
 
           {showScrollTop && (

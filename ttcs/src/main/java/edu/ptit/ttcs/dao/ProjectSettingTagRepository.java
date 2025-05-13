@@ -9,7 +9,7 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface ProjectSettingTagRepository extends JpaRepository<ProjectSettingTag, Integer> {
+public interface ProjectSettingTagRepository extends JpaRepository<ProjectSettingTag, Long> {
 
     List<ProjectSettingTag> findAllByProject(Project project);
 
