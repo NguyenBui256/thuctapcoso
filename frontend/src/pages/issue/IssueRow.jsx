@@ -101,7 +101,8 @@ export default function IssueRow({ issue, statuses = [], assigns = [], onUpdate,
       {/* STATUS */}
       <td className="px-4 py-3 relative" ref={statusRef} style={{zIndex: 30}}>
         <span
-          className="text-sky-500 font-semibold cursor-pointer select-none flex items-center gap-1"
+          className="font-semibold cursor-pointer select-none flex items-center gap-1"
+          style={{ color: issue.status?.color || '#3b82f6' }}
           onClick={() => setShowStatusDropdown(v => !v)}
         >
           {issue.status?.name}
@@ -112,7 +113,8 @@ export default function IssueRow({ issue, statuses = [], assigns = [], onUpdate,
             {statuses.map(st => (
               <div
                 key={st.id}
-                className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sky-500"
+                className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                style={{ color: st.color || '#3b82f6' }}
                 onClick={() => {
                   setShowStatusDropdown(false);
                   handleStatusChange(st);
@@ -127,9 +129,11 @@ export default function IssueRow({ issue, statuses = [], assigns = [], onUpdate,
       {/* MODIFIED */}
       <td className="px-4 py-3">
         {/* Nếu có updatedAt thì dùng, không thì dùng dueDate */}
-        {issue.updatedAt
-          ? new Date(issue.updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-          : (issue.dueDate ? new Date(issue.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '')}
+        {issue.updatedDate && new Date(issue.updatedDate).toLocaleDateString('vi-VN', { 
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric'
+            })}
       </td>
       {/* ASSIGN TO */}
       <td className="px-4 py-3 relative" ref={assignRef} style={{zIndex: 30}}>

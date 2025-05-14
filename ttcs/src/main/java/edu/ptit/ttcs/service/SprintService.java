@@ -4,8 +4,10 @@ import edu.ptit.ttcs.dao.*;
 import edu.ptit.ttcs.entity.*;
 import edu.ptit.ttcs.entity.dto.request.SaveSprintDTO;
 import edu.ptit.ttcs.entity.dto.response.SprintDTO;
+import edu.ptit.ttcs.entity.dto.response.SprintProgressDTO;
 import edu.ptit.ttcs.exception.RequestException;
 import edu.ptit.ttcs.util.ModelMapper;
+import edu.ptit.ttcs.util.SecurityUtils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -25,17 +27,18 @@ public class SprintService {
 
     private final TaskRepository taskRepository;
 
-    private final ProjectRepository projectRepository;
+    private final ProjectService projectService;
 
     private final UserStoryRepository userStoryRepository;
 
     private final UserRepository userRepository;
 
-    private final ProjectMemberRepository projectMemberRepository;
+    private final ProjectMemberServiceT projectMemberService;
+
+    private final SecurityUtils securityUtils;
 
     public List<SprintDTO> getAllByProject(long projectId, boolean close) {
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new RequestException("Project not found"));
+        Project project = projectService.findById(projectId);
         List<Sprint> sprints = sprintRepository.findAllByProject(project);
         return sprints.stream()
                 .filter(sprint -> {
@@ -52,8 +55,7 @@ public class SprintService {
     public SprintDTO createSprint(@Valid SaveSprintDTO dto) {
         if (dto.getStartDate().isAfter(dto.getEndDate()))
             throw new RequestException("Start date cannot be after end date");
-        Project project = projectRepository.findById(dto.getProjectId())
-                .orElseThrow(() -> new RequestException("Project not found"));
+        Project project = projectService.findById(dto.getProjectId());
         List<Sprint> allSprints = sprintRepository.findAllByProject(project);
         boolean duplicateName = allSprints.stream().anyMatch(sp -> sp.getName().equals(dto.getName()));
         if (duplicateName) {
@@ -61,8 +63,7 @@ public class SprintService {
         }
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByUsername(username).get();
-        ProjectMember member = projectMemberRepository.findByUserAndProject(user, project)
-                .orElseThrow(() -> new RequestException("Member's not in this project"));
+        ProjectMember member = projectMemberService.getByProjectAndUser(project, user);
         Sprint sprint = new Sprint();
         sprint.setName(dto.getName());
         sprint.setStartDate(dto.getStartDate());
@@ -94,8 +95,7 @@ public class SprintService {
         sprint.setUpdatedDate(LocalDateTime.now());
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByUsername(username).get();
-        ProjectMember member = projectMemberRepository.findByUserAndProject(user, sprint.getProject())
-                .orElseThrow(() -> new RequestException("Member's not in this project"));
+        ProjectMember member = projectMemberService.getByProjectAndUser(sprint.getProject(), user);
         sprint.setUpdatedBy(member);
         return toSprintDTO(sprintRepository.save(sprint));
     }
@@ -108,8 +108,7 @@ public class SprintService {
             throw new RequestException("Sprint is not in this project");
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByUsername(username).get();
-        projectMemberRepository.findByUserAndProject(user, sprint.getProject())
-                .orElseThrow(() -> new RequestException("Member's not in this project"));
+        projectMemberService.getByProjectAndUser(sprint.getProject(), user);
         sprintRepository.delete(sprint);
     }
 
@@ -125,4 +124,25 @@ public class SprintService {
         return dto;
     }
 
+    public SprintProgressDTO getProgress(long projectId) {
+        Project project = projectService.findById(projectId);
+        User user = securityUtils.getCurrentUser();
+        projectMemberService.getByProjectAndUser(project, user);
+        List<UserStory> allSt = userStoryService.getAllByProject(project);
+        int spCnt = sprintRepository.countByProject(project);
+        int totalTasks = allSt.stream()
+                .reduce(0, (a, b) -> a + b.getTasks().size(), Integer::sum);
+        int completedTasks = allSt.stream()
+                .reduce(0, (a, b) -> {
+                    return a + (int)(b.getTasks().stream()
+                            .filter(t -> t.getStatus().getClosed())
+                            .count());
+                }, Integer::sum);
+        return SprintProgressDTO.builder()
+                .totalSprints(spCnt)
+                .totalTasks(totalTasks)
+                .completedTasks(completedTasks)
+                .averageTaskPerSprint(1.0 * totalTasks / spCnt)
+                .build();
+    }
 }

@@ -186,4 +186,7 @@ public class UserStoryService {
         return toDTO(userStory);
     }
 
+    public List<UserStory> getAllByProject(Project project) {
+        return userStoryRepository.findAllByProject(project);
+    }
 }

@@ -56,11 +56,11 @@ public class IssueController {
     @GetMapping("/get-list")
     public ResponseEntity<List<IssueDTO>> getList(@RequestParam long projectId,
             @RequestParam(required = false) Long sprintId,
-            @RequestParam(required = false) Long epicId,
+            @RequestParam(required = false) boolean excludeSprint,
             @RequestParam String sortBy,
             @RequestParam String order,
             @ModelAttribute FilterParams filterParams) {
-        return ResponseEntity.ok(issueService.getList(projectId, sprintId, epicId, sortBy, order, filterParams));
+        return ResponseEntity.ok(issueService.getList(projectId, sprintId, excludeSprint, sortBy, order, filterParams));
     }
 
     @GetMapping("/get")
@@ -90,6 +90,20 @@ public class IssueController {
     @DeleteMapping("/{issueId}")
     public ResponseEntity<Void> delete(@PathVariable long issueId) {
         issueService.delete(issueId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/attach/{issueId}")
+    public ResponseEntity<Void> attach(@PathVariable long issueId,
+                                       @RequestParam long sprintId) {
+        issueService.attach(issueId, sprintId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/detach/{issueId}")
+    public ResponseEntity<Void> detach(@PathVariable long issueId,
+                                       @RequestParam long sprintId) {
+        issueService.detach(issueId, sprintId);
         return ResponseEntity.ok().build();
     }
 

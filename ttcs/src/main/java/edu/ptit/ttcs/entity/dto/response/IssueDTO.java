@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import edu.ptit.ttcs.entity.dto.AttachmentDTO;
 
@@ -34,5 +35,8 @@ public class IssueDTO {
     private List<AttachmentDTO> attachments;
 
     private PjMemberDTO assignee;
+
+    private LocalDateTime updatedDate;
+
 
 }

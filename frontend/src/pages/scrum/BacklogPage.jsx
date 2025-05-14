@@ -10,6 +10,7 @@ import SprintItem from './SprintItem';
 import { toast } from 'react-toastify';
 import UserStoryCard from './UserStoryCard';
 import { DragDropContext, Droppable } from 'react-beautiful-dnd';
+import SprintStatistics from './SprintStatistics';
 
 const filterss = ['statuses', 'assigns', 'createdBy', 'roles']
 const filterNames = ['Trạng thái', 'Phân công', 'Tạo bởi', 'Vai trò']
@@ -295,44 +296,7 @@ export default function BacklogPage() {
                         </div>
 
                         {/* Sprint Statistics */}
-                        <div className="bg-gray-700 text-white p-4 rounded mb-6">
-                            <div className="flex items-center gap-4">
-                                <div className="w-48 h-8 bg-white rounded"></div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-2xl text-green-400">0%</span>
-                                    <div className="flex items-center gap-1">
-                                        <span className="text-2xl">0</span>
-                                        <span className="text-xs text-gray-300">defined<br />points</span>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                        <span className="text-2xl">0</span>
-                                        <span className="text-xs text-gray-300">closed<br />points</span>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                        <span className="text-2xl">0</span>
-                                        <span className="text-xs text-gray-300">points/<br />sprint</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Customize Backlog Graph */}
-                        <div className="bg-white p-4 rounded mb-6 flex items-center">
-                            <div className="flex flex-col items-center mr-4">
-                                <div className="flex items-end h-16 gap-1">
-                                    <div className="bg-blue-500 w-2 h-4"></div>
-                                    <div className="bg-blue-500 w-2 h-8"></div>
-                                    <div className="bg-blue-500 w-2 h-12"></div>
-                                    <div className="bg-blue-500 w-2 h-16"></div>
-                                </div>
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-medium text-blue-500">CUSTOMIZE YOUR BACKLOG GRAPH</h3>
-                                <p className="text-gray-800">
-                                    To have a nice graph that helps you follow the evolution of the project you have to set up the points and sprints through the <span className="text-blue-500">Admin</span>
-                                </p>
-                            </div>
-                        </div>
+                        <SprintStatistics />
 
                         {/* Backlog Section with Filters Sidebar */}
                         <div className="flex">

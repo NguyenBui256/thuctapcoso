@@ -17,6 +17,7 @@ import { useParams, useNavigate } from "react-router-dom"
 import { toast } from "react-toastify"
 import CreateTaskModal from "../../components/kanban/CreateTaskModal"
 import SprintProgressBar from "../../components/sprint/SprintProgressBar"
+import IssueSection from "../../components/sprint/IssueSection"
 
 const filterss = ['statuses', 'assigns', 'createdBy', 'roles']
 const filterNames = ['Trạng thái', 'Phân công', 'Tạo bởi', 'Vai trò']
@@ -645,29 +646,11 @@ export default function SprintPage() {
                   <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
                 </div>
                 <div className="ml-4 w-40">
-                  <SprintProgressBar sprintId={sprintId} autoRefresh={true} />
+                  <SprintProgressBar sprintId={sprintId} userStories={userStories} />
                 </div>
               </div>
 
-              <div className="border-l border-gray-600 h-10 mx-4"></div>
-
-              <div className="flex items-center mr-6">
-                <span className="text-2xl font-bold">{countOpenTasks()}</span>
-                <span className="text-sm ml-1">
-                  open
-                  <br />
-                  tasks
-                </span>
-              </div>
-
-              <div className="flex items-center mr-6">
-                <span className="text-2xl font-bold">{countClosedTasks()}</span>
-                <span className="text-sm ml-1">
-                  closed
-                  <br />
-                  tasks
-                </span>
-              </div>
+              
 
               <div className="ml-auto">
                 <div className="flex items-center space-x-1">
@@ -692,16 +675,6 @@ export default function SprintPage() {
                   <Filter className="h-5 w-5 mr-1 text-teal-500" />
                   <span className="text-teal-500">{showFilters ? "Hide filters" : "Filters"}</span>
                 </button>
-              </div>
-
-              <div className="flex items-center">
-                <span className="mr-2 text-gray-600">ZOOM:</span>
-                <div className="flex items-center space-x-1">
-                  <div className="h-6 w-6 rounded-full bg-gray-200"></div>
-                  <div className="h-6 w-6 rounded-full bg-gray-300"></div>
-                  <div className="bg-teal-500 text-white px-3 py-1 rounded-full text-xs">Detailed</div>
-                  <div className="h-6 w-6 rounded-full bg-gray-200"></div>
-                </div>
               </div>
             </div>
           </div>
@@ -958,29 +931,8 @@ export default function SprintPage() {
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="container mx-auto px-4 py-4 mt-4 border-t border-teal-200">
-          <div className="flex items-center">
-            <input type="checkbox" className="mr-2" />
-            <span className="text-gray-600 font-medium">SPRINT ISSUES</span>
-
-            <div className="ml-6 flex items-center">
-              <div className="w-10 h-5 bg-teal-500 rounded-full relative">
-                <div className="absolute right-0.5 top-0.5 bg-white w-4 h-4 rounded-full"></div>
-              </div>
-              <span className="ml-2 text-gray-600">Tags</span>
-            </div>
-
-            <div className="ml-auto flex items-center">
-              <button className="mr-2">
-                <Plus className="h-5 w-5 text-gray-500" />
-              </button>
-              <button>
-                <MoreVertical className="h-5 w-5 text-gray-500" />
-              </button>
-            </div>
-          </div>
-        </div>
+        {/* Thay thế phần Footer cũ bằng component IssueSection */}
+        <IssueSection projectId={projectId} sprintId={sprintId} />
 
         {/* Add CreateTaskModal component at the end, before the closing DragDropContext tag */}
         <CreateTaskModal
