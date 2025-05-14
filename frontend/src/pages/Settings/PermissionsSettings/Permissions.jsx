@@ -174,10 +174,21 @@ const Permissions = ({ projectId, roleId: initialRoleId }) => {
         </div>
       ) : (
         <>
-          <div className="mb-6 p-6 pb-0">
-            <h1 className="text-2xl font-semibold text-gray-800">
-              Permissions: {role ? role.roleName : ''}
-            </h1>
+          <div className="bg-white shadow-sm rounded-lg mb-6 py-5 px-8">
+            <div className="flex items-center mb-2">
+              <h1 className="text-2xl font-semibold text-gray-800">
+                Permissions
+              </h1>
+              {role && (
+                <div className="ml-3 px-4 py-1.5 bg-blue-50 border border-blue-200 rounded-full text-blue-700 font-semibold flex items-center">
+                  <span className="w-2 h-2 rounded-full bg-blue-500 mr-2"></span>
+                  {role.roleName}
+                </div>
+              )}
+            </div>
+            {role && role.description && (
+              <p className="text-gray-500 text-sm">{role.description}</p>
+            )}
           </div>
           
           <PermissionsTable projectId={projectId} roleId={selectedRoleId} />

@@ -28,7 +28,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -46,6 +45,8 @@ public class ProjectService {
     private final PjSettingStatusRepository pjSettingStatusRepository;
     private final ModuleService moduleService;
     private final PermissionRepository permissionRepository;
+    private final PermissionService permissionService;
+    private final ProjectRolePermissionRepository projectRolePermissionRepository;
 
     @Transactional
     public Project save(Project project) {
@@ -115,66 +116,6 @@ public class ProjectService {
     }
 
     @Transactional
-    public Project createProject(CreateProjectDTO createProjectDTO) {
-        User creator = userRepository.findById(createProjectDTO.getOwnerId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        Project project = projectMapper.toEntity(createProjectDTO);
-        // Không set createdBy lúc này
-        project.setCreatedBy(null);
-        project.setIsDeleted(false);
-        log.info("Project CREATED AT: {}", project.getCreatedAt());
-        project = projectRepository.save(project);
-        log.info("Project created: {}", project.getId());
-
-        ProjectRole toSetForAdminProjectRole = null;
-        ProjectMember projectMember = null;
-        List<ProjectRole> projectRoleList = new ArrayList<>();
-
-        // Create first project member for creator
-        ProjectMember creatorMember = new ProjectMember();
-        creatorMember.setProject(project);
-        creatorMember.setUser(creator);
-        creatorMember.setIsAdmin(true);
-        creatorMember.setCreatedAt(LocalDateTime.now());
-        creatorMember.setUpdatedAt(LocalDateTime.now());
-        creatorMember = projectMemberRepository.save(creatorMember);
-
-        // Sau khi đã tạo xong ProjectMember, cập nhật lại createdBy cho Project
-        project.setCreatedBy(creator);
-        project = projectRepository.save(project);
-        log.info("Updated project with creator ID: {}", creator.getId());
-
-        for (ProjectRoleName roleName : ProjectRoleName.values()) {
-            ProjectRole projectRole = new ProjectRole();
-            projectRole.setProject(project);
-            projectRole.setRoleName(roleName.name());
-            projectRole.setCreatedBy(creatorMember);
-            projectRole.setUpdatedBy(creatorMember);
-            projectRole.setCreatedAt(LocalDateTime.now());
-            projectRole.setUpdatedAt(LocalDateTime.now());
-
-            // Initialize default permissions based on role
-            initializeRolePermissions(projectRole);
-
-            projectRole = projectRoleRepository.save(projectRole);
-            if (roleName == ProjectRoleName.PROJECT_MANAGER) {
-                toSetForAdminProjectRole = projectRole;
-            }
-            log.info("ProjectRole {} - ID: {}", projectRole.getRoleName(), projectRole.getId());
-        }
-
-        // Update the created project member with role
-        creatorMember.setProjectRole(toSetForAdminProjectRole);
-        creatorMember.setCreatedBy(creatorMember);
-        creatorMember.setUpdatedBy(creatorMember);
-        projectMemberRepository.save(creatorMember);
-        log.info("ProjectMember ID: {}", creatorMember.getId());
-
-        return project;
-    }
-
-    @Transactional
     public Project createProject(CreateProjectDTO createProjectDTO, Long currentUserId) {
         try {
             User currentUser = securityUtils.getCurrentUser();
@@ -231,13 +172,12 @@ public class ProjectService {
                 projectRole.setCreatedAt(LocalDateTime.now());
                 projectRole.setUpdatedAt(LocalDateTime.now());
 
-                // Initialize default permissions based on role
-                initializeRolePermissions(projectRole);
-
                 projectRole = projectRoleRepository.save(projectRole);
                 if (roleName == ProjectRoleName.PROJECT_MANAGER) {
                     managerRole = projectRole;
                 }
+                // Initialize default permissions based on role
+                initializeRolePermissions(projectRole);
             }
 
             // Update member with role and creator info
@@ -344,25 +284,57 @@ public class ProjectService {
     }
 
     @Transactional
-    public ProjectRole initializeRolePermissions(ProjectRole role) {
-        log.info("Initializing permissions for role: {}", role.getRoleName());
+    public void initializeRolePermissions(ProjectRole role) {
+        log.info("Initializing permissions for role: {} - ID: {}", role.getRoleName(), role.getId());
         String roleName = role.getRoleName();
 
         try {
             // Get all permissions
-            List<Permission> allPermissions = permissionRepository.findAll();
+            List<Permission> allPermissions = permissionService.findAll();
+            log.info("Found {} permissions to initialize for role: {}", allPermissions.size(), roleName);
             
-            // Add all permissions with isEnabled=true by default
+            // Important: Save the role first to ensure it has an ID
+            if (role.getId() == null) {
+                role = projectRoleRepository.save(role);
+                log.info("Saved role with new ID: {}", role.getId());
+            }
+
+            log.info("Creating new permissions for role {}", role.getId());
+            List<ProjectRolePermission> newPermissions = new ArrayList<>();
+
+            // Add all permissions one by one
             for (Permission permission : allPermissions) {
-                role.addPermission(permission, true);
+                try {
+                    // Check if this permission is already assigned to the role to avoid duplicates
+                    if (projectRolePermissionRepository.existsByProjectRoleAndPermission(role, permission)) {
+                        log.debug("Permission {}.{} already exists for role {}, skipping", 
+                            permission.getModule(), permission.getName(), roleName);
+                        continue;
+                    }
+                    
+                    // Create new permission mapping
+                    ProjectRolePermission prp = new ProjectRolePermission();
+                    prp.setProjectRole(role);
+                    prp.setPermission(permission);
+                    prp.setIsEnabled(true);
+                    
+                    // Save the permission mapping
+                    prp =  projectRolePermissionRepository.save(prp);
+                    log.info("New PRP: {} - {}", prp.getId(), prp.getPermission().getId());
+                    newPermissions.add(prp);
+                    
+                    log.debug("Added permission {}.{} to role {}", 
+                        permission.getModule(), permission.getName(), roleName);
+                } catch (Exception e) {
+                    log.error("Error adding permission {} to role {}: {}", 
+                        permission.getId(), role.getId(), e.getMessage());
+                }
             }
             
-            log.info("Initialized {} permissions for role {}", allPermissions.size(), roleName);
+            log.info("Successfully added {} permissions to role {}", newPermissions.size(), role.getId());
         } catch (Exception e) {
             log.error("Error initializing permissions for role {}: {}", roleName, e.getMessage(), e);
         }
-
-        return role;
     }
 
     public boolean userHasAccessToProject(Long userId, Long projectId) {

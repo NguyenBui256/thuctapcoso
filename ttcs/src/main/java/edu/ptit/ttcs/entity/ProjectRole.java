@@ -1,5 +1,6 @@
 package edu.ptit.ttcs.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -22,6 +23,7 @@ public class ProjectRole extends BaseEntity {
 
     @ManyToOne
     @JoinColumn(name = "project_id")
+    @JsonIgnore
     private Project project;
 
     @Column(name = "role_name")
@@ -58,34 +60,6 @@ public class ProjectRole extends BaseEntity {
     }
     
     /**
-     * Add a permission with enabled status
-     * @param permission The permission to add
-     * @param enabled Whether the permission is enabled
-     */
-    public void addPermission(Permission permission, boolean enabled) {
-        // Kiểm tra xem permission đã tồn tại chưa trước khi thêm mới
-        for (ProjectRolePermission prp : rolePermissions) {
-            if (prp.getPermission() != null && 
-                permission.getId().equals(prp.getPermission().getId())) {
-                // Permission đã tồn tại, chỉ cập nhật trạng thái
-                prp.setIsEnabled(enabled);
-                
-                // Đảm bảo permission cũng được thêm vào tập permissions (cho backwards compatibility)
-                permissions.add(permission);
-                return;
-            }
-        }
-        
-        // Nếu chưa tồn tại, thì tạo mới
-        ProjectRolePermission rolePermission = new ProjectRolePermission(this, permission);
-        rolePermission.setIsEnabled(enabled);
-        rolePermissions.add(rolePermission);
-        
-        // Also maintain the direct relationship for backwards compatibility
-        permissions.add(permission);
-    }
-    
-    /**
      * Set the enabled status for an existing permission
      * @param permission The permission to update
      * @param enabled The new enabled status
@@ -101,9 +75,6 @@ public class ProjectRole extends BaseEntity {
                 return true;
             }
         }
-        
-        // If we get here, the permission wasn't found, so we should add it
-        addPermission(permission, enabled);
         return true;
     }
 }
