@@ -1,5 +1,6 @@
 package edu.ptit.ttcs.dao;
 
+import edu.ptit.ttcs.entity.Project;
 import edu.ptit.ttcs.entity.Task;
 import edu.ptit.ttcs.entity.UserStory;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -25,4 +26,6 @@ public interface UserStoryRepository extends JpaRepository<UserStory, Integer>, 
      * @return list of user stories
      */
     List<UserStory> findBySprintId(Long sprintId);
+
+    List<UserStory> findAllByProject(Project project);
 }
