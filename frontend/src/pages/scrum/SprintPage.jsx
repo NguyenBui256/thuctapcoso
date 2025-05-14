@@ -24,15 +24,29 @@ const filterNames = ['Trạng thái', 'Phân công', 'Tạo bởi', 'Vai trò']
 export default function SprintPage() {
   const { projectId, sprintId } = useParams()
   const navigate = useNavigate()
-  // Danh sách trạng thái
-  const [statuses, setStatuses] = useState([
-    { id: 1, name: 'NEW', color: 'bg-blue-400' },
-    { id: 2, name: 'READY', color: 'bg-red-500' },
-    { id: 3, name: 'IN PROGRESS', color: 'bg-orange-400' },
-    { id: 4, name: 'READY FOR TEST', color: 'bg-yellow-400' },
-    { id: 5, name: 'DONE', color: 'bg-green-500' },
-    { id: 6, name: 'ARCHIVED', color: 'bg-gray-400' }
-  ])
+
+  // Add proper initialization for sprintData
+  const [sprintData, setSprintData] = useState({
+    name: 'Sprint',
+    startDate: '',
+    endDate: ''
+  });
+
+  // Add completionPercentage state
+  const [completionPercentage, setCompletionPercentage] = useState(0);
+
+  // Danh sách trạng thái - initialize as empty array, will be filled from API
+  const [statuses, setStatuses] = useState([])
+
+  // Set default statuses as fallback
+  const defaultStatuses = [
+    { id: 1, name: 'NEW', color: '#3498db' },
+    { id: 2, name: 'READY', color: '#9b59b6' },
+    { id: 3, name: 'IN PROGRESS', color: '#f39c12' },
+    { id: 4, name: 'READY FOR TEST', color: '#f1c40f' },
+    { id: 5, name: 'DONE', color: '#2ecc71' },
+    { id: 6, name: 'ARCHIVED', color: '#95a5a6' }
+  ];
 
   // Danh sách User Stories
   const [userStories, setUserStories] = useState([])
@@ -99,7 +113,48 @@ export default function SprintPage() {
   }
 
   const fetchTaskStatuses = async () => {
-    return statuses;
+    try {
+      if (!projectId) {
+        console.error("Project ID is required to fetch task statuses");
+        setStatuses(defaultStatuses);
+        return defaultStatuses;
+      }
+
+      console.log("Fetching task statuses for project:", projectId);
+      const response = await fetchWithAuth(`${BASE_API_URL}/tasks/project/${projectId}/statuses`);
+
+      if (!response.ok) {
+        throw new Error(`Status error: ${response.status}`);
+      }
+
+      const responseData = await response.json();
+      console.log("Raw API response:", responseData);
+
+      // Extract the data array from the response
+      const data = responseData.data || [];
+      console.log("Fetched task statuses data array:", data);
+
+      if (data && Array.isArray(data) && data.length > 0) {
+        // Transform the API status data to match the expected format
+        const transformedStatuses = data.map(status => ({
+          id: status.id,
+          name: status.name.toUpperCase(), // Convert to uppercase for consistency
+          color: status.color || '#cccccc'  // Keep as hex color for easier manipulation
+        }));
+        console.log("Transformed statuses:", transformedStatuses);
+        setStatuses(transformedStatuses);
+        return transformedStatuses;
+      } else {
+        console.warn("Invalid response format or empty status data, using default values");
+        setStatuses(defaultStatuses);
+        return defaultStatuses;
+      }
+    } catch (error) {
+      console.error('Error fetching task statuses:', error);
+      console.warn("Using default statuses due to fetch error");
+      setStatuses(defaultStatuses);
+      return defaultStatuses;
+    }
   };
 
   const fetchFilters = async () => {
@@ -133,11 +188,18 @@ export default function SprintPage() {
     try {
       console.log('Fetching tasks for userStory ID:', userStoryId);
       const response = await fetchWithAuth(`${BASE_API_URL}/tasks/userstory/${userStoryId}`);
+
+      if (!response.ok) {
+        throw new Error(`Error fetching tasks: ${response.status}`);
+      }
+
       const data = await response.json();
       console.log('Tasks data for userStory', userStoryId, ':', data);
 
       if (data.statusCode === 200 && data.data) {
         return data.data;
+      } else if (data && Array.isArray(data)) {
+        return data; // Handle case where API returns array directly
       }
       return [];
     } catch (error) {
@@ -149,30 +211,50 @@ export default function SprintPage() {
 
   // Thêm hàm helper để ánh xạ statusId từ API response
   const mapStatusIdToLocal = (statusId, statusName) => {
-    // If statusId is between 1-6, use it directly
-    if (statusId && statusId >= 1 && statusId <= 6) {
+    // Use statuses from state directly, ensuring we have the latest values
+    const currentStatuses = statuses.length > 0 ? statuses : defaultStatuses;
+
+    console.log("Mapping task with statusId:", statusId, "statusName:", statusName);
+    console.log("Available statuses:", currentStatuses);
+
+    // First, try to find a direct ID match in our statuses array
+    const directMatch = currentStatuses.find(s => s.id === statusId);
+    if (directMatch) {
+      console.log(`Task status ID ${statusId} directly matches status: ${directMatch.name}`);
       return statusId;
     }
 
-    // Otherwise, try to match by name
+    // If no direct match by ID, try to match by name
     if (statusName) {
-      const matchedStatus = statuses.find(s =>
-        s.name.toLowerCase() === statusName.toLowerCase() ||
-        s.name.toLowerCase().includes(statusName.toLowerCase()) ||
-        statusName.toLowerCase().includes(s.name.toLowerCase())
-      );
+      const nameToMatch = (statusName || "").toLowerCase();
+      const matchedStatus = currentStatuses.find(s => {
+        const statusLower = (s.name || "").toLowerCase();
+        return statusLower === nameToMatch ||
+          statusLower.includes(nameToMatch) ||
+          nameToMatch.includes(statusLower);
+      });
 
       if (matchedStatus) {
-        console.log(`Đã ánh xạ statusName "${statusName}" sang ID=${matchedStatus.id}`);
+        console.log(`Mapped status name "${statusName}" to ID=${matchedStatus.id}, name=${matchedStatus.name}`);
         return matchedStatus.id;
       }
     }
 
-    // Default to first status (NEW) if no match
-    return 1;
+    // If we still have no match but we have statuses, return the ID of the first status
+    if (currentStatuses.length > 0) {
+      console.log(`Using first available status (${currentStatuses[0].name}, ID=${currentStatuses[0].id}) as fallback`);
+      return currentStatuses[0].id;
+    }
+
+    // If all else fails, return the first status ID as default
+    console.warn("No valid status mapping found, defaulting to first status if available");
+    if (currentStatuses.length > 0) {
+      return currentStatuses[0].id;
+    }
+    return null;
   };
 
-  const fetchUserStories = async (statuses) => {
+  const fetchUserStories = async (fetchedStatuses) => {
     const params = getFilterParams();
     const queryString = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
@@ -187,9 +269,32 @@ export default function SprintPage() {
     const keywordQuery = keyword ? `&keyword=${keyword}` : '';
 
     try {
+      console.log("Fetching user stories for project:", projectId, "sprint:", sprintId);
       const res = await fetchWithAuth(`${BASE_API_URL}/v1/user_story/get?projectId=${projectId}&sprintId=${sprintId}${keywordQuery}${filterQuery}`);
+
+      if (!res.ok) {
+        throw new Error(`Error fetching user stories: ${res.status}`);
+      }
+
       const data = await res.json();
+      console.log("User stories API response:", data);
+
+      if (!data.data || !Array.isArray(data.data)) {
+        console.warn("Invalid user stories data format:", data);
+        setUserStories([]);
+        setTasks({});
+        return;
+      }
+
       console.log("User stories data:", data.data);
+
+      // Make sure we're using the correct statuses
+      // Ensure we have statuses to work with - use fetchedStatuses if available, fall back to statuses state or defaults
+      const currentStatuses = fetchedStatuses && fetchedStatuses.length > 0
+        ? fetchedStatuses
+        : (statuses.length > 0 ? statuses : defaultStatuses);
+
+      console.log("Using statuses for story mapping:", currentStatuses);
 
       // Thêm property isExpanded vào mỗi userStory
       const userStoriesWithExpanded = data.data.map(story => ({
@@ -205,37 +310,76 @@ export default function SprintPage() {
       // Lấy tasks cho từng user story
       for (const story of data.data) {
         newTasks[story.id] = {};
-        statuses.forEach(stat => newTasks[story.id][stat.id] = []);
+
+        // Initialize all statuses with empty arrays
+        if (currentStatuses && currentStatuses.length > 0) {
+          currentStatuses.forEach(stat => {
+            newTasks[story.id][stat.id] = [];
+          });
+        } else {
+          console.warn("No statuses available for story", story.id);
+          continue; // Skip this story if no statuses
+        }
 
         const storyTasks = await fetchTasksForUserStory(story.id);
 
-        // Phân loại tasks theo status
-        if (storyTasks && Array.isArray(storyTasks)) {
-          console.log(`Phân loại ${storyTasks.length} tasks cho story #${story.id}`);
-          storyTasks.forEach(task => {
-            // Lấy statusId từ task và map về ID trong danh sách statuses
-            const apiStatusId = task.statusId;
-            const statusName = task.statusName || task.status;
-
-            // Ánh xạ statusId từ API về ID trong danh sách statuses
-            const mappedStatusId = mapStatusIdToLocal(apiStatusId, statusName);
-
-            if (!mappedStatusId) {
-              console.warn("Không thể ánh xạ status cho task:", task);
-              return;
-            }
-
-            console.log(`Task #${task.id} có statusId=${apiStatusId}, statusName=${statusName}, mappedStatusId=${mappedStatusId}`);
-
-            if (!newTasks[story.id][mappedStatusId]) {
-              console.log(`Tạo mảng mới cho mappedStatusId=${mappedStatusId} của story #${story.id}`);
-              newTasks[story.id][mappedStatusId] = [];
-            }
-
-            console.log(`Thêm task #${task.id} vào cột status=${mappedStatusId} của story #${story.id}`);
-            newTasks[story.id][mappedStatusId].push(task);
-          });
+        if (!storyTasks || !Array.isArray(storyTasks)) {
+          console.warn(`Invalid tasks data for story #${story.id}:`, storyTasks);
+          continue;
         }
+
+        // Phân loại tasks theo status
+        console.log(`Phân loại ${storyTasks.length} tasks cho story #${story.id}`);
+
+        storyTasks.forEach(task => {
+          // Lấy statusId từ task và map về ID trong danh sách statuses
+          const apiStatusId = task.statusId;
+          const statusName = task.statusName || task.status;
+
+          console.log(`Processing task #${task.id}, statusId=${apiStatusId}, statusName=${statusName}`);
+
+          // Ánh xạ statusId từ API về ID trong danh sách statuses
+          let mappedStatusId = null;
+
+          // First, try to find a direct ID match in our statuses array
+          const directMatch = currentStatuses.find(s => s.id === apiStatusId);
+          if (directMatch) {
+            console.log(`Task status ID ${apiStatusId} directly matches status: ${directMatch.name}`);
+            mappedStatusId = apiStatusId;
+          }
+          // If no direct match by ID, try to match by name
+          else if (statusName) {
+            const nameToMatch = (statusName || "").toLowerCase();
+            const matchedStatus = currentStatuses.find(s => {
+              const statusLower = (s.name || "").toLowerCase();
+              return statusLower === nameToMatch ||
+                statusLower.includes(nameToMatch) ||
+                nameToMatch.includes(statusLower);
+            });
+
+            if (matchedStatus) {
+              console.log(`Mapped status name "${statusName}" to ID=${matchedStatus.id}, name=${matchedStatus.name}`);
+              mappedStatusId = matchedStatus.id;
+            }
+          }
+
+          // If we still have no match, use the first status as default
+          if (!mappedStatusId && currentStatuses.length > 0) {
+            mappedStatusId = currentStatuses[0].id;
+            console.log(`Using first available status (${currentStatuses[0].name}, ID=${currentStatuses[0].id}) as fallback`);
+          } else if (!mappedStatusId) {
+            console.warn("Cannot map status for task:", task);
+            return;
+          }
+
+          if (!newTasks[story.id][mappedStatusId]) {
+            console.log(`Creating new array for mappedStatusId=${mappedStatusId} of story #${story.id}`);
+            newTasks[story.id][mappedStatusId] = [];
+          }
+
+          console.log(`Adding task #${task.id} to column status=${mappedStatusId} of story #${story.id}`);
+          newTasks[story.id][mappedStatusId].push(task);
+        });
       }
 
       console.log("Organized tasks for all stories:", newTasks);
@@ -254,6 +398,8 @@ export default function SprintPage() {
     } catch (error) {
       console.error("Error fetching user stories:", error);
       toast.error("Có lỗi xảy ra khi tải dữ liệu user stories");
+      setUserStories([]);
+      setTasks({});
     }
   };
 
@@ -262,17 +408,78 @@ export default function SprintPage() {
     const loadData = async () => {
       setLoading(true);
       try {
-        // Use hardcoded statuses directly
-        fetchUserStories(statuses);
+        console.log("Starting to load data for project:", projectId);
+
+        // First, fetch task statuses
+        console.log("Fetching task statuses first...");
+        const fetchedStatuses = await fetchTaskStatuses();
+        console.log("Fetched statuses:", fetchedStatuses);
+
+        // Ensure statuses are set properly - this is critical
+        if (!fetchedStatuses || fetchedStatuses.length === 0) {
+          console.log("No statuses fetched, using defaults");
+          await setStatuses(defaultStatuses);
+        }
+
+        // Then fetch user stories with the fetched statuses
+        console.log("Now fetching user stories with statuses:", fetchedStatuses || defaultStatuses);
+        await fetchUserStories(fetchedStatuses || defaultStatuses);
+
+        // Also fetch sprint data if we have a sprint ID
+        if (sprintId) {
+          try {
+            console.log(`Fetching sprint data for sprint ID ${sprintId}`);
+            // Fix sprint API endpoint
+            const sprintResponse = await fetchWithAuth(`${BASE_API_URL}/api/v1/sprint/${sprintId}`);
+
+            if (!sprintResponse.ok) {
+              console.error(`Error fetching sprint data: ${sprintResponse.status}`);
+              setSprintData({
+                name: `Sprint ${sprintId}`,
+                startDate: '',
+                endDate: ''
+              });
+              return;
+            }
+
+            const sprintData = await sprintResponse.json();
+            console.log("Fetched sprint data:", sprintData);
+
+            if (sprintData && sprintData.data) {
+              setSprintData({
+                name: sprintData.data.name || `Sprint ${sprintId}`,
+                startDate: sprintData.data.startDate || '',
+                endDate: sprintData.data.endDate || ''
+              });
+            } else {
+              setSprintData({
+                name: `Sprint ${sprintId}`,
+                startDate: '',
+                endDate: ''
+              });
+            }
+          } catch (error) {
+            console.error("Error fetching sprint data:", error);
+            // Set default sprint data
+            setSprintData({
+              name: `Sprint ${sprintId}`,
+              startDate: '',
+              endDate: ''
+            });
+          }
+        }
       } catch (error) {
         console.error("Error loading data:", error);
+        toast.error("Có lỗi xảy ra khi tải dữ liệu");
       } finally {
         setLoading(false);
       }
     };
 
-    loadData();
-  }, []);
+    if (projectId) {
+      loadData();
+    }
+  }, [projectId, sprintId]);
 
   // Cập nhật useEffect để không gọi fetchTasks nữa
   useEffect(() => {
@@ -607,6 +814,32 @@ export default function SprintPage() {
     }
   };
 
+  // Calculate completion percentage when tasks change
+  useEffect(() => {
+    if (Object.keys(tasks).length > 0) {
+      const doneStatusIds = statuses
+        .filter(s => s.name.toUpperCase() === 'DONE' || s.name.toUpperCase() === 'ARCHIVED')
+        .map(s => s.id);
+
+      let totalTasks = 0;
+      let completedTasks = 0;
+
+      Object.keys(tasks).forEach(storyId => {
+        Object.keys(tasks[storyId]).forEach(statusId => {
+          const tasksCount = tasks[storyId][statusId].length;
+          totalTasks += tasksCount;
+
+          if (doneStatusIds.includes(parseInt(statusId))) {
+            completedTasks += tasksCount;
+          }
+        });
+      });
+
+      const percentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+      setCompletionPercentage(percentage);
+    }
+  }, [tasks, statuses]);
+
   // Hiển thị loading khi đang tải dữ liệu
   if (loading) {
     return (
@@ -618,97 +851,63 @@ export default function SprintPage() {
 
   return (
     <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
-      <div className="min-h-screen bg-gray-100">
+      <div className="h-full flex flex-col">
         {/* Header */}
-        <header className="bg-white border-b border-gray-200">
-          <div className="container mx-auto px-4 py-2">
-            <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-teal-500">ggg</h1>
-              <span className="ml-4 text-gray-600">17 May 2025 to 17 May 2025</span>
+        <div className="container mx-auto px-4 py-4 border-b border-teal-200 flex justify-between items-center">
+          <div className="flex items-center space-x-1">
+            <h1 className="text-2xl font-bold text-teal-500">{sprintData.name}</h1>
+            <div className="text-sm text-gray-500">
+              {sprintData.startDate} to {sprintData.endDate}
             </div>
           </div>
-        </header>
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center px-2 py-1 rounded text-sm font-medium ${showFilters ? 'bg-teal-100 text-teal-700' : 'text-gray-500 hover:bg-gray-100'}`}
+            >
+              <Filter className="h-3.5 w-3.5 mr-1" /> Filters
+            </button>
+          </div>
+        </div>
 
-        {/* Stats Bar */}
-        <div className="bg-gray-800 text-white">
-          <div className="container mx-auto px-4 py-3">
-            <div className="flex items-center flex-wrap">
-              <div className="flex items-center mr-6">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Tìm kiếm task..."
-                    value={keyword}
-                    onChange={handleSearchChange}
-                    className="bg-white text-black h-8 px-2 pl-8 w-56"
-                  />
-                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
-                </div>
-                <div className="ml-4 w-40">
-                  <SprintProgressBar sprintId={sprintId} autoRefresh={true} />
-                </div>
-              </div>
-
-              <div className="border-l border-gray-600 h-10 mx-4"></div>
-
-              <div className="flex items-center mr-6">
-                <span className="text-2xl font-bold">{countOpenTasks()}</span>
-                <span className="text-sm ml-1">
-                  open
-                  <br />
-                  tasks
-                </span>
-              </div>
-
-              <div className="flex items-center mr-6">
-                <span className="text-2xl font-bold">{countClosedTasks()}</span>
-                <span className="text-sm ml-1">
-                  closed
-                  <br />
-                  tasks
-                </span>
-              </div>
-
-              <div className="ml-auto">
-                <div className="flex items-center space-x-1">
-                  <div className="h-4 w-1 bg-gray-400"></div>
-                  <div className="h-4 w-1 bg-gray-400"></div>
-                  <div className="h-4 w-1 bg-gray-400"></div>
-                </div>
-              </div>
+        {/* Progress bar */}
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="text-gray-700 font-semibold">
+            <span className="text-teal-500">{Math.round(completionPercentage)}%</span>
+          </div>
+          <div className="flex-grow mx-4 bg-gray-200 rounded-full h-2.5 overflow-hidden relative">
+            <div
+              className="bg-teal-500 h-full"
+              style={{ width: `${completionPercentage}%` }}
+            ></div>
+          </div>
+          <div className="flex space-x-6">
+            <div className="text-gray-700">
+              <span className="text-teal-500 font-semibold">{countOpenTasks()}</span> open
+              tasks
+            </div>
+            <div className="text-gray-700">
+              <span className="text-teal-500 font-semibold">{countClosedTasks()}</span> closed
+              tasks
             </div>
           </div>
         </div>
 
-        {/* Filters Bar */}
-        <div className="bg-white border-b border-gray-200">
-          <div className="container mx-auto px-4 py-2">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center">
-                <button
-                  className={`flex items-center ${showFilters ? "bg-gray-200" : ""} px-3 py-1.5 rounded mr-4`}
-                  onClick={toggleFilters}
-                >
-                  <Filter className="h-5 w-5 mr-1 text-teal-500" />
-                  <span className="text-teal-500">{showFilters ? "Hide filters" : "Filters"}</span>
-                </button>
-              </div>
-
-              <div className="flex items-center">
-                <span className="mr-2 text-gray-600">ZOOM:</span>
-                <div className="flex items-center space-x-1">
-                  <div className="h-6 w-6 rounded-full bg-gray-200"></div>
-                  <div className="h-6 w-6 rounded-full bg-gray-300"></div>
-                  <div className="bg-teal-500 text-white px-3 py-1 rounded-full text-xs">Detailed</div>
-                  <div className="h-6 w-6 rounded-full bg-gray-200"></div>
-                </div>
-              </div>
+        {/* Search and Filter Area */}
+        <div className="container mx-auto px-4 py-3 border-b border-teal-200">
+          <div className="flex w-full">
+            <div className="flex items-center bg-white border border-gray-300 rounded-lg px-3 py-1 flex-grow">
+              <Search className="h-4 w-4 text-gray-400 mr-2" />
+              <input
+                type="text"
+                placeholder="Tìm kiếm task..."
+                className="bg-transparent focus:outline-none text-sm flex-grow"
+                value={keyword}
+                onChange={handleSearchChange}
+              />
             </div>
           </div>
-        </div>
 
-        {/* Main Content */}
-        <div className="flex">
           {/* Filter Panel */}
           {showFilters && (
             <div className="w-1/4 bg-gray-100 border-r border-gray-200">
@@ -880,36 +1079,57 @@ export default function SprintPage() {
               </div>
             </div>
           )}
+        </div>
 
-          {/* Kanban Board */}
-          <div className={`${showFilters ? 'w-3/4' : 'w-full'} container mx-auto px-4 pb-6`}>
-            {/* Column Headers */}
+        {/* Kanban Board */}
+        <div className="flex-grow overflow-auto">
+          <div className="container mx-auto px-4 py-4">
             <div className="grid" style={{ gridTemplateColumns: `1fr repeat(${statuses.length}, 1fr)` }}>
               <div className="bg-gray-100 px-4 py-2 rounded-t font-bold text-gray-700">USER STORY</div>
-              {statuses.map((status) => (
-                <div
-                  key={status.id}
-                  style={{ borderColor: status.color }}
-                  className={`px-4 py-2 border-b-2 font-bold text-gray-700 mr-2`}
-                >
-                  {status.name}
-                </div>
-              ))}
+              {statuses.map((status) => {
+                // Handle both Tailwind class colors and hex colors for the header
+                const headerStyle = {};
+                if (status.color) {
+                  if (status.color.startsWith('bg-')) {
+                    // Extract color from Tailwind class if possible
+                    const tailwindColor = status.color.replace('bg-', '');
+                    headerStyle.backgroundColor = `var(--color-${tailwindColor}-100, #f3f4f6)`;
+                    headerStyle.borderTop = `3px solid var(--color-${tailwindColor}-500, #6b7280)`;
+                  } else {
+                    // Use hex color directly
+                    headerStyle.borderTop = `3px solid ${status.color}`;
+                    // Create a lighter background color by adding transparency
+                    headerStyle.backgroundColor = `${status.color}20`;
+                  }
+                }
+
+                return (
+                  <div
+                    key={status.id}
+                    style={headerStyle}
+                    className="px-4 py-2 font-bold text-gray-700 mr-2"
+                  >
+                    {status.name}
+                  </div>
+                );
+              })}
             </div>
 
-            {/* Kanban Board */}
-            {userStories.map((story) => (
-              <div key={story.id} className="mb-4">
-                <div className="grid" style={{ gridTemplateColumns: `1fr repeat(${statuses.length}, 1fr)` }}>
-                  {/* User Story Column */}
+            {/* User stories with tasks */}
+            {userStories.map(story => (
+              <div key={story.id} className="grid" style={{ gridTemplateColumns: `1fr repeat(${statuses.length}, 1fr)` }}>
+                <div className="bg-white rounded shadow-sm">
                   <div
-                    className="bg-white rounded shadow p-2 cursor-pointer hover:bg-gray-50"
+                    className="p-3 cursor-pointer"
                     onClick={(e) => handleUserStoryClick(story.id, e)}
                   >
                     <div className="flex items-center">
                       <button
-                        className="mr-2 toggle-button"
-                        onClick={() => toggleStoryExpand(story.id)}
+                        className="mr-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleStoryExpand(story.id);
+                        }}
                       >
                         {story.isExpanded ? (
                           <ChevronUp className="h-4 w-4 text-gray-500" />
@@ -939,59 +1159,59 @@ export default function SprintPage() {
                       </div>
                     </div>
                   </div>
-
-                  {/* Status Columns */}
-                  {statuses.map((status) => (
-                    <StatusColumn
-                      key={`${story.id}-${status.id}`}
-                      storyId={story.id}
-                      status={status.id}
-                      color={status.color}
-                      tasks={tasks[story.id]?.[status.id] || []}
-                      isExpanded={story.isExpanded}
-                      onTaskClick={handleTaskClick}
-                    />
-                  ))}
                 </div>
+
+                {/* Status Columns */}
+                {statuses.map((status) => (
+                  <StatusColumn
+                    key={`${story.id}-${status.id}`}
+                    storyId={story.id}
+                    status={status.id}
+                    color={status.color}
+                    tasks={tasks[story.id]?.[status.id] || []}
+                    isExpanded={story.isExpanded}
+                    onTaskClick={handleTaskClick}
+                  />
+                ))}
               </div>
             ))}
           </div>
         </div>
+      </div>
 
-        {/* Footer */}
-        <div className="container mx-auto px-4 py-4 mt-4 border-t border-teal-200">
-          <div className="flex items-center">
-            <input type="checkbox" className="mr-2" />
-            <span className="text-gray-600 font-medium">SPRINT ISSUES</span>
+      {/* Footer */}
+      <div className="container mx-auto px-4 py-4 mt-4 border-t border-teal-200">
+        <div className="flex items-center">
+          <input type="checkbox" className="mr-2" />
+          <span className="text-gray-600 font-medium">SPRINT ISSUES</span>
 
-            <div className="ml-6 flex items-center">
-              <div className="w-10 h-5 bg-teal-500 rounded-full relative">
-                <div className="absolute right-0.5 top-0.5 bg-white w-4 h-4 rounded-full"></div>
-              </div>
-              <span className="ml-2 text-gray-600">Tags</span>
+          <div className="ml-6 flex items-center">
+            <div className="w-10 h-5 bg-teal-500 rounded-full relative">
+              <div className="absolute right-0.5 top-0.5 bg-white w-4 h-4 rounded-full"></div>
             </div>
+            <span className="ml-2 text-gray-600">Tags</span>
+          </div>
 
-            <div className="ml-auto flex items-center">
-              <button className="mr-2">
-                <Plus className="h-5 w-5 text-gray-500" />
-              </button>
-              <button>
-                <MoreVertical className="h-5 w-5 text-gray-500" />
-              </button>
-            </div>
+          <div className="ml-auto flex items-center">
+            <button className="mr-2">
+              <Plus className="h-5 w-5 text-gray-500" />
+            </button>
+            <button>
+              <MoreVertical className="h-5 w-5 text-gray-500" />
+            </button>
           </div>
         </div>
-
-        {/* Add CreateTaskModal component at the end, before the closing DragDropContext tag */}
-        <CreateTaskModal
-          show={showCreateTaskModal}
-          onHide={() => setShowCreateTaskModal(false)}
-          projectId={projectId}
-          userStoryId={selectedUserStory}
-          initialStatusId={1}
-          onTaskCreated={handleTaskCreated}
-        />
       </div>
+
+      {/* Add CreateTaskModal component at the end, before the closing DragDropContext tag */}
+      <CreateTaskModal
+        show={showCreateTaskModal}
+        onHide={() => setShowCreateTaskModal(false)}
+        projectId={projectId}
+        userStoryId={selectedUserStory}
+        initialStatusId={1}
+        onTaskCreated={handleTaskCreated}
+      />
     </DragDropContext>
   )
 }
@@ -1009,8 +1229,24 @@ function FilterOption({ label }) {
 function StatusColumn({ storyId, status, color, tasks, isExpanded, onTaskClick }) {
   const droppableId = `${storyId}:${status}`
 
+  // Handle both Tailwind class colors and hex colors
+  const getColorStyle = () => {
+    if (!color) return {};
+
+    // If it's a Tailwind class (starts with 'bg-')
+    if (color.startsWith('bg-')) {
+      return { borderTop: '3px solid var(--color-primary)' }; // Use a CSS variable as fallback
+    }
+
+    // If it's a hex color
+    return { borderTop: `3px solid ${color}` };
+  };
+
   return (
-    <div className="bg-white rounded shadow p-2 min-h-[60px]">
+    <div
+      className="bg-white rounded shadow p-2 min-h-[60px]"
+      style={getColorStyle()}
+    >
       <Droppable
         ignoreContainerClipping={false}
         isDropDisabled={false}

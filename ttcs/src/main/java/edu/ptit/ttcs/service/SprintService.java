@@ -42,6 +42,7 @@ public class SprintService {
                     if (sprint.getUserStories().isEmpty() == close)
                         return true;
                     return sprint.getUserStories().stream()
+                            .filter(us -> us.getIsDeleted() == null || !us.getIsDeleted())
                             .noneMatch(us -> us.getStatus().getClosed() != close);
                 })
                 .map(this::toSprintDTO)
@@ -115,11 +116,17 @@ public class SprintService {
 
     public SprintDTO toSprintDTO(Sprint sprint) {
         SprintDTO dto = ModelMapper.getInstance().map(sprint, SprintDTO.class);
-        dto.setUserStories(sprint.getUserStories().stream()
+
+        // Lọc các user story chưa bị xóa
+        List<UserStory> activeUserStories = sprint.getUserStories().stream()
+                .filter(us -> us.getIsDeleted() == null || !us.getIsDeleted())
+                .toList();
+
+        dto.setUserStories(activeUserStories.stream()
                 .map(userStoryService::toDTO)
                 .toList());
-        dto.setTotal(sprint.getUserStories().size());
-        dto.setClosed((int) sprint.getUserStories().stream()
+        dto.setTotal(activeUserStories.size());
+        dto.setClosed((int) activeUserStories.stream()
                 .filter(us -> us.getStatus().getClosed())
                 .count());
         return dto;

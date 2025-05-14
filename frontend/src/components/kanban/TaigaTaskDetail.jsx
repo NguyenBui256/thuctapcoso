@@ -49,8 +49,13 @@ const TaskDetail = () => {
     const [showDueDatePicker, setShowDueDatePicker] = useState(false);
     const [showQuickDateSelect, setShowQuickDateSelect] = useState(false);
 
+    // Add tag related states
+    const [projectTags, setProjectTags] = useState([]);
+    const [showTagsDropdown, setShowTagsDropdown] = useState(false);
+
     // Add points state variables
     const [editedPoints, setEditedPoints] = useState(0);
+    const [isSaving, setIsSaving] = useState(false);
 
     // Add activities state
     const [activitiesRefreshTrigger, setActivitiesRefreshTrigger] = useState(0);
@@ -60,23 +65,80 @@ const TaskDetail = () => {
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef(null);
 
-    const statuses = [
-        { id: 1, name: 'NEW', color: 'bg-blue-400' },
-        { id: 2, name: 'READY', color: 'bg-red-500' },
-        { id: 3, name: 'IN PROGRESS', color: 'bg-orange-400' },
-        { id: 4, name: 'READY FOR TEST', color: 'bg-yellow-400' },
-        { id: 5, name: 'DONE', color: 'bg-green-500' },
-        { id: 6, name: 'ARCHIVED', color: 'bg-gray-400' }
-    ];
+    // Add a new state variable for statuses
+    const [statuses, setStatuses] = useState([]);
 
+    // Add function to fetch available tags for the project
+    const fetchAvailableTags = useCallback(async (projectId) => {
+        try {
+            if (!projectId) {
+                console.warn('Cannot fetch tags: No project ID provided');
+                return;
+            }
+
+            console.log('Fetching available tags for project ID:', projectId);
+            const response = await axios.get(`/api/v1/projects/${projectId}/tags`);
+            console.log('Available tags response:', response.data);
+
+            // Handle different response formats
+            if (response.data && Array.isArray(response.data)) {
+                setProjectTags(response.data);
+            } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
+                setProjectTags(response.data.data);
+            } else {
+                console.warn('Unexpected tags response format:', response.data);
+                setProjectTags([]);
+            }
+        } catch (error) {
+            console.error('Error fetching available tags:', error);
+            toast.error('Failed to load available tags');
+            setProjectTags([]);
+        }
+    }, []);
+
+    // Replace getStatusColor function
     const getStatusColor = (statusId) => {
         const status = statuses.find(s => s.id === statusId);
-        return status ? status.color : 'bg-gray-400';
+        return status && status.color ? status.color : '#cccccc';
     };
 
+    // Replace getStatusName function
     const getStatusName = (statusId) => {
         const status = statuses.find(s => s.id === statusId);
         return status ? status.name : 'UNKNOWN';
+    };
+
+    // Update fetchStatuses function to call the API directly
+    const fetchStatuses = async (projId) => {
+        try {
+            // Use provided projId or fallback to 4 for debugging
+            const projectIdToUse = projId || 4;
+
+            console.log("Fetching task statuses with project ID:", projectIdToUse);
+
+            // Always log the exact URL we're calling
+            const apiUrl = `/api/tasks/project/${projectIdToUse}/statuses`;
+            console.log("Calling status API with URL:", apiUrl);
+
+            // Make the API call
+            const response = await axios.get(apiUrl);
+            console.log("Status API response:", response);
+
+            if (response.data && Array.isArray(response.data)) {
+                console.log("Fetched task statuses:", response.data);
+                setStatuses(response.data);
+            } else {
+                console.error("Invalid response format for statuses:", response.data);
+                message.error('Status data format is invalid');
+            }
+        } catch (error) {
+            console.error('Error fetching task statuses:', error);
+            if (error.response) {
+                console.error('Error status:', error.response.status);
+                console.error('Error data:', error.response.data);
+            }
+            message.error('Failed to load task statuses');
+        }
     };
 
     const fetchComments = useCallback(async () => {
@@ -150,72 +212,86 @@ const TaskDetail = () => {
         let isMounted = true;
         const controller = new AbortController();
 
-        try {
-            setIsLoading(true);
-            const response = await axios.get(`/api/tasks/${taskId}`, {
-                signal: controller.signal
-            });
+        const fetchInitialData = async () => {
+            try {
+                setIsLoading(true);
+                const response = await axios.get(`/api/tasks/${taskId}`, {
+                    signal: controller.signal
+                });
 
-            if (!isMounted) return;
+                if (!isMounted) return;
 
-            const taskData = response.data;
+                const taskData = response.data;
 
-            // Preserve existing comments when updating task details
-            setTaskDetails(prev => ({
-                ...taskData,
-                comments: prev?.comments || taskData.comments || []
-            }));
+                // Preserve existing comments when updating task details
+                setTaskDetails(prev => ({
+                    ...taskData,
+                    comments: prev?.comments || taskData.comments || []
+                }));
 
-            // Initialize editable fields
-            setEditedSubject(taskData.subject || '');
-            setEditedDescription(taskData.description || '');
-            setEditedDueDate(taskData.dueDate ? new Date(taskData.dueDate) : null);
-            setIsBlocked(taskData.isBlocked || false);
-            setEditedPoints(taskData.points || 0);
+                // Initialize editable fields
+                setEditedSubject(taskData.subject || '');
+                setEditedDescription(taskData.description || '');
+                setEditedDueDate(taskData.dueDate ? new Date(taskData.dueDate) : null);
+                setIsBlocked(taskData.isBlocked || false);
+                setEditedPoints(taskData.points || 0);
 
-            // Fetch available assignees if project ID is available
-            if (taskData.userStoryId && isMounted) {
-                try {
-                    const userStoryResponse = await axios.get(`/api/userstories/${taskData.userStoryId}`, {
-                        signal: controller.signal
-                    });
+                // Directly fetch tags if projectId is available
+                if (taskData.projectId) {
+                    console.log("Task has projectId, directly fetching tags:", taskData.projectId);
+                    fetchAvailableTags(taskData.projectId);
+                }
 
-                    if (!isMounted) return;
+                // Fetch available assignees if project ID is available
+                if (taskData.userStoryId && isMounted) {
+                    try {
+                        const userStoryResponse = await axios.get(`/api/kanban/board/userstory/${taskData.userStoryId}`, {
+                            signal: controller.signal
+                        });
 
-                    if (userStoryResponse.data && userStoryResponse.data.projectId) {
-                        // Lưu lại projectId từ user story nếu task không có
-                        if (!taskData.projectId) {
-                            setTaskDetails(prev => ({
-                                ...prev,
-                                projectId: userStoryResponse.data.projectId
-                            }));
-                            console.log('Updated projectId from userStory:', userStoryResponse.data.projectId);
+                        if (!isMounted) return;
+
+                        if (userStoryResponse.data && userStoryResponse.data.projectId) {
+                            // Lưu lại projectId từ user story nếu task không có
+                            if (!taskData.projectId) {
+                                setTaskDetails(prev => ({
+                                    ...prev,
+                                    projectId: userStoryResponse.data.projectId
+                                }));
+                                console.log('Updated projectId from userStory:', userStoryResponse.data.projectId);
+                            }
+
+                            fetchAvailableAssignees(userStoryResponse.data.projectId);
+
+                            // Also fetch tags whenever we get the projectId
+                            fetchAvailableTags(userStoryResponse.data.projectId);
                         }
-
-                        fetchAvailableAssignees(userStoryResponse.data.projectId);
+                    } catch (innerErr) {
+                        console.error('Error fetching user story:', innerErr);
+                        // Continue execution, don't break on this error
                     }
-                } catch (innerErr) {
-                    console.error('Error fetching user story:', innerErr);
-                    // Continue execution, don't break on this error
+                }
+
+                if (isMounted) {
+                    setError(null);
+                }
+            } catch (err) {
+                if (err.name === 'AbortError' || !isMounted) {
+                    // Ignore abort errors
+                    return;
+                }
+                console.error('Error fetching task:', err);
+                setError('Không thể tải dữ liệu nhiệm vụ. Vui lòng thử lại sau.');
+            } finally {
+                if (isMounted) {
+                    setIsLoading(false);
                 }
             }
+        };
 
-            if (isMounted) {
-                setError(null);
-            }
-        } catch (err) {
-            if (err.name === 'AbortError' || !isMounted) {
-                // Ignore abort errors
-                return;
-            }
-            console.error('Error fetching task:', err);
-            setError('Không thể tải dữ liệu nhiệm vụ. Vui lòng thử lại sau.');
-        } finally {
-            if (isMounted) {
-                setIsLoading(false);
-            }
-        }
+        fetchInitialData();
 
+        // Cleanup function to prevent state updates after unmount
         return () => {
             isMounted = false;
             controller.abort();
@@ -233,6 +309,12 @@ const TaskDetail = () => {
                 if (isMounted) {
                     await fetchComments();
                     await fetchActivities();
+
+                    // Force fetch statuses with project ID 4 (from the URL)
+                    if (projectId) {
+                        console.log("Force fetching statuses with project ID from URL:", projectId);
+                        fetchStatuses(projectId);
+                    }
                 }
             } catch (error) {
                 console.error('Error fetching initial data:', error);
@@ -246,7 +328,7 @@ const TaskDetail = () => {
             isMounted = false;
             controller.abort();
         };
-    }, [taskId, fetchTaskDetails, fetchComments, fetchActivities]);
+    }, [taskId, fetchTaskDetails, fetchComments, fetchActivities, projectId]);
 
     useEffect(() => {
         if (taskDetails.watchers && taskDetails.watchers.length > 0) {
@@ -366,78 +448,76 @@ const TaskDetail = () => {
         }
     };
 
-    const handleAddTag = () => {
-        console.log('Add tag clicked');
-    };
-
-    // Xử lý assignee
-    const handleAssignUser = async (userId) => {
+    const handleAddTag = async (tagId) => {
         try {
-            console.log(`Attempting to assign user ${userId} to task ${taskId}`);
-            // Gọi API để thêm người dùng vào assignees
-            await axios.post(`/api/tasks/${taskId}/assignees/${userId}`);
+            console.log(`Adding tag ${tagId} to task ${taskId}`);
 
-            // Refresh task data
-            console.log("Assignment successful, refreshing task data");
-            await fetchTaskDetails();
-            toast.success('Gán nhiệm vụ thành công');
-            setShowAssigneeDropdown(false);
+            // Find the tag in projectTags to get its details for optimistic UI update
+            const tagToAdd = projectTags.find(tag => tag.id === tagId);
 
-            // Tự động làm mới activities
-            triggerActivitiesRefresh();
+            // Optimistically update UI before API call completes
+            if (tagToAdd && taskDetails) {
+                // Create a new tags array with the new tag added
+                const updatedTags = [...(taskDetails.tags || []), tagToAdd];
+                // Update task details with the new tags
+                setTaskDetails({
+                    ...taskDetails,
+                    tags: updatedTags
+                });
+                // Hide the dropdown
+                setShowTagsDropdown(false);
+            }
+
+            // Send the API request
+            const response = await axios.post(`/api/tasks/${taskId}/tags/${tagId}`);
+
+            if (response.status === 200 || response.status === 201) {
+                // Success notification
+                toast.success('Tag added successfully');
+
+                // Record activity
+                await recordActivity('tag_added', `Added tag to task`);
+
+                // Trigger activities refresh
+                triggerActivitiesRefresh();
+
+                // No need to call fetchTaskDetails here since we've already updated the UI
+            }
         } catch (error) {
-            console.error('Error assigning task:', error.response?.data || error.message);
-            toast.error('Không thể gán nhiệm vụ');
+            console.error('Error adding tag to task:', error);
+            toast.error('Failed to add tag to task');
+
+            // Refresh task data to restore correct state in case of error
+            await fetchTaskDetails();
         }
     };
 
-    const handleRemoveAssignee = async (userId) => {
+    const handleRemoveTag = async (tagId) => {
         try {
-            console.log(`Attempting to remove assignee ${userId} from task ${taskId}`);
+            console.log(`Removing tag ${tagId} from task ${taskId}`);
 
-            // Đảm bảo userId là số nguyên
-            const numericUserId = parseInt(userId);
-            if (isNaN(numericUserId)) {
-                console.error('Invalid user ID:', userId);
-                message.error('User ID không hợp lệ');
-                return;
+            // Optimistic update - remove the tag locally immediately
+            if (taskDetails && taskDetails.tags) {
+                const updatedTags = taskDetails.tags.filter(tag => tag.id !== tagId);
+                setTaskDetails({ ...taskDetails, tags: updatedTags });
             }
 
-            // Lấy danh sách assignees hiện tại (loại bỏ người cần xóa)
-            const updatedAssignees = assignedUsers
-                .filter(user => user.id !== numericUserId)
-                .map(user => user.id);
+            // Then send the API request
+            const response = await axios.delete(`/api/tasks/${taskId}/tags/${tagId}`);
 
-            console.log('Current assignees:', assignedUsers);
-            console.log('Updated assignees list:', updatedAssignees);
+            if (response.status === 200) {
+                toast.success('Tag removed successfully');
 
-            // Gọi API để cập nhật toàn bộ danh sách assignees thay vì xóa một người
-            const response = await axios.post(`/api/tasks/${taskId}/assignees`, {
-                userIds: updatedAssignees
-            });
+                // Record activity
+                await recordActivity('tag_removed', `Removed tag from task`);
 
-            console.log('Update assignees API response:', response);
-
-            // Cập nhật UI ngay lập tức
-            setAssignedUsers(prevUsers => prevUsers.filter(user => user.id !== numericUserId));
-
-            // Refresh task data từ server để đảm bảo đồng bộ
-            console.log("Remove assignee successful, refreshing task data");
-            await fetchTaskDetails();
-            toast.success('Đã xóa người được gán');
-
-            // Tự động làm mới activities
-            triggerActivitiesRefresh();
+                // Trigger activities refresh
+                triggerActivitiesRefresh();
+            }
         } catch (error) {
-            console.error('Error removing assignee:', error);
-            if (error.response) {
-                console.error('Response data:', error.response.data);
-                console.error('Response status:', error.response.status);
-                console.error('Response headers:', error.response.headers);
-            }
-            toast.error('Không thể xóa người được gán');
-
-            // Refresh data để hiển thị trạng thái hiện tại từ server
+            console.error('Error removing tag from task:', error);
+            toast.error('Failed to remove tag from task');
+            // Refresh task data to restore correct state
             await fetchTaskDetails();
         }
     };
@@ -562,12 +642,38 @@ const TaskDetail = () => {
         }
 
         try {
-            await axios.delete(`/api/tasks/${taskId}`);
-            toast.success('Task deleted successfully');
-            navigate(-1);
-        } catch (error) {
-            console.error('Error deleting task:', error);
-            toast.error('Failed to delete task');
+            // Show a loading toast
+            const loadingToastId = toast.loading('Deleting task...');
+
+            try {
+                // Sử dụng hard delete để xóa hoàn toàn khỏi database
+                await axios.delete(`/api/tasks/${taskId}`);
+
+                toast.update(loadingToastId, {
+                    render: 'Task deleted successfully',
+                    type: 'success',
+                    isLoading: false,
+                    autoClose: 2000
+                });
+
+                // Navigate back
+                setTimeout(() => {
+                    navigate(-1);
+                }, 500);
+
+            } catch (error) {
+                console.error('Error deleting task:', error);
+                toast.update(loadingToastId, {
+                    render: 'Failed to delete task: ' + (error.response?.data?.message || error.message || 'Unknown error'),
+                    type: 'error',
+                    isLoading: false,
+                    autoClose: 5000
+                });
+            }
+        } catch (outerError) {
+            // This catches errors in the toast or other outer code
+            console.error('Outer error in delete task handler:', outerError);
+            toast.error('An unexpected error occurred. Please try again.');
         }
     };
 
@@ -622,6 +728,73 @@ const TaskDetail = () => {
         }
     };
 
+    // Add handleDeleteComment function after handleSubmitComment
+    const handleDeleteComment = async (commentId, userId) => {
+        // Check if the user is trying to delete their own comment
+        const currentUserId = getCurrentUserId();
+
+        if (currentUserId !== userId) {
+            toast.error('You can only delete your own comments');
+            return;
+        }
+
+        if (!window.confirm('Are you sure you want to delete this comment?')) {
+            return;
+        }
+
+        try {
+            // Update local state immediately for better UI responsiveness
+            const updatedComments = taskDetails.comments.filter(comment => comment.id !== commentId);
+            setTaskDetails(prev => ({
+                ...prev,
+                comments: updatedComments
+            }));
+
+            // Show pending status
+            toast.info('Deleting comment...');
+
+            // Call the API to delete the comment with timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+            const response = await axios.delete(`/api/tasks/${taskId}/comments/${commentId}`, {
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+
+            // Only show success message after the API completes
+            if (response.status === 200) {
+                toast.success('Comment deleted successfully');
+
+                // Record the activity
+                await recordActivity('comment_deleted', 'Deleted a comment');
+
+                // Trigger refresh
+                triggerActivitiesRefresh();
+            }
+        } catch (error) {
+            console.error('Error deleting comment:', error);
+            if (error.name === 'AbortError') {
+                // The request was aborted due to timeout
+                toast.error('Request timeout. The comment may have been deleted, but the server took too long to respond');
+
+                // Still trigger refresh to ensure UI is updated
+                triggerActivitiesRefresh();
+            } else if (error.response && error.response.status === 403) {
+                toast.error('You can only delete your own comments');
+
+                // Revert the optimistic update
+                await fetchComments();
+            } else {
+                toast.error('Failed to delete comment. Please try again.');
+
+                // Revert the optimistic update
+                await fetchComments();
+            }
+        }
+    };
+
     const handleSaveChanges = async () => {
         setIsSaving(true);
         setError(null);
@@ -629,17 +802,24 @@ const TaskDetail = () => {
         try {
             const updateData = {
                 id: taskDetails.id,
-                name: editedSubject,
+                subject: editedSubject,
                 description: editedDescription || '',
-                statusId: parseInt(editedStatusId),
-                assigneeIds: editedAssignees.map(a => parseInt(a.id)),
+                statusId: taskDetails.statusId, // Keep current status ID
                 // Include any other fields that need to be updated
+                isBlocked: isBlocked,
+                points: editedPoints
             };
 
             const response = await axios.put(`/api/tasks/${taskDetails.id}`, updateData);
             setTaskDetails(response.data);
             setEditMode(false);
             toast.success('Task updated successfully');
+
+            // Record activity
+            await recordActivity('task_updated', 'Task details updated');
+
+            // Trigger activities refresh
+            triggerActivitiesRefresh();
         } catch (err) {
             console.error('Error saving changes:', err);
             setError('Failed to save changes. Please try again.');
@@ -651,39 +831,73 @@ const TaskDetail = () => {
 
     const handleStatusChange = async (newStatusId) => {
         try {
-            // Get previous status ID before updating
-            const previousStatusId = taskDetails.statusId;
+            // Ensure status IDs are numbers
+            const previousStatusId = parseInt(taskDetails.statusId);
+            const newStatusIdNumber = parseInt(newStatusId);
+
+            const originalStatus = statuses.find(s => s.id === previousStatusId);
+            const newStatus = statuses.find(s => s.id === newStatusIdNumber);
+
+            console.log(`Changing status from ${previousStatusId} to ${newStatusIdNumber}`);
+            console.log(`Original status: ${originalStatus?.name}, New status: ${newStatus?.name}`);
 
             // Update UI optimistically
             setTaskDetails(prev => ({
                 ...prev,
-                statusId: newStatusId
+                statusId: newStatusIdNumber
             }));
 
-            // Send API request
-            await axios.put(`/api/tasks/${taskDetails.id}/status/${newStatusId}`);
+            // Close dropdown
+            setShowStatusDropdown(false);
+
+            // Use the same approach as TaigaUserStoryDetail.jsx
+            // Send the statusId in the request body
+            const response = await axios.put(`/api/tasks/${taskDetails.id}/status`, {
+                statusId: newStatusIdNumber
+            });
+
+            console.log("Status update response:", response);
+
+            // Record activity for status change
+            await recordActivity(
+                'status_updated',
+                `Status changed from ${originalStatus?.name || previousStatusId} to ${newStatus?.name || newStatusIdNumber}`
+            );
+
+            // Add explicit call to refresh activities after status update
+            triggerActivitiesRefresh();
+
+            // Make sure to fetch activities regardless of active tab
+            fetchActivities();
 
             // Show success message
-            const statusName = statuses.find(s => s.id === newStatusId)?.name || 'new status';
-            toast.success(`Task status updated to ${statusName}`);
+            toast.success(`Task status updated to ${newStatus?.name || 'new status'}`);
 
             // Emit event to notify other components (like SprintProgressBar) about the status change
             // Check if task moved to/from Done status (status 5)
-            if (previousStatusId === 5 || newStatusId === 5) {
+            if (previousStatusId === 5 || newStatusIdNumber === 5) {
                 const sprintId = taskDetails.sprintId;
                 console.log('Emitting task-status-changed event with sprintId:', sprintId);
                 eventBus.emit('task-status-changed', {
                     taskId: taskDetails.id,
                     previousStatusId,
-                    newStatusId,
+                    newStatusId: newStatusIdNumber,
                     sprintId
                 });
             }
         } catch (error) {
             console.error('Error updating task status:', error);
+            if (error.response) {
+                console.error('Error status:', error.response.status);
+                console.error('Error data:', error.response.data);
+            }
             toast.error('Failed to update task status');
+
             // Revert on error
-            setTaskDetails(prev => ({ ...prev }));
+            setTaskDetails(prev => ({
+                ...prev,
+                statusId: previousStatusId
+            }));
         }
     };
 
@@ -786,39 +1000,6 @@ const TaskDetail = () => {
 
             console.error('Error updating block status:', err);
             toast.error('Failed to update block status. Please try again.');
-        }
-    };
-
-    // Debug helper function
-    const debugInfo = () => {
-        console.log({
-            taskId,
-            taskDetails,
-            projectId: taskDetails.projectId,
-            userStoryId: taskDetails.userStoryId,
-            assignedUsers,
-            watchers,
-            availableAssignees
-        });
-
-        if (taskDetails.projectId) {
-            console.log("Using project ID:", taskDetails.projectId);
-            fetchAvailableAssignees(taskDetails.projectId);
-        } else if (taskDetails.userStoryId) {
-            console.log("No projectId, fetching from userStory:", taskDetails.userStoryId);
-            axios.get(`/api/kanban/board/userstory/${taskDetails.userStoryId}`)
-                .then(res => {
-                    console.log("UserStory data:", res.data);
-                    if (res.data && res.data.projectId) {
-                        console.log("Found projectId in userStory:", res.data.projectId);
-                        fetchAvailableAssignees(res.data.projectId);
-                    } else {
-                        console.log("No projectId in userStory data");
-                    }
-                })
-                .catch(err => console.error("Error fetching userStory:", err));
-        } else {
-            console.log("No projectId or userStoryId available");
         }
     };
 
@@ -958,6 +1139,129 @@ const TaskDetail = () => {
         return taskDetails.projectId;
     }, [taskDetails]);
 
+    // Log when statusId changes
+    useEffect(() => {
+        if (taskDetails && taskDetails.statusId) {
+            console.log(`Task status ID changed to: ${taskDetails.statusId}`);
+            console.log(`Current status name: ${getStatusName(taskDetails.statusId)}`);
+            console.log(`Current status color: ${getStatusColor(taskDetails.statusId)}`);
+        }
+    }, [taskDetails.statusId, statuses]);
+
+    // Log when projectId is set or changes and fetch statuses
+    useEffect(() => {
+        if (taskDetails && taskDetails.projectId) {
+            console.log(`Project ID set or changed to: ${taskDetails.projectId}`);
+
+            // Fetch the task statuses when we have a projectId
+            console.log("Fetching task statuses for project:", taskDetails.projectId);
+            fetchStatuses(taskDetails.projectId);
+
+            // Fetch available tags for the project
+            fetchAvailableTags(taskDetails.projectId);
+        } else if (taskDetails && taskDetails.userStoryId && !taskDetails.projectId) {
+            // If we don't have projectId but we have userStoryId, try to get projectId from user story
+            console.log("No projectId but userStoryId available, fetching from user story:", taskDetails.userStoryId);
+            axios.get(`/api/kanban/board/userstory/${taskDetails.userStoryId}`)
+                .then(response => {
+                    if (response.data && response.data.projectId) {
+                        console.log("Found projectId in user story:", response.data.projectId);
+                        fetchStatuses(response.data.projectId);
+                        fetchAvailableTags(response.data.projectId);
+                        // Update task details with projectId
+                        setTaskDetails(prev => ({
+                            ...prev,
+                            projectId: response.data.projectId
+                        }));
+                    }
+                })
+                .catch(error => {
+                    console.error("Error fetching user story to get projectId for statuses:", error);
+                });
+        }
+    }, [taskDetails.projectId, taskDetails.userStoryId]);
+
+    // Force fetch statuses on component mount
+    useEffect(() => {
+        // Immediate fetch of statuses with project ID 4
+        console.log("Component mounted - Initial fetch of statuses with project ID 4");
+        fetchStatuses(4);
+
+        // No dependencies means this runs once after component mount
+    }, []);
+
+    // Xử lý assignee
+    const handleAssignUser = async (userId) => {
+        try {
+            console.log(`Attempting to assign user ${userId} to task ${taskId}`);
+            // Gọi API để thêm người dùng vào assignees
+            await axios.post(`/api/tasks/${taskId}/assignees/${userId}`);
+
+            // Refresh task data
+            console.log("Assignment successful, refreshing task data");
+            await fetchTaskDetails();
+            toast.success('Gán nhiệm vụ thành công');
+            setShowAssigneeDropdown(false);
+
+            // Tự động làm mới activities
+            triggerActivitiesRefresh();
+        } catch (error) {
+            console.error('Error assigning task:', error.response?.data || error.message);
+            toast.error('Không thể gán nhiệm vụ');
+        }
+    };
+
+    const handleRemoveAssignee = async (userId) => {
+        try {
+            console.log(`Attempting to remove assignee ${userId} from task ${taskId}`);
+
+            // Đảm bảo userId là số nguyên
+            const numericUserId = parseInt(userId);
+            if (isNaN(numericUserId)) {
+                console.error('Invalid user ID:', userId);
+                message.error('User ID không hợp lệ');
+                return;
+            }
+
+            // Lấy danh sách assignees hiện tại (loại bỏ người cần xóa)
+            const updatedAssignees = assignedUsers
+                .filter(user => user.id !== numericUserId)
+                .map(user => user.id);
+
+            console.log('Current assignees:', assignedUsers);
+            console.log('Updated assignees list:', updatedAssignees);
+
+            // Gọi API để cập nhật toàn bộ danh sách assignees thay vì xóa một người
+            const response = await axios.post(`/api/tasks/${taskId}/assignees`, {
+                userIds: updatedAssignees
+            });
+
+            console.log('Update assignees API response:', response);
+
+            // Cập nhật UI ngay lập tức
+            setAssignedUsers(prevUsers => prevUsers.filter(user => user.id !== numericUserId));
+
+            // Refresh task data từ server để đảm bảo đồng bộ
+            console.log("Remove assignee successful, refreshing task data");
+            await fetchTaskDetails();
+            toast.success('Đã xóa người được gán');
+
+            // Tự động làm mới activities
+            triggerActivitiesRefresh();
+        } catch (error) {
+            console.error('Error removing assignee:', error);
+            if (error.response) {
+                console.error('Response data:', error.response.data);
+                console.error('Response status:', error.response.status);
+                console.error('Response headers:', error.response.headers);
+            }
+            toast.error('Không thể xóa người được gán');
+
+            // Refresh data để hiển thị trạng thái hiện tại từ server
+            await fetchTaskDetails();
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="bg-gray-100 min-h-screen flex items-center justify-center">
@@ -1027,23 +1331,28 @@ const TaskDetail = () => {
                     <div className="relative">
                         <button
                             onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                            className={`${getStatusColor(taskDetails.statusId)} text-white px-3 py-1 rounded-sm ml-2 flex items-center`}
+                            className="text-white px-3 py-1 rounded-sm ml-2 flex items-center"
+                            style={{ backgroundColor: getStatusColor(taskDetails.statusId) }}
                         >
                             {getStatusName(taskDetails.statusId)} <ChevronDown size={16} />
                         </button>
 
                         {showStatusDropdown && (
                             <div className="dropdown-menu dropdown-arrow-down absolute z-50 right-0 mt-1 w-48 bg-white border border-gray-200 rounded shadow-lg">
-                                {statuses.map(status => (
-                                    <div
-                                        key={status.id}
-                                        className={`flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer ${status.id === taskDetails.statusId ? 'bg-gray-100' : ''}`}
-                                        onClick={() => handleStatusChange(status.id)}
-                                    >
-                                        <div className={`w-3 h-3 rounded-full ${status.color} mr-2`}></div>
-                                        <span>{status.name}</span>
-                                    </div>
-                                ))}
+                                {statuses.length > 0 ? (
+                                    statuses.map(status => (
+                                        <div
+                                            key={status.id}
+                                            className={`flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer ${status.id === taskDetails.statusId ? 'bg-gray-100' : ''}`}
+                                            onClick={() => handleStatusChange(status.id)}
+                                        >
+                                            <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: status.color }}></div>
+                                            <span>{status.name}</span>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="px-4 py-2 text-gray-500">Loading statuses...</div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -1087,18 +1396,60 @@ const TaskDetail = () => {
                         <div className="bg-gray-100 py-2 px-4 text-sm font-semibold">
                             TAGS
                         </div>
-                        <div className="flex mt-2 space-x-2">
+                        <div className="flex mt-2 space-x-2 flex-wrap">
                             {taskDetails.tags && taskDetails.tags.length > 0 ? (
                                 taskDetails.tags.map(tag => (
-                                    <button key={tag.id} className="bg-green-500 text-white px-3 py-1 rounded-sm flex items-center text-sm">
-                                        {tag.name} <X size={14} className="ml-1" />
-                                    </button>
+                                    <div
+                                        key={tag.id}
+                                        className="flex items-center px-3 py-1 rounded-sm text-white mb-2"
+                                        style={{ backgroundColor: tag.color || '#cccccc' }}
+                                    >
+                                        <span>{tag.name}</span>
+                                        <button
+                                            type="button"
+                                            className="ml-1 cursor-pointer bg-transparent border-0 p-0 text-white focus:outline-none"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                console.log("Tag removal button clicked for tag ID:", tag.id);
+                                                handleRemoveTag(tag.id);
+                                            }}
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    </div>
                                 ))
                             ) : (
-                                <button className="bg-white border border-gray-300 px-3 py-1 rounded-sm flex items-center text-sm">
+                                <span className="text-gray-500 italic">No tags applied</span>
+                            )}
+                            <div className="relative">
+                                <button
+                                    className="bg-white border border-gray-300 px-3 py-1 rounded-sm flex items-center text-sm mb-2"
+                                    onClick={() => setShowTagsDropdown(!showTagsDropdown)}
+                                >
                                     Add tag <Plus size={14} className="ml-1" />
                                 </button>
-                            )}
+
+                                {showTagsDropdown && (
+                                    <div className="dropdown-menu dropdown-arrow-down absolute z-50 left-0 mt-1 w-48 bg-white border border-gray-200 rounded shadow-lg">
+                                        {projectTags.length > 0 ? (
+                                            projectTags
+                                                .filter(tag => !taskDetails.tags || !taskDetails.tags.some(t => t.id === tag.id))
+                                                .map(tag => (
+                                                    <div
+                                                        key={tag.id}
+                                                        className="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                                        onClick={() => handleAddTag(tag.id)}
+                                                    >
+                                                        <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: tag.color }}></div>
+                                                        <span>{tag.name}</span>
+                                                    </div>
+                                                ))
+                                        ) : (
+                                            <div className="px-4 py-2 text-gray-500">No available tags</div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -1208,9 +1559,21 @@ const TaskDetail = () => {
                                                             <span className="font-medium">{comment.userFullName}</span>
                                                             <span className="text-gray-500 text-sm ml-2">@{comment.username}</span>
                                                         </div>
-                                                        <span className="text-gray-500 text-sm">
-                                                            {dayjs(comment.createdAt).format('YYYY-MM-DD HH:mm')}
-                                                        </span>
+                                                        <div className="flex items-center">
+                                                            <span className="text-gray-500 text-sm mr-2">
+                                                                {dayjs(comment.createdAt).format('YYYY-MM-DD HH:mm')}
+                                                            </span>
+                                                            {/* Show delete button only for current user's comments */}
+                                                            {comment.userId === getCurrentUserId() && (
+                                                                <button
+                                                                    onClick={() => handleDeleteComment(comment.id, comment.userId)}
+                                                                    className="text-red-500 hover:text-red-700"
+                                                                    title="Delete comment"
+                                                                >
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                     <p className="mt-1 text-gray-700">{comment.content}</p>
                                                 </div>

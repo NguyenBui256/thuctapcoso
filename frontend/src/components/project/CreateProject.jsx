@@ -73,8 +73,27 @@ const CreateProject = () => {
         setError(null);
 
         try {
-            await projectService.createProject(formData);
-            navigate('/projects');
+            const response = await projectService.createProject(formData);
+            console.log('Project created:', response);
+
+            // Lấy projectId từ phản hồi API
+            // API trả về đối tượng Project trực tiếp
+            const projectId = response && response.id;
+
+            if (projectId) {
+                // Chuyển hướng đến trang tương ứng dựa trên loại project
+                if (projectType === 'scrum') {
+                    navigate(`/projects/${projectId}/backlog`);
+                } else if (projectType === 'kanban') {
+                    navigate(`/projects/${projectId}/kanban`);
+                } else {
+                    // Mặc định nếu không phải scrum hoặc kanban
+                    navigate(`/projects/${projectId}`);
+                }
+            } else {
+                // Nếu không có projectId, chuyển về trang projects
+                navigate('/projects');
+            }
         } catch (err) {
             setError('Failed to create project');
             console.error('Error creating project:', err);

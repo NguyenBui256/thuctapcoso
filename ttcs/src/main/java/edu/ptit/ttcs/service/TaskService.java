@@ -39,51 +39,50 @@ public class TaskService {
     private final ProjectRoleRepository projectRoleRepository;
 
     public List<TaskDTO> getBySprint(long projectId,
-                                     long sprintId,
-                                     FilterParams filters){
+            long sprintId,
+            FilterParams filters) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RequestException("Project not found"));
         Sprint sprint = sprintRepository.findById(sprintId)
                 .orElseThrow(() -> new RequestException("Sprint not found"));
-        if(sprint.getProject().getId() != projectId){
+        if (sprint.getProject().getId() != projectId) {
             throw new RequestException("Sprint is not in this project");
         }
         Specification<Task> spec = Specification.where(
-                TaskSpecs.belongToSprint(sprintId)
-        );
-        if(filters.getKeyword() != null){
+                TaskSpecs.belongToSprint(sprintId));
+        if (filters.getKeyword() != null) {
             spec = spec.and(TaskSpecs.hasKeyword(filters.getKeyword()));
         }
-        if(filters.getExcludeStatuses() != null){
+        if (filters.getExcludeStatuses() != null) {
             spec = spec.and(TaskSpecs.byStatuses(filters.getExcludeStatuses(), true));
         }
-        if(filters.getExcludeCreatedBy() != null){
+        if (filters.getExcludeCreatedBy() != null) {
             spec = spec.and(TaskSpecs.byCreatedMembers(filters.getExcludeCreatedBy(), true));
         }
-        if(filters.getExcludeAssigns() != null){
+        if (filters.getExcludeAssigns() != null) {
             spec = spec.and(TaskSpecs.byAssignedMembers(filters.getExcludeAssigns(), true));
         }
-        if(filters.getExcludeRoles() != null){
+        if (filters.getExcludeRoles() != null) {
             spec = spec.and(TaskSpecs.byMemberRoles(filters.getExcludeRoles(), true));
         }
 
-        if(filters.getStatuses() != null){
+        if (filters.getStatuses() != null) {
             spec = spec.and(TaskSpecs.byStatuses(filters.getStatuses(), false));
         }
-        if(filters.getCreatedBy() != null){
+        if (filters.getCreatedBy() != null) {
             spec = spec.and(TaskSpecs.byCreatedMembers(filters.getCreatedBy(), false));
         }
-        if(filters.getAssigns() != null){
+        if (filters.getAssigns() != null) {
             spec = spec.and(TaskSpecs.byAssignedMembers(filters.getAssigns(), false));
         }
-        if(filters.getRoles() != null){
+        if (filters.getRoles() != null) {
             spec = spec.and(TaskSpecs.byMemberRoles(filters.getRoles(), false));
         }
         List<Task> res = taskRepository.findAll(spec);
         return res.stream().map(this::toDTO).toList();
     }
 
-    public TaskDTO toDTO(Task task){
+    public TaskDTO toDTO(Task task) {
         TaskDTO dto = ModelMapper.getInstance().map(task, TaskDTO.class);
         dto.setUserStoryId(task.getUserStory().getId());
         dto.setStatus(ModelMapper.getInstance().map(task.getStatus(), PjStatusDTO.class));
@@ -99,19 +98,45 @@ public class TaskService {
                 .orElseThrow(() -> new RequestException("Task not found"));
         UserStory userStory = userStoryRepository.findById(userStoryId)
                 .orElseThrow(() -> new RequestException("User story not found"));
-        if(!task.getUserStory().getProject().getId().equals(userStory.getProject().getId()))
+        if (!task.getUserStory().getProject().getId().equals(userStory.getProject().getId()))
             throw new RequestException("User story doesn't belong to this project");
         task.setUserStory(userStory);
-        if(task.getStatus().getId() != statusId){
+        if (task.getStatus() == null || task.getStatus().getId() != statusId) {
             ProjectSettingStatus status = settingStatusRepository.findById(statusId)
                     .orElseThrow(() -> new RequestException("Status not found"));
+
+            // Kiểm tra xem status có đúng kiểu là TASK không
+            if (!StatusType.TASK.toString().equals(status.getType())) {
+                throw new RequestException("Invalid status type. Expected TASK status type.");
+            }
+
             task.setStatus(status);
         }
         taskRepository.save(task);
     }
 
+    /**
+     * Lấy tất cả các trạng thái có thể có của task cho một dự án cụ thể
+     * 
+     * @param projectId ID của dự án
+     * @return Danh sách các trạng thái task
+     */
+    public List<PjStatusDTO> getTaskStatuses(Long projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new RequestException("Project not found"));
+
+        // Lấy các trạng thái có type là TASK từ bảng project_setting_status
+        List<ProjectSettingStatus> statuses = pjSettingStatusRepository
+                .findAllByProjectAndType(project, StatusType.TASK.toString());
+
+        return statuses.stream()
+                .map(status -> ModelMapper.getInstance().map(status, PjStatusDTO.class))
+                .toList();
+    }
+
     private ProjectMemberDTO mapToDTO(ProjectMember member) {
-        if(member == null) return null;
+        if (member == null)
+            return null;
         ProjectMemberDTO dto = new ProjectMemberDTO();
         dto.setId(member.getId());
         dto.setProjectId(member.getProject() != null ? member.getProject().getId() : null);
@@ -128,7 +153,7 @@ public class TaskService {
     }
 
     public FilterData getFilterData(long projectId,
-                                    FilterParams filters) {
+            FilterParams filters) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RequestException("Project not found"));
 
@@ -152,7 +177,6 @@ public class TaskService {
                 .flatMap(Collection::stream)
                 .toList();
 
-
         List<ProjectMember> members = projectMemberRepository.findAllByProjectAndIsDeleteIsFalse(project);
         List<PjMemberDTO> memberDTOS = members.stream()
                 .map(member -> {
@@ -163,7 +187,8 @@ public class TaskService {
                     return dto;
                 })
                 .toList();
-        List<PjStatusDTO> statuses = pjSettingStatusRepository.findAllByProjectAndType(project, StatusType.TASK).stream()
+        List<PjStatusDTO> statuses = pjSettingStatusRepository
+                .findAllByProjectAndType(project, StatusType.TASK.toString()).stream()
                 .map(status -> ModelMapper.getInstance().map(status, PjStatusDTO.class))
                 .filter(dto -> statusFiltered.stream().noneMatch(st -> st == dto.getId()))
                 .toList();
@@ -172,10 +197,10 @@ public class TaskService {
                 .filter(dto -> roleFiltered.stream().noneMatch(r -> r == dto.getId()))
                 .toList();
         return FilterData.builder()
-                .assigns(memberDTOS.stream().filter(dto ->
-                        assignFiltered.stream().noneMatch(a -> a == dto.getId())).toList())
-                .createdBy(memberDTOS.stream().filter(dto ->
-                        createdByFiltered.stream().noneMatch(a -> a == dto.getId())).toList())
+                .assigns(memberDTOS.stream().filter(dto -> assignFiltered.stream().noneMatch(a -> a == dto.getId()))
+                        .toList())
+                .createdBy(memberDTOS.stream()
+                        .filter(dto -> createdByFiltered.stream().noneMatch(a -> a == dto.getId())).toList())
                 .statuses(statuses)
                 .roles(roles)
                 .build();

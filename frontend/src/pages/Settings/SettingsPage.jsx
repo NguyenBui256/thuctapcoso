@@ -6,6 +6,11 @@ import ProjectDetails from './ProjectSettings/ProjectDetails';
 import Presets from './ProjectSettings/Presets';
 import Modules from './ProjectSettings/Modules';
 import Permissions from './PermissionsSettings/Permissions';
+import Statuses from './Attributes/Statuses';
+import Priorities from './Attributes/Priorities';
+import Severities from './Attributes/Severities';
+import Types from './Attributes/Types';
+import Tags from './Attributes/Tags';
 
 const SettingsPage = () => {
   const { projectId } = useParams();
@@ -81,28 +86,50 @@ const SettingsPage = () => {
         return <Modules projectId={projectId} />;
       }
     } else if (section === 'attributes') {
+      if (subSection === 'statuses') {
+        return <Statuses projectId={projectId} />;
+      } else if (subSection === 'priorities') {
+        return <Priorities projectId={projectId} />;
+      } else if (subSection === 'severities') {
+        return <Severities projectId={projectId} />;
+      } else if (subSection === 'types') {
+        return <Types projectId={projectId} />;
+      } else if (subSection === 'tags') {
+        return <Tags projectId={projectId} />;
+      }
       // Placeholder for attributes subsections
       return <div className="p-6">Attributes - {subSection} settings (to be implemented)</div>;
     } else if (section === 'permissions') {
-      return <Permissions projectId={projectId} roleId={subSection} />;
+      // Handle new-role subsection
+      if (subSection === 'new-role') {
+        return <Permissions projectId={projectId} isNewRole={true} />;
+      }
+      // For numeric IDs, pass the roleId
+      if (!isNaN(parseInt(subSection))) {
+        return <Permissions projectId={projectId} roleId={parseInt(subSection)} />;
+      }
+      // Default to roles view with no specific role
+      return <Permissions projectId={projectId} />;
     }
     
     return <div className="p-6">Select a section from the sidebar</div>;
   };
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-screen">
       {/* Settings Secondary Sidebar */}
-      <SettingsSidebar 
-        section={section}
-        subSection={subSection}
-        onSectionChange={handleSectionChange}
-        onSubSectionChange={handleSubSectionChange}
-        projectId={projectId}
-      />
+      <div className="h-screen flex-shrink-0">
+        <SettingsSidebar 
+          section={section}
+          subSection={subSection}
+          onSectionChange={handleSectionChange}
+          onSubSectionChange={handleSubSectionChange}
+          projectId={projectId}
+        />
+      </div>
       
       {/* Main Content Area */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 h-screen overflow-auto">
         {loading ? (
           <div className="flex justify-center items-center h-full">
             <p>Loading settings...</p>

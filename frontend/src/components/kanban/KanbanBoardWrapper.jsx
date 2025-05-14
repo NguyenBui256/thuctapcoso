@@ -31,18 +31,25 @@ const KanbanBoardWrapper = () => {
     const [activeFilters, setActiveFilters] = useState({});
     const [filterMode, setFilterMode] = useState('include');
     const [activeSprint, setActiveSprint] = useState(null);
+    const [defaultColumns, setDefaultColumns] = useState([
+        { id: 1, name: 'NEW', status: 1, color: 'bg-blue-400' },
+        { id: 2, name: 'READY', status: 2, color: 'bg-red-500' },
+        { id: 3, name: 'IN PROGRESS', status: 3, color: 'bg-orange-400' },
+        { id: 4, name: 'READY FOR TEST', status: 4, color: 'bg-yellow-400' },
+        { id: 5, name: 'DONE', status: 5, color: 'bg-green-500' },
+        { id: 6, name: 'ARCHIVED', status: 6, color: 'bg-gray-400' }
+    ]);
 
     useEffect(() => {
-        const fetchData = async () => {
+        const fetchInitialData = async () => {
             if (!projectId) {
                 setError('Invalid project ID');
                 setLoading(false);
                 return;
             }
 
+            setLoading(true);
             try {
-                setLoading(true);
-
                 // Fetch active sprint
                 try {
                     const activeSprintResponse = await axios.get(`/api/project/${projectId}/sprint/active`);
@@ -69,57 +76,30 @@ const KanbanBoardWrapper = () => {
                     return;
                 }
 
-                const defaultColumns = [
-                    { id: 1, name: 'NEW', status: 1, color: 'bg-blue-400' },
-                    { id: 2, name: 'READY', status: 2, color: 'bg-red-500' },
-                    { id: 3, name: 'IN PROGRESS', status: 3, color: 'bg-orange-400' },
-                    { id: 4, name: 'READY FOR TEST', status: 4, color: 'bg-yellow-400' },
-                    { id: 5, name: 'DONE', status: 5, color: 'bg-green-500' },
-                    { id: 6, name: 'ARCHIVED', status: 6, color: 'bg-gray-400' }
-                ];
-
-                // Initialize all columns as expanded
-                const initialExpandedState = {};
-                defaultColumns.forEach(col => {
-                    initialExpandedState[col.id] = true;
-                });
-                setExpandedColumns(initialExpandedState);
-
-                const userStoriesResponse = await axios.get(`/api/kanban/board/userstory/project/${projectId}`);
-                const fetchedUserStories = userStoriesResponse.data || [];
-
-                // Associate user stories with valid swimlanes
-                if (fetchedUserStories.length > 0 && fetchedSwimlanes.length > 0) {
-                    // Check if there are stories with swimlaneId that doesn't exist in fetchedSwimlanes
-                    const validSwimlaneIds = fetchedSwimlanes.map(lane => lane.id);
-                    const fixedUserStories = fetchedUserStories.map(story => {
-                        if (!validSwimlaneIds.includes(story.swimlaneId)) {
-                            return {
-                                ...story,
-                                swimlaneId: fetchedSwimlanes[0].id // Assign to first swimlane if invalid
-                            };
-                        }
-                        return story;
-                    });
-                    setUserStories(fixedUserStories);
-                    setFilteredUserStories(fixedUserStories);
-                } else {
-                    setUserStories(fetchedUserStories);
-                    setFilteredUserStories(fetchedUserStories);
-                }
+                // Fetch statuses for columns
+                await fetchStatuses();
 
                 setSwimlanes(fetchedSwimlanes);
-                setColumns(defaultColumns);
 
+                // Fetch user stories
+                const userStoriesResponse = await axios.get(`/api/kanban/board/userstory/project/${projectId}`);
+                const fetchedUserStories = userStoriesResponse.data || [];
+                console.log('Fetched user stories:', fetchedUserStories);
+
+                // Validate user stories with swimlanes
+                const validatedUserStories = validateUserStories(fetchedUserStories, fetchedSwimlanes);
+
+                setUserStories(validatedUserStories);
+                setFilteredUserStories(validatedUserStories);
             } catch (error) {
-                console.error('Error fetching kanban data:', error);
-                setError('Failed to load Kanban board data');
+                console.error('Error loading data:', error);
+                setError(error.message || 'Failed to load data');
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchData();
+        fetchInitialData();
     }, [projectId, refreshTrigger]);
 
     // Apply filters when either the stories, active filters, or filter mode changes
@@ -630,6 +610,72 @@ const KanbanBoardWrapper = () => {
         await fetchActivities(userStory.id);
     };
 
+    // Fix the fetchStatuses function to correctly process color data from API
+    const fetchStatuses = async () => {
+        try {
+            if (!projectId) {
+                console.error("Project ID is required to fetch statuses");
+                return;
+            }
+
+            const response = await axios.get(`/api/kanban/board/project/${projectId}/statuses`);
+            if (response.data && Array.isArray(response.data)) {
+                console.log("Fetched user story statuses:", response.data);
+
+                // Map the response data to the format expected by the component
+                const mappedColumns = response.data.map(status => ({
+                    id: status.id,
+                    name: status.name,
+                    status: status.id,
+                    color: status.color ? status.color : '#cccccc' // Use color directly from API
+                }));
+
+                setDefaultColumns(mappedColumns);
+                setColumns(mappedColumns);
+
+                // Initialize all columns as expanded
+                const initialExpandedState = {};
+                mappedColumns.forEach(col => {
+                    initialExpandedState[col.id] = true;
+                });
+                setExpandedColumns(initialExpandedState);
+
+                return mappedColumns;
+            }
+        } catch (error) {
+            console.error('Error fetching user story statuses:', error);
+            // Use the default columns as fallback
+            setColumns(defaultColumns);
+
+            // Initialize expanded state for default columns
+            const initialExpandedState = {};
+            defaultColumns.forEach(col => {
+                initialExpandedState[col.id] = true;
+            });
+            setExpandedColumns(initialExpandedState);
+
+            return defaultColumns;
+        }
+    };
+
+    // Add this function to validate user stories with swimlanes
+    const validateUserStories = (stories, swimlanes) => {
+        if (stories.length > 0 && swimlanes.length > 0) {
+            // Check if there are stories with swimlaneId that doesn't exist in fetchedSwimlanes
+            const validSwimlaneIds = swimlanes.map(lane => lane.id);
+            return stories.map(story => {
+                if (!validSwimlaneIds.includes(story.swimlaneId)) {
+                    return {
+                        ...story,
+                        swimlaneId: swimlanes[0].id // Assign to first swimlane if invalid
+                    };
+                }
+                return story;
+            });
+        }
+        return stories;
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen">
@@ -731,7 +777,7 @@ const KanbanBoardWrapper = () => {
                                     {expandedColumns[column.id] ? (
                                         <>
                                             <div className="flex items-center">
-                                                <div className={`w-4 h-4 ${getColumnColor(column.id)} rounded-sm mr-1`}></div>
+                                                <div className="w-4 h-4 rounded-sm mr-1" style={{ backgroundColor: column.color }}></div>
                                                 <span className="text-xs font-medium">{column.name}</span>
                                             </div>
                                             <div className="flex items-center space-x-1">
@@ -852,18 +898,5 @@ const KanbanBoardWrapper = () => {
         </div>
     );
 };
-
-// Helper function to get column color based on column ID
-function getColumnColor(columnId) {
-    switch (columnId) {
-        case 1: return 'bg-blue-400';
-        case 2: return 'bg-red-500';
-        case 3: return 'bg-orange-400';
-        case 4: return 'bg-yellow-400';
-        case 5: return 'bg-green-500';
-        case 6: return 'bg-gray-400';
-        default: return 'bg-gray-500';
-    }
-}
 
 export default KanbanBoardWrapper;

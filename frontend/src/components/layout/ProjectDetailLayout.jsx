@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Outlet, useParams } from 'react-router-dom';
+import { Outlet, useParams, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar'; // Assuming Sidebar is in the same layout folder
 import { fetchProjectById } from '../../utils/api'; // To fetch project for sidebar name
 import ErrorPage, { ERROR_TYPE } from '../../pages/ErrorPage'; // Import ErrorPage and ERROR_TYPE
 import { FiArrowUp } from 'react-icons/fi'; // Import icon
-import { ToastContainer } from 'react-toastify';
+import { ToastContainer, toast } from 'react-toastify';
 
 const ProjectDetailLayout = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -13,9 +13,15 @@ const ProjectDetailLayout = () => {
   const [errorProject, setErrorProject] = useState(null);
   const { projectId } = useParams(); // Get projectId from the route
   const [showScrollTop, setShowScrollTop] = useState(false); // State for button
+  const [moduleSettingsVersion, setModuleSettingsVersion] = useState(0); // Add this line
+  const navigate = useNavigate();
 
   const handleSidebarToggle = (collapsed) => {
     setSidebarCollapsed(collapsed);
+  };
+
+  const refreshModuleSettings = () => {
+    setModuleSettingsVersion(prev => prev + 1);
   };
 
   // Fetch project details if projectId is available, for the Sidebar
@@ -36,6 +42,15 @@ const ProjectDetailLayout = () => {
       } catch (err) {
         setErrorProject(err.message);
         console.error('Error fetching project for layout:', err);
+
+        // If access is denied, show toast and redirect
+        if (err.message.includes('access')) {
+          toast.error('You do not have access to this project');
+          setTimeout(() => {
+            navigate('/projects');
+          }, 1500);
+        }
+
         setCurrentProject(null); // Clear project on error
       } finally {
         setLoadingProject(false);
@@ -48,7 +63,7 @@ const ProjectDetailLayout = () => {
     // Scroll window to top when project changes
     window.scrollTo(0, 0);
 
-  }, [projectId]); // Re-fetch if projectId changes
+  }, [projectId, navigate]); // Re-fetch if projectId changes
 
   // Effect for scroll listener on window
   useEffect(() => {
@@ -81,14 +96,17 @@ const ProjectDetailLayout = () => {
         <Sidebar
           currentProject={currentProject}
           onToggleCollapse={handleSidebarToggle}
+          moduleSettingsVersion={moduleSettingsVersion}
         />
 
         <main className={`relative flex-1 overflow-y-auto ${sidebarCollapsed ? 'ml-20' : 'ml-64'} transition-all duration-300`}>
-            <div className="">
-              {loadingProject && <div>Loading project context...</div>}
-              {errorProject && <ErrorPage errorType={ERROR_TYPE.UNKNOWN_ERROR} />}
-              {!loadingProject && !errorProject && currentProject && <Outlet />}
-            </div>
+          <div className="">
+            {loadingProject && <div>Loading project context...</div>}
+            {errorProject && <ErrorPage errorType={ERROR_TYPE.UNKNOWN_ERROR} errorMessage={errorProject} />}
+            {!loadingProject && !errorProject && currentProject && (
+              <Outlet context={{ refreshModuleSettings }} />
+            )}
+          </div>
 
           {showScrollTop && (
             <button

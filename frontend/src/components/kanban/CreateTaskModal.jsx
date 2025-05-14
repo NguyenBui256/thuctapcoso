@@ -8,7 +8,7 @@ const CreateTaskModal = ({
     onHide,
     projectId,
     userStoryId,
-    initialStatusId = 1,
+    initialStatusId = null,
     onTaskCreated
 }) => {
     // Refs
@@ -17,7 +17,7 @@ const CreateTaskModal = ({
     // Form data states
     const [subject, setSubject] = useState('');
     const [description, setDescription] = useState('');
-    const [statusId, setStatusId] = useState(initialStatusId);
+    const [statusId, setStatusId] = useState(null);
     const [assignee, setAssignee] = useState(null);
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -26,14 +26,7 @@ const CreateTaskModal = ({
     const [showDueDatePicker, setShowDueDatePicker] = useState(false);
 
     // Data for dropdowns
-    const statuses = [
-        { id: 1, name: 'NEW', color: 'bg-blue-400' },
-        { id: 2, name: 'READY', color: 'bg-red-500' },
-        { id: 3, name: 'IN PROGRESS', color: 'bg-orange-400' },
-        { id: 4, name: 'READY FOR TEST', color: 'bg-yellow-400' },
-        { id: 5, name: 'DONE', color: 'bg-green-500' },
-        { id: 6, name: 'ARCHIVED', color: 'bg-gray-400' }
-    ];
+    const [statuses, setStatuses] = useState([]);
     const [projectMembers, setProjectMembers] = useState([]);
 
     // Thêm event listener cho việc nhấn phím Escape
@@ -81,9 +74,12 @@ const CreateTaskModal = ({
                     console.log('Deduplicated members:', uniqueMembers);
                     setProjectMembers(uniqueMembers);
                 }
+
+                // Fetch task statuses
+                await fetchStatuses();
             } catch (err) {
-                console.error('Error loading members:', err);
-                toast.error('Failed to load team members');
+                console.error('Error loading data:', err);
+                toast.error('Failed to load data');
             }
         };
 
@@ -91,6 +87,54 @@ const CreateTaskModal = ({
             fetchData();
         }
     }, [projectId, show]);
+
+    // Function to fetch task statuses
+    const fetchStatuses = async () => {
+        try {
+            if (!projectId) {
+                console.error("Project ID is required to fetch task statuses");
+                return;
+            }
+
+            const response = await axios.get(`/api/tasks/project/${projectId}/statuses`);
+            if (response.data && Array.isArray(response.data)) {
+                console.log("Fetched task statuses:", response.data);
+                setStatuses(response.data);
+
+                // Update the statusId state based on fetched data
+                if (response.data.length > 0) {
+                    // Find the NEW status in the fetched data
+                    const newStatus = response.data.find(status => status.name === 'NEW');
+                    if (newStatus) {
+                        console.log("Setting initial status to NEW with id:", newStatus.id);
+                        setStatusId(newStatus.id);
+                    }
+                }
+            } else {
+                console.error("Invalid response format for task statuses:", response.data);
+            }
+        } catch (error) {
+            console.error('Error fetching task statuses:', error);
+        }
+    };
+
+    // Effect to set initial status ID after statuses are loaded
+    useEffect(() => {
+        if (statuses.length > 0) {
+            if (initialStatusId && statuses.some(status => status.id === initialStatusId)) {
+                // If initialStatusId is valid and exists in loaded statuses, use it
+                setStatusId(initialStatusId);
+            } else {
+                // Otherwise, find the NEW status or default to the first status
+                const newStatus = statuses.find(status => status.name === 'NEW');
+                if (newStatus) {
+                    setStatusId(newStatus.id);
+                } else {
+                    setStatusId(statuses[0].id);
+                }
+            }
+        }
+    }, [statuses, initialStatusId]);
 
     const handleClickOutside = (e) => {
         if (modalRef.current && !modalRef.current.contains(e.target)) {
@@ -134,6 +178,24 @@ const CreateTaskModal = ({
 
         if (!subject.trim()) {
             setError('Subject is required');
+            setIsLoading(false);
+            return;
+        }
+
+        // Ensure we have a valid statusId
+        if (!statusId && statuses.length > 0) {
+            // Find NEW status or use first available
+            const newStatus = statuses.find(status => status.name === 'NEW');
+            if (newStatus) {
+                setStatusId(newStatus.id);
+            } else {
+                setStatusId(statuses[0].id);
+            }
+        }
+
+        // If still no valid status, show error
+        if (!statusId) {
+            setError('No valid status available. Please try again or reload the page.');
             setIsLoading(false);
             return;
         }
@@ -199,7 +261,7 @@ const CreateTaskModal = ({
     const resetForm = () => {
         setSubject('');
         setDescription('');
-        setStatusId(initialStatusId);
+        setStatusId(null);
         setAssignee(null);
         setError('');
         setDueDate('');
@@ -290,12 +352,13 @@ const CreateTaskModal = ({
                             <div className="mb-4">
                                 <label className="block text-xs font-medium text-gray-500 uppercase mb-1">STATUS</label>
                                 <select
-                                    value={statusId}
+                                    value={statusId || ''}
                                     onChange={(e) => setStatusId(parseInt(e.target.value))}
                                     className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 >
+                                    {statusId === null && <option value="">Select a status</option>}
                                     {statuses.map(status => (
-                                        <option key={status.id} value={status.id}>
+                                        <option key={status.id} value={status.id} style={{ color: status.color }}>
                                             {status.name}
                                         </option>
                                     ))}

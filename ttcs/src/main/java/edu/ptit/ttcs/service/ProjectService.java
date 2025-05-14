@@ -2,6 +2,7 @@ package edu.ptit.ttcs.service;
 
 import edu.ptit.ttcs.dao.*;
 import edu.ptit.ttcs.dao.ModuleRepository;
+import edu.ptit.ttcs.dao.ProjectModuleRepository;
 import edu.ptit.ttcs.dao.ProjectRepository;
 import edu.ptit.ttcs.dao.UserRepository;
 import edu.ptit.ttcs.entity.*;
@@ -27,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -34,6 +36,7 @@ import java.util.List;
 public class ProjectService {
 
     private final ProjectRepository projectRepository;
+    private final ProjectModuleRepository projectModuleRepository;
     private final ModuleRepository moduleRepository;
     private final ProjectMapper projectMapper;
     private final SecurityUtils securityUtils;
@@ -41,6 +44,8 @@ public class ProjectService {
     private final ProjectRoleRepository projectRoleRepository;
     private final ProjectMemberRepository projectMemberRepository;
     private final PjSettingStatusRepository pjSettingStatusRepository;
+    private final ModuleService moduleService;
+    private final PermissionRepository permissionRepository;
 
     @Transactional
     public Project save(Project project) {
@@ -148,7 +153,11 @@ public class ProjectService {
             projectRole.setUpdatedBy(creatorMember);
             projectRole.setCreatedAt(LocalDateTime.now());
             projectRole.setUpdatedAt(LocalDateTime.now());
-            projectRoleRepository.save(projectRole);
+
+            // Initialize default permissions based on role
+            initializeRolePermissions(projectRole);
+
+            projectRole = projectRoleRepository.save(projectRole);
             if (roleName == ProjectRoleName.PROJECT_MANAGER) {
                 toSetForAdminProjectRole = projectRole;
             }
@@ -169,8 +178,6 @@ public class ProjectService {
     public Project createProject(CreateProjectDTO createProjectDTO, Long currentUserId) {
         try {
             User currentUser = securityUtils.getCurrentUser();
-            // Get user from repository
-
             log.info("Creating project for user ID: {}", currentUserId);
 
             Project project = new Project();
@@ -179,11 +186,23 @@ public class ProjectService {
             project.setIsPublic(createProjectDTO.getIsPublic());
             project.setLogoUrl(createProjectDTO.getLogoUrl());
             project.setCreatedBy(currentUser);
-            // Không set createdBy lúc này
             project.setCreatedAt(LocalDateTime.now());
+            project.setUpdatedBy(currentUser);
+            project.setUpdatedAt(LocalDateTime.now());
             project.setIsDeleted(false);
+            project.setOwner(currentUser);
+
             project = projectRepository.save(project);
             log.info("Project created with ID: {}", project.getId());
+
+            // Initialize default modules for the new project
+            try {
+                moduleService.initializeProjectModules(project.getId());
+                log.info("Successfully initialized default modules for project ID: {}", project.getId());
+            } catch (Exception e) {
+                log.error("Error initializing modules for project ID: {} - Error: {}", project.getId(), e.getMessage());
+                // Continue with project creation even if module initialization fails
+            }
 
             // Create default project roles and first member
             ProjectRole managerRole = null;
@@ -211,6 +230,10 @@ public class ProjectService {
                 projectRole.setUpdatedBy(creatorMember);
                 projectRole.setCreatedAt(LocalDateTime.now());
                 projectRole.setUpdatedAt(LocalDateTime.now());
+
+                // Initialize default permissions based on role
+                initializeRolePermissions(projectRole);
+
                 projectRole = projectRoleRepository.save(projectRole);
                 if (roleName == ProjectRoleName.PROJECT_MANAGER) {
                     managerRole = projectRole;
@@ -296,20 +319,67 @@ public class ProjectService {
     }
 
     public boolean isUserProjectAdmin(Long projectId, Long userId) {
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new RuntimeException("Project not found"));
-        if (project.getCreatedBy() == null) {
+        try {
+            log.info("Checking if user {} is an admin for project {}", userId, projectId);
+            Project project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+
+            // Check if user is the project creator
+            if (project.getCreatedBy() != null && project.getCreatedBy().getId().equals(userId)) {
+                log.info("User {} is the creator of project {}, admin access granted", userId, projectId);
+                return true;
+            }
+
+            // Check if user has PROJECT_MANAGER role
+            ProjectMember member = projectMemberRepository.findByProjectIdAndUserIdAndIsDeleteFalse(projectId, userId);
+            if (member != null && member.getProjectRole() != null &&
+                    ProjectRoleName.PROJECT_MANAGER.name().equals(member.getProjectRole().getRoleName())) {
+                log.info("User {} has PROJECT_MANAGER role in project {}, admin access granted", userId, projectId);
+                return true;
+            }
+
+            // Check if user is marked as admin in project_member table
+            if (member != null && Boolean.TRUE.equals(member.getIsAdmin())) {
+                log.info("User {} is marked as admin in project {}, admin access granted", userId, projectId);
+                return true;
+            }
+
+            log.info("User {} is NOT an admin for project {}", userId, projectId);
+            return false;
+        } catch (Exception e) {
+            log.error("Error checking if user {} is admin for project {}: {}", userId, projectId, e.getMessage(), e);
             return false;
         }
-        return project.getCreatedBy().getId().equals(userId);
     }
 
     public boolean isUserProjectMember(Long projectId, Long userId) {
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new RuntimeException("Project not found"));
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        return projectMemberRepository.existsByProjectIdAndUserIdAndIsDeleteFalse(project.getId(), user.getId());
+        try {
+            log.info("Checking if user {} is a member of project {}", userId, projectId);
+            Project project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            log.info("Found project {}: {} and user {}: {}", projectId, project.getName(), userId, user.getUsername());
+
+            // Check project owner first - owners are always considered members
+            if (project.getCreatedBy() != null && project.getCreatedBy().getId().equals(userId)) {
+                log.info("User {} is the owner of project {}, access granted", userId, projectId);
+                return true;
+            }
+
+            // Check project membership
+            boolean isMember = projectMemberRepository.existsByProjectIdAndUserIdAndIsDeleteFalse(project.getId(),
+                    user.getId());
+            log.info("Membership check for user {} in project {}: {}", userId, projectId,
+                    isMember ? "IS member" : "NOT a member");
+
+            return isMember;
+        } catch (Exception e) {
+            log.error("Error checking project membership: {}", e.getMessage(), e);
+            return false;
+        }
     }
 
     public List<PjStatusDTO> getTaskStatuses(Long projectId) {
@@ -331,8 +401,17 @@ public class ProjectService {
      * @return List of projects
      */
     public List<ProjectDTO> findAssignedProjects(Long userId) {
-        List<Project> projects = projectRepository.findByUserAssigned(userId);
-        return projectMapper.toDTOList(projects);
+        try {
+            List<Project> projects = projectRepository.findByUserAssigned(userId);
+
+            // Handle null owners in all projects
+            projects.forEach(this::handleNullOwner);
+
+            return projectMapper.toDTOList(projects);
+        } catch (Exception e) {
+            log.error("Error finding assigned projects for user ID {}: {}", userId, e.getMessage(), e);
+            throw new RuntimeException("Error finding assigned projects: " + e.getMessage());
+        }
     }
 
     /**
@@ -342,8 +421,17 @@ public class ProjectService {
      * @return List of projects
      */
     public List<ProjectDTO> findWatchedProjects(Long userId) {
-        List<Project> projects = projectRepository.findByUserWatching(userId);
-        return projectMapper.toDTOList(projects);
+        try {
+            List<Project> projects = projectRepository.findByUserWatching(userId);
+
+            // Handle null owners in all projects
+            projects.forEach(this::handleNullOwner);
+
+            return projectMapper.toDTOList(projects);
+        } catch (Exception e) {
+            log.error("Error finding watched projects for user ID {}: {}", userId, e.getMessage(), e);
+            throw new RuntimeException("Error finding watched projects: " + e.getMessage());
+        }
     }
 
     /**
@@ -353,7 +441,113 @@ public class ProjectService {
      * @return List of projects
      */
     public List<ProjectDTO> findJoinedProjects(Long userId) {
-        List<Project> projects = projectRepository.findByUserJoined(userId);
-        return projectMapper.toDTOList(projects);
+        try {
+            List<Project> projects = projectRepository.findByUserJoined(userId);
+
+            // Handle null owners in all projects
+            projects.forEach(this::handleNullOwner);
+
+            return projectMapper.toDTOList(projects);
+        } catch (Exception e) {
+            log.error("Error finding joined projects for user ID {}: {}", userId, e.getMessage(), e);
+            throw new RuntimeException("Error finding joined projects: " + e.getMessage());
+        }
+    }
+
+    // Add this helper method to handle null owners
+    private void handleNullOwner(Project project) {
+        try {
+            if (project.getOwner() == null) {
+                log.warn("Project {} has null owner, using createdBy as owner", project.getId());
+                if (project.getCreatedBy() != null) {
+                    project.setOwner(project.getCreatedBy());
+                    projectRepository.save(project);
+                } else {
+                    // If both owner and createdBy are null, try to find a project admin or any
+                    // member
+                    List<ProjectMember> members = projectMemberRepository.findAllByProjectAndIsDeleteIsFalse(project);
+                    if (!members.isEmpty()) {
+                        // First try to find an admin
+                        ProjectMember adminMember = members.stream()
+                                .filter(ProjectMember::getIsAdmin)
+                                .findFirst()
+                                .orElse(members.get(0)); // Fallback to first member
+
+                        project.setOwner(adminMember.getUser());
+                        log.warn("Project {} had null owner and null createdBy, using member {} as owner",
+                                project.getId(), adminMember.getUser().getUsername());
+                        projectRepository.save(project);
+                    } else {
+                        log.error("Project {} has null owner and no members to use as owner", project.getId());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error handling null owner for project {}: {}", project.getId(), e.getMessage(), e);
+        }
+    }
+
+    @Transactional
+    public ProjectRole initializeRolePermissions(ProjectRole role) {
+        log.info("Initializing permissions for role: {}", role.getRoleName());
+        Set<Permission> permissions = new HashSet<>();
+        String roleName = role.getRoleName();
+
+        try {
+            // Common permissions for all roles - read access to basic modules
+            List<Permission> viewPermissions = permissionRepository.findAll().stream()
+                    .filter(p -> p.getMethod().equals("GET"))
+                    .collect(Collectors.toList());
+            permissions.addAll(viewPermissions);
+
+            if (roleName.equals(ProjectRoleName.PROJECT_MANAGER.name())) {
+                // Project Manager gets all permissions
+                permissions.addAll(permissionRepository.findAll());
+            } else if (roleName.equals(ProjectRoleName.FRONTEND_DEVELOPER.name()) ||
+                    roleName.equals(ProjectRoleName.BACKEND_DEVELOPER.name())) {
+                // Developers get task and User Story related permissions
+                permissions.addAll(permissionRepository.findByModule("Tasks"));
+                permissions.addAll(permissionRepository.findByModule("User Stories"));
+
+                // Add ability to comment on issues
+                permissions.addAll(permissionRepository.findByMethodAndModule("POST", "Issues"));
+
+                // Wiki access
+                permissions.addAll(permissionRepository.findByModule("Wiki"));
+            } else if (roleName.equals(ProjectRoleName.QA_ENGINEER.name()) ||
+                    roleName.equals(ProjectRoleName.TESTER.name())) {
+                // QA and Testers get issue permissions
+                permissions.addAll(permissionRepository.findByModule("Issues"));
+
+                // Read-only access to tasks and user stories
+                permissions.addAll(permissionRepository.findByMethodAndModule("GET", "Tasks"));
+                permissions.addAll(permissionRepository.findByMethodAndModule("GET", "User Stories"));
+
+                // Comment ability
+                permissions.addAll(permissionRepository.findByMethodAndModule("POST", "Tasks"));
+                permissions.addAll(permissionRepository.findByMethodAndModule("POST", "User Stories"));
+
+                // Wiki access
+                permissions.addAll(permissionRepository.findByModule("Wiki"));
+            } else if (roleName.equals(ProjectRoleName.BUSINESS_ANALYST.name())) {
+                // Business analysts get epic and user story permissions
+                permissions.addAll(permissionRepository.findByModule("Epics"));
+                permissions.addAll(permissionRepository.findByModule("User Stories"));
+
+                // Read-only access to tasks
+                permissions.addAll(permissionRepository.findByMethodAndModule("GET", "Tasks"));
+
+                // Wiki full access
+                permissions.addAll(permissionRepository.findByModule("Wiki"));
+            }
+
+            // Assign permissions to the role
+            role.setPermissions(permissions);
+            log.info("Initialized {} permissions for role {}", permissions.size(), roleName);
+        } catch (Exception e) {
+            log.error("Error initializing permissions for role {}: {}", roleName, e.getMessage(), e);
+        }
+
+        return role;
     }
 }

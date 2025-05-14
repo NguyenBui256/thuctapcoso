@@ -18,7 +18,7 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
   const navigate = useNavigate();
 
   // Check if current user is a project manager (has admin rights)
-  const isProjectManager = currentUser?.isAdmin || false;
+  const isProjectManager = currentUser?.isAdmin || currentUser?.roleName === "PROJECT_MANAGER" || false;
 
   // Mock badges for demonstration
   const mockBadges = ['Title 1', 'Title 2', 'Title 3'];

@@ -34,7 +34,7 @@ public class ProjectSettingServiceT {
                 .orElseThrow(() -> new RequestException("Status not found"));
     }
 
-    public ProjectSettingTag getTagById(int id){
+    public ProjectSettingTag getTagById(Long id){
         return pjSettingTagRepository.findById(id)
                 .orElseThrow(() -> new RequestException("Tag not found"));
     }

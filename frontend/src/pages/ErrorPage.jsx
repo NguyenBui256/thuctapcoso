@@ -8,10 +8,13 @@ export const ERROR_TYPE = {
     UNAUTHORIZED: "Unauthorized"
 }
 
-export default function ErrorPage({ errorType = ERROR_TYPE.UNKNOWN_ERROR }) {
+export default function ErrorPage({ errorType = ERROR_TYPE.UNKNOWN_ERROR, errorMessage = null }) {
     const [params] = useSearchParams()
     const error = params.get('error')
     if (ERROR_TYPE[error]) errorType = ERROR_TYPE[error]
+
+    // Display custom error message if provided, otherwise use the error type
+    const displayMessage = errorMessage || errorType;
 
     return (
         <div className="relative">
@@ -24,7 +27,7 @@ export default function ErrorPage({ errorType = ERROR_TYPE.UNKNOWN_ERROR }) {
             <div className="absolute inset-0 flex flex-col justify-center items-center">
                 <h1 className="text-5xl font-bold text-red-500 mb-4">Oops!</h1>
                 <p className="text-2xl text-white mb-6">
-                    {errorType}
+                    {displayMessage}
                 </p>
                 <a
                     href="/"

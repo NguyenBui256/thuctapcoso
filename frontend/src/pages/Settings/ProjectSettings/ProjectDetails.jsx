@@ -7,12 +7,15 @@ import { useNavigate } from 'react-router-dom';
 const ProjectDetails = ({ projectId }) => {
   const navigate = useNavigate();
   const [project, setProject] = useState({
+    id: null,
     name: '',
     description: '',
-    logo: null,
+    logoUrl: null,
     ownerUsername: '',
-    tags: [],
-    isPublic: true
+    ownerId: null,
+    isPublic: true,
+    createdAt: null,
+    updatedAt: null
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -34,15 +37,17 @@ const ProjectDetails = ({ projectId }) => {
 
         if (response && response.ok) {
           const data = await response.json();
-
+          const projectData = data.data;
           setProject({
-            id: data.id,
-            name: data.name,
-            description: data.description || '',
-            logo: data.logoUrl,
-            tags: data.tags || [],
-            ownerUsername: data.ownerUsername,
-            isPrivate: data.isPublic || true
+            id: projectData.id,
+            name: projectData.name || '',
+            description: projectData.description || '',
+            logoUrl: projectData.logoUrl,
+            ownerUsername: projectData.ownerUsername || '',
+            ownerId: projectData.ownerId || null,
+            isPublic: projectData.isPublic,
+            createdAt: projectData.createdAt,
+            updatedAt: projectData.updatedAt
           });
         } else {
           setError('Failed to fetch project details. Please try again.');
@@ -101,16 +106,12 @@ const ProjectDetails = ({ projectId }) => {
       const projectDTO = {
         name: project.name,
         description: project.description,
-        tags: project.tags,
-        isLookingForPeople: project.isLookingForPeople,
-        lookingForDescription: project.lookingForDescription,
-        receiveFeedback: project.receiveFeedback,
-        isPrivate: project.isPrivate,
-        logoUrl: project.logo
+        isPublic: project.isPublic,
+        logoUrl: project.logoUrl
       };
 
       const response = await fetchWithAuth(
-        `${BASE_API_URL}/api/v1/projects/${projectId}`,
+        `${BASE_API_URL}/v1/projects/${projectId}`,
         `/projects/${projectId}/settings`,
         true,
         {
@@ -127,9 +128,8 @@ const ProjectDetails = ({ projectId }) => {
         setProject({
           ...project,
           ...updatedProject,
-          owner: updatedProject.owner || project.owner
+          ownerUsername: updatedProject.ownerUsername || project.ownerUsername
         });
-        // Show success message
         alert('Project updated successfully!');
       } else {
         const errorData = await response.json();
@@ -183,7 +183,7 @@ const ProjectDetails = ({ projectId }) => {
         reader.onloadend = () => {
           setProject(prev => ({
             ...prev,
-            logo: reader.result
+            logoUrl: reader.result
           }));
         };
         reader.readAsDataURL(file);
@@ -200,14 +200,14 @@ const ProjectDetails = ({ projectId }) => {
   const handleUseDefaultLogo = () => {
     setProject(prev => ({
       ...prev,
-      logo: null
+      logoUrl: null
     }));
   };
 
-  const handleVisibilityChange = (isPrivate) => {
+  const handleVisibilityChange = (isPublic) => {
     setProject(prev => ({
       ...prev,
-      isPrivate
+      isPublic
     }));
   };
 
@@ -217,15 +217,14 @@ const ProjectDetails = ({ projectId }) => {
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
-        <strong className="font-bold">Error: </strong>
+      <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
         <span className="block sm:inline">{error}</span>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-4xl mx-auto py-8">
       <h1 className="text-2xl font-semibold text-gray-800 mb-6">Project details</h1>
 
       <div className="grid grid-cols-3 gap-8">
@@ -233,8 +232,8 @@ const ProjectDetails = ({ projectId }) => {
         <div className="col-span-1">
           <div className="flex flex-col items-center">
             <div className="bg-teal-100 w-40 h-40 rounded-md flex items-center justify-center mb-4 overflow-hidden">
-              {project.logo ? (
-                <img src={project.logo} alt="Project logo" className="w-full h-full object-cover" />
+              {project.logoUrl ? (
+                <img src={project.logoUrl} alt="Project logo" className="w-full h-full object-cover" />
               ) : (
                 <div className="grid grid-cols-4 grid-rows-4 gap-1 p-2 w-full h-full">
                   {Array(16).fill().map((_, i) => (
@@ -274,7 +273,7 @@ const ProjectDetails = ({ projectId }) => {
                 type="text"
                 id="name"
                 name="name"
-                value={project.name}
+                value={project.name || ''}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 required
@@ -287,42 +286,10 @@ const ProjectDetails = ({ projectId }) => {
                 id="description"
                 name="description"
                 rows={5}
-                value={project.description}
+                value={project.description || ''}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {project.tags.map((tag, index) => (
-                  <div key={index} className="bg-gray-100 rounded-full px-3 py-1 text-sm flex items-center">
-                    {tag}
-                    <button
-                      onClick={() => handleRemoveTag(tag)}
-                      className="ml-2 text-gray-500 hover:text-gray-700"
-                    >
-                      <FiX size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <form onSubmit={handleAddTag} className="flex items-center">
-                <input
-                  type="text"
-                  value={newTag}
-                  onChange={(e) => setNewTag(e.target.value)}
-                  placeholder="Add tag"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                />
-                <button
-                  type="submit"
-                  className="ml-2 text-teal-500 hover:text-teal-600"
-                >
-                  Add tag +
-                </button>
-              </form>
             </div>
 
             <div className="flex items-start gap-4">
@@ -330,80 +297,32 @@ const ProjectDetails = ({ projectId }) => {
               </div>
               <div className="flex-1">
                 <p className="text-sm text-gray-500">Project owner</p>
-                <p className="font-medium">{project.ownerUsername}</p>
-                <button className="text-teal-500 text-sm">Change owner</button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-700">Is this project looking for people?</span>
-                  <button className="text-gray-400" title="Show this project in the public listings">
-                    <FiHelpCircle size={16} />
-                  </button>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="sr-only peer"
-                    checked={project.isLookingForPeople}
-                    onChange={() => handleToggleChange('isLookingForPeople')}
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-
-              {project.isLookingForPeople && (
-                <div>
-                  <label htmlFor="lookingForDescription" className="block text-sm font-medium text-gray-700 mb-1">Who are you looking for?</label>
-                  <input
-                    type="text"
-                    id="lookingForDescription"
-                    name="lookingForDescription"
-                    value={project.lookingForDescription}
-                    onChange={handleInputChange}
-                    placeholder="Tôi cần người giỏi"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-700">Receive feedback from Taiga users?</span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="sr-only peer"
-                    checked={project.receiveFeedback}
-                    onChange={() => handleToggleChange('receiveFeedback')}
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
+                {project.ownerUsername && project.ownerId ? (
+                  <a
+                    href={`/users/${project.ownerId}`}
+                    className="font-medium text-teal-600 hover:underline"
+                  >
+                    {project.ownerUsername}
+                  </a>
+                ) : (
+                  <span className="font-medium">Unknown</span>
+                )}
               </div>
             </div>
 
             <div className="flex justify-between">
               <div className="flex space-x-2">
                 <button
-                  onClick={() => handleVisibilityChange(false)}
-                  className={`border border-gray-300 rounded-md px-4 py-2 ${!project.isPrivate ? 'bg-teal-500 text-white' : 'bg-white text-gray-700'}`}
+                  onClick={() => handleVisibilityChange(true)}
+                  className={`border border-gray-300 rounded-md px-4 py-2 ${project.isPublic ? 'bg-teal-500 text-white' : 'bg-white text-gray-700'}`}
                 >
                   PUBLIC PROJECT
                 </button>
                 <button
-                  onClick={() => handleVisibilityChange(true)}
-                  className={`border border-gray-300 rounded-md px-4 py-2 ${project.isPrivate ? 'bg-teal-500 text-white' : 'bg-white text-gray-700'}`}
+                  onClick={() => handleVisibilityChange(false)}
+                  className={`border border-gray-300 rounded-md px-4 py-2 ${!project.isPublic ? 'bg-teal-500 text-white' : 'bg-white text-gray-700'}`}
                 >
                   PRIVATE PROJECT
-                </button>
-              </div>
-              <div className="flex items-center">
-                <button className="text-gray-500 flex items-center gap-1">
-                  <FiHelpCircle size={16} />
-                  <span className="text-sm">What's the difference between public and private projects?</span>
                 </button>
               </div>
             </div>

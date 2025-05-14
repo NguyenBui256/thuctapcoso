@@ -81,4 +81,19 @@ public class SecurityUtils {
         log.error("Unknown principal type: {}", principal.getClass().getName());
         return null;
     }
+
+    /**
+     * Get the ID of the currently authenticated user
+     * 
+     * @return ID of the current user or null if not found
+     */
+    public Long getCurrentUserId() {
+        try {
+            User currentUser = getCurrentUser();
+            return currentUser != null ? currentUser.getId() : null;
+        } catch (Exception e) {
+            log.error("Error getting current user ID: {}", e.getMessage());
+            return null;
+        }
+    }
 }
