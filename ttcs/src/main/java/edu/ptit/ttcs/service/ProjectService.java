@@ -323,4 +323,37 @@ public class ProjectService {
     public boolean userHasAccessToProject(Long userId, Long projectId) {
         return isUserProjectMember(projectId, userId);
     }
+
+    /**
+     * Find projects where user is assigned to tasks
+     * 
+     * @param userId The ID of the user
+     * @return List of projects
+     */
+    public List<ProjectDTO> findAssignedProjects(Long userId) {
+        List<Project> projects = projectRepository.findByUserAssigned(userId);
+        return projectMapper.toDTOList(projects);
+    }
+
+    /**
+     * Find projects where user is watching tasks
+     * 
+     * @param userId The ID of the user
+     * @return List of projects
+     */
+    public List<ProjectDTO> findWatchedProjects(Long userId) {
+        List<Project> projects = projectRepository.findByUserWatching(userId);
+        return projectMapper.toDTOList(projects);
+    }
+
+    /**
+     * Find projects where user is a member
+     * 
+     * @param userId The ID of the user
+     * @return List of projects
+     */
+    public List<ProjectDTO> findJoinedProjects(Long userId) {
+        List<Project> projects = projectRepository.findByUserJoined(userId);
+        return projectMapper.toDTOList(projects);
+    }
 }

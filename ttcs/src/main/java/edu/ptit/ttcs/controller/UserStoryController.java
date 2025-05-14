@@ -53,6 +53,8 @@ import edu.ptit.ttcs.entity.Attachment;
 import edu.ptit.ttcs.dao.AttachmentRepository;
 import edu.ptit.ttcs.entity.dto.AttachmentDTO;
 import edu.ptit.ttcs.controller.TaskController;
+import edu.ptit.ttcs.entity.Notification;
+import edu.ptit.ttcs.dao.NotificationRepository;
 
 // Inner class for block response to avoid issues with the DTO
 class UserStoryBlockResponse {
@@ -139,6 +141,9 @@ public class UserStoryController {
 
     @Autowired
     private TaskController taskController;
+
+    @Autowired
+    private NotificationRepository notificationRepository;
 
     @GetMapping("/userstory")
     public List<UserStory> getUserStoriesByStatus(@RequestParam("statusId") Integer statusId) {
@@ -827,6 +832,9 @@ public class UserStoryController {
                 String action = "user_assigned";
                 String details = "User " + projectMember.getUser().getUsername() + " assigned to user story";
 
+                // Create notification for the assigned user
+                createAssigneeNotification(projectMember.getUser(), userStory, actorUserId);
+
                 activityService.recordUserStoryActivity(
                         userStory.getProject().getId(),
                         userStory.getId(),
@@ -1321,6 +1329,9 @@ public class UserStoryController {
                     // Fallback to default
                 }
 
+                // Create notification for the watcher
+                createWatcherNotification(watcher.getUser(), userStory, userId);
+
                 activityService.recordUserStoryActivity(
                         userStory.getProject().getId(),
                         userStory.getId(),
@@ -1735,5 +1746,49 @@ public class UserStoryController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Failed to calculate sprint progress: " + e.getMessage());
         }
+    }
+
+    /**
+     * Create notification for user assigned to a user story
+     */
+    private void createAssigneeNotification(User receiver, UserStory userStory, Long senderId) {
+        Notification notification = new Notification();
+        notification.setReceiver(receiver);
+        notification.setDescription("You have been assigned to user story: " + userStory.getName());
+        notification.setObjectId(userStory.getId());
+        notification.setType("USER_STORY_ASSIGNED");
+        notification.setCreatedAt(LocalDateTime.now());
+        notification.setUpdatedAt(LocalDateTime.now());
+
+        User sender = userRepository.findById(senderId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        notification.setCreatedBy(sender);
+        notification.setUpdatedBy(sender);
+        notification.setIsSeen(false);
+
+        notificationRepository.save(notification);
+    }
+
+    /**
+     * Create notification for user added as a watcher to a user story
+     */
+    private void createWatcherNotification(User receiver, UserStory userStory, Long senderId) {
+        Notification notification = new Notification();
+        notification.setReceiver(receiver);
+        notification.setDescription("You have been added as a watcher to user story: " + userStory.getName());
+        notification.setObjectId(userStory.getId());
+        notification.setType("USER_STORY_WATCHING");
+        notification.setCreatedAt(LocalDateTime.now());
+        notification.setUpdatedAt(LocalDateTime.now());
+
+        User sender = userRepository.findById(senderId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        notification.setCreatedBy(sender);
+        notification.setUpdatedBy(sender);
+        notification.setIsSeen(false);
+
+        notificationRepository.save(notification);
     }
 }

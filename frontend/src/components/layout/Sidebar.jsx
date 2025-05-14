@@ -19,8 +19,6 @@ const Sidebar = ({ currentProject, onToggleCollapse }) => {
 
     if (path.includes('/backlog') || path.includes('/sprint')) {
       setActiveTab('scrum');
-    } else if (path.includes('/epics')) {
-      setActiveTab('epics');
     } else if (path.includes('/kanban')) {
       setActiveTab('kanban');
     } else if (path.includes('/issues') || path.includes('/issue/')) {
@@ -70,18 +68,6 @@ const Sidebar = ({ currentProject, onToggleCollapse }) => {
 
         <div className="mb-6">
           <nav className="space-y-1">
-            <Link
-              to={currentProject?.id && `/projects/${currentProject.id}/epics`}
-              className={`flex items-center justify-${sidebarCollapsed ? 'center' : 'start'} px-3 py-2 text-sm rounded-md ${activeTab === 'epics' ? 'text-white' : 'text-gray-200 hover:bg-gray-700'}`}
-              onClick={() => setActiveTab('epics')}
-              style={activeTab === 'epics' ? styles.bgPrimary : {}}
-            >
-              <svg className="w-6 h-6 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
-                <line x1="4" y1="22" x2="4" y2="15"></line>
-              </svg>
-              {!sidebarCollapsed && <span className="ml-2 truncate">Epics</span>}
-            </Link>
             <Link
               to={currentProject?.id && `/projects/${currentProject.id}/backlog`}
               className={`flex items-center justify-${sidebarCollapsed ? 'center' : 'start'} px-3 py-2 text-sm rounded-md ${activeTab === 'scrum' ? 'text-white' : 'text-gray-200 hover:bg-gray-700'}`}
