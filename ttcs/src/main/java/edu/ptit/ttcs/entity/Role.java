@@ -3,6 +3,7 @@ package edu.ptit.ttcs.entity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
+import java.util.HashSet;
 import java.util.Set;
 
 @Entity
@@ -26,4 +27,8 @@ public class Role {
     @OneToMany(mappedBy = "role")
     @JsonIgnore
     private Set<User> users;
+
+    @ManyToMany
+    @JoinTable(name = "role_permissions", joinColumns = @JoinColumn(name = "role_id"), inverseJoinColumns = @JoinColumn(name = "permission_id"))
+    private Set<Permission> permissions = new HashSet<>();
 }

@@ -63,21 +63,48 @@ export const fetchProjectsByUserId = async () => {
 };
 
 export const fetchProjectById = async (projectId) => {
-  const response = await fetchWithAuth(
-    `${API_BASE_URL}/v1/projects/${projectId}`,
-    '/projects',  // redirect here if auth fails
-    true,         // is authentication compulsory
-    { method: 'GET' }
-  );
-  if (!response || !response.ok) {
-    throw new Error(`Failed to fetch projects: ${response?.statusText || 'Authentication failed'}`);
-  }
-  const data = await response.json();
-  console.log(data);
-  if (data.data) {
-    return data.data;
-  } else {
-    throw new Error("Invalid API response format");
+  try {
+    const userId = getCurrentUserId();
+    if (!userId) {
+      throw new Error("User ID not available. Please login again.");
+    }
+
+    const response = await fetchWithAuth(
+      `${API_BASE_URL}/v1/projects/${projectId}`,
+      '/projects',  // redirect here if auth fails
+      true,         // is authentication compulsory
+      {
+        method: 'GET'
+      }
+    );
+
+    if (!response) {
+      throw new Error('Authentication failed');
+    }
+
+    if (response.status === 403) {
+      throw new Error('You do not have access to this project');
+    }
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch project: ${response.statusText || 'Server error'}`);
+    }
+
+    const data = await response.json();
+    console.log('Project data:', data);
+
+    // Handle the nested data structure properly
+    if (data && data.data && data.status === 'success') {
+      return data.data;
+    } else if (data && data.data && data.data.data) {
+      // Handle double-nested structure if present
+      return data.data.data;
+    } else {
+      throw new Error(data.message || "Invalid API response format");
+    }
+  } catch (error) {
+    console.error('Error in fetchProjectById:', error);
+    throw error;
   }
 }
 

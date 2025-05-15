@@ -39,6 +39,10 @@ const TeamPage = () => {
         // Find current user in members
         const current = membersData.find(member => member.userId.toString() === userId);
         setCurrentUser(current || null);
+
+        // Log member data to debug
+        console.log('Current user data:', current);
+        console.log('All members data:', membersData);
       } catch (err) {
         setError('Failed to load team members');
         console.error(err);
@@ -192,7 +196,7 @@ const TeamPage = () => {
         onTeamSelect={handleTeamSelect}
         onSearch={handleSearch}
         onSort={handleSort}
-        showRoleManagement={currentUser?.isAdmin}
+        showRoleManagement={currentUser?.isAdmin || currentUser?.roleName === "PROJECT_MANAGER"}
         onManageRoles={toggleRoleManager}
       />
 
@@ -224,4 +228,4 @@ const TeamPage = () => {
   );
 };
 
-export default TeamPage; 
+export default TeamPage;

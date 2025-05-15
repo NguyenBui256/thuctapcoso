@@ -44,3 +44,11 @@ INSERT INTO permissions (api_path, method, module, name, created_at, updated_at)
 ('/api/v1/projects/{projectId}/wiki/{pageId}', 'PUT', 'Wiki', 'Modify wiki pages', NOW(), NOW()),
 ('/api/v1/projects/{projectId}/wiki/{pageId}', 'DELETE', 'Wiki', 'Delete wiki pages', NOW(), NOW()),
 ('/api/v1/projects/{projectId}/wiki/{pageId}/links', 'POST', 'Wiki', 'Add wiki links', NOW(), NOW()); 
+
+
+-- Thêm 4 module với ID cụ thể
+INSERT INTO module (id, name, description, created_at, updated_at) VALUES 
+(1, 'Scrum', 'Quản lý dự án theo phương pháp Scrum với các tính năng như Sprint, User Stories, và Task Management.', NOW(), NOW()),
+(2, 'Kanban', 'Quản lý công việc theo phương pháp Kanban với bảng trực quan, theo dõi tiến độ và quản lý luồng công việc.', NOW(), NOW()),
+(3, 'Issues', 'Theo dõi vấn đề, báo cáo lỗi và quản lý yêu cầu trong dự án.', NOW(), NOW()),
+(4, 'Wiki', 'Tài liệu dự án và cơ sở kiến thức cho đội nhóm.', NOW(), NOW());

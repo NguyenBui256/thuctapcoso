@@ -59,10 +59,27 @@ export default function BacklogPage() {
         setIsAddUserStoryModalOpen(true);
     };
 
-    const handleUserStoryCreated = (newUserStory) => {
-        console.log('User story created, refreshing list');
-        // Simply refresh the user stories from the API
-        fetchUserStories(null);
+    const handleUserStoryCreated = (data) => {
+        console.log('User story created:', data);
+
+        // Nếu có thông tin về user story vừa tạo
+        if (data.userStory && data.sprintId) {
+            // Nếu user story được gán vào một sprint cụ thể
+            console.log(`User story created in sprint ID: ${data.sprintId}`);
+
+            // Làm mới cả backlog và danh sách sprint để hiển thị thay đổi
+            fetchUserStories(null);
+            fetchSprints(false);
+
+            // Hiển thị thông báo thành công với thông tin về sprint
+            const sprintName = sprints.find(s => s.id === data.sprintId)?.name || `Sprint ${data.sprintId}`;
+            toast.success(`User story created successfully in ${sprintName}`);
+        } else {
+            // Nếu chỉ là tạo trong backlog (không có sprint)
+            console.log('User story created in backlog');
+            fetchUserStories(null);
+            toast.success('User story created successfully in Backlog');
+        }
     };
 
     const toggleFilters = () => {

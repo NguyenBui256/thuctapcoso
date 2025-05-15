@@ -48,7 +48,8 @@ public class UserStoryService {
         if (!projectMemberRepository.existsByProjectAndUserAndIsDeleteFalse(project, user))
             throw new RequestException("Member not found");
         Specification<UserStory> spec = Specification.where(
-                UserStorySpecs.belongToProject(projectId));
+                UserStorySpecs.belongToProject(projectId))
+                .and(UserStorySpecs.isNotDeleted());
         if (sprintId != null) {
             spec = spec.and(UserStorySpecs.belongToSprint(sprintId));
         } else {
@@ -113,8 +114,14 @@ public class UserStoryService {
                 .flatMap(Collection::stream)
                 .toList();
 
+        // Lấy danh sách user story chưa bị xóa để làm dữ liệu lọc
+        Specification<UserStory> spec = Specification.where(
+                UserStorySpecs.belongToProject(projectId))
+                .and(UserStorySpecs.isNotDeleted());
+        List<UserStory> activeUserStories = userStoryRepository.findAll(spec);
+
         List<ProjectMember> members = projectMemberRepository.findAllByProjectAndIsDeleteIsFalse(project);
-        List<PjMemberDTO> memberDTOS = members.stream()
+        List<PjMemberDTO> memberDTOs = members.stream()
                 .map(member -> {
                     PjMemberDTO dto = new PjMemberDTO();
                     dto.setId(member.getId());
@@ -123,19 +130,48 @@ public class UserStoryService {
                     return dto;
                 })
                 .toList();
+
+        // Lấy danh sách trạng thái user_story cho project
         List<PjStatusDTO> statuses = pjSettingStatusRepository.findAllByProjectAndType(project, StatusType.USER_STORY)
                 .stream()
                 .map(status -> ModelMapper.getInstance().map(status, PjStatusDTO.class))
                 .filter(dto -> statusFiltered.stream().noneMatch(st -> st == dto.getId()))
                 .toList();
+
+        // Nếu danh sách trạng thái rỗng, thử dùng các chuỗi type khác
+        if (statuses.isEmpty()) {
+            // Thử với "USERSTORY"
+            statuses = pjSettingStatusRepository.findAllByProjectAndType(project, "USERSTORY")
+                    .stream()
+                    .map(status -> ModelMapper.getInstance().map(status, PjStatusDTO.class))
+                    .filter(dto -> statusFiltered.stream().noneMatch(st -> st == dto.getId()))
+                    .toList();
+
+            // Nếu vẫn trống, thử với "USER_STORY" viết hoa
+            if (statuses.isEmpty()) {
+                statuses = pjSettingStatusRepository.findAllByProjectAndType(project, "USER_STORY")
+                        .stream()
+                        .map(status -> ModelMapper.getInstance().map(status, PjStatusDTO.class))
+                        .filter(dto -> statusFiltered.stream().noneMatch(st -> st == dto.getId()))
+                        .toList();
+            }
+        }
+
+        // Log thông tin debug
+        System.out.println("Filter data - Statuses count: " + statuses.size());
+        if (!statuses.isEmpty()) {
+            System.out.println("Status examples: " + statuses.get(0).getName());
+        }
+
         List<PjRoleDTO> roles = projectRoleRepository.findAllByProject(project).stream()
                 .map(role -> ModelMapper.getInstance().map(role, PjRoleDTO.class))
                 .filter(dto -> roleFiltered.stream().noneMatch(r -> r == dto.getId()))
                 .toList();
+
         return FilterData.builder()
-                .assigns(memberDTOS.stream().filter(dto -> assignFiltered.stream().noneMatch(a -> a == dto.getId()))
+                .assigns(memberDTOs.stream().filter(dto -> assignFiltered.stream().noneMatch(a -> a == dto.getId()))
                         .toList())
-                .createdBy(memberDTOS.stream()
+                .createdBy(memberDTOs.stream()
                         .filter(dto -> createdByFiltered.stream().noneMatch(a -> a == dto.getId())).toList())
                 .statuses(statuses)
                 .roles(roles)
@@ -184,6 +220,56 @@ public class UserStoryService {
         userStory = userStoryRepository.save(userStory);
 
         return toDTO(userStory);
+    }
+
+    /**
+     * Cập nhật trạng thái cho UserStory
+     * 
+     * @param userStoryId ID của UserStory
+     * @param statusId    ID của status từ bảng project_setting_status
+     * @return UserStory đã được cập nhật
+     */
+    public UserStory updateUserStoryStatus(Integer userStoryId, Integer statusId) {
+        UserStory userStory = userStoryRepository.findById(userStoryId)
+                .orElseThrow(() -> new RequestException("User story not found"));
+
+        // Tìm status từ bảng project_setting_status
+        ProjectSettingStatus status = pjSettingStatusRepository.findById(statusId)
+                .orElseThrow(() -> new RequestException("Status not found"));
+
+        // Kiểm tra xem status có thuộc project của userStory không
+        if (!status.getProject().getId().equals(userStory.getProject().getId())) {
+            throw new RequestException("Status does not belong to this project");
+        }
+
+        // Kiểm tra xem status có đúng type là USERSTORY không
+        if (!"USERSTORY".equals(status.getType())) {
+            throw new RequestException("Invalid status type. Expected USERSTORY status type.");
+        }
+
+        // Cập nhật status
+        userStory.setStatus(status);
+
+        return userStoryRepository.save(userStory);
+    }
+
+    /**
+     * Lấy tất cả các trạng thái có thể có của UserStory cho một dự án cụ thể
+     * 
+     * @param projectId ID của dự án
+     * @return Danh sách các trạng thái UserStory
+     */
+    public List<PjStatusDTO> getUserStoryStatuses(Long projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new RequestException("Project not found"));
+
+        // Lấy các trạng thái có type là USERSTORY từ bảng project_setting_status
+        List<ProjectSettingStatus> statuses = pjSettingStatusRepository
+                .findAllByProjectAndType(project, "USERSTORY");
+
+        return statuses.stream()
+                .map(status -> ModelMapper.getInstance().map(status, PjStatusDTO.class))
+                .toList();
     }
 
     public List<UserStory> getAllByProject(Project project) {

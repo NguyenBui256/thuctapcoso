@@ -9,5 +9,6 @@ import java.util.List;
 @Repository
 public interface ProjectModuleRepository extends JpaRepository<ProjectModule, Long> {
     List<ProjectModule> findByProjectId(Long projectId);
+
     void deleteByProjectId(Long projectId);
 }

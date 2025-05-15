@@ -28,7 +28,7 @@ const ProjectDetails = ({ projectId }) => {
       try {
         setLoading(true);
         setError(null);
-        
+
         const response = await fetchWithAuth(
           `${BASE_API_URL}/v1/projects/${projectId}`,
           `/projects/${projectId}/settings`,
@@ -102,14 +102,14 @@ const ProjectDetails = ({ projectId }) => {
     try {
       setSaving(true);
       setError(null);
-      
+
       const projectDTO = {
         name: project.name,
         description: project.description,
         isPublic: project.isPublic,
         logoUrl: project.logoUrl
       };
-      
+
       const response = await fetchWithAuth(
         `${BASE_API_URL}/v1/projects/${projectId}`,
         `/projects/${projectId}/settings`,
@@ -122,7 +122,7 @@ const ProjectDetails = ({ projectId }) => {
           body: JSON.stringify(projectDTO)
         }
       );
-      
+
       if (response && response.ok) {
         const updatedProject = await response.json();
         setProject({
@@ -147,7 +147,7 @@ const ProjectDetails = ({ projectId }) => {
     if (window.confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
       try {
         setLoading(true);
-        
+
         const response = await fetchWithAuth(
           `${BASE_API_URL}/api/v1/projects/${projectId}`,
           `/projects`,
@@ -156,7 +156,7 @@ const ProjectDetails = ({ projectId }) => {
             method: 'DELETE'
           }
         );
-        
+
         if (response && response.ok) {
           alert('Project deleted successfully!');
           // Navigate to projects page
@@ -187,7 +187,7 @@ const ProjectDetails = ({ projectId }) => {
           }));
         };
         reader.readAsDataURL(file);
-        
+
         // In a real implementation, you would upload the file to the server
         // and get back a URL to store in the project object
       } catch (err) {
@@ -312,13 +312,13 @@ const ProjectDetails = ({ projectId }) => {
 
             <div className="flex justify-between">
               <div className="flex space-x-2">
-                <button 
+                <button
                   onClick={() => handleVisibilityChange(true)}
                   className={`border border-gray-300 rounded-md px-4 py-2 ${project.isPublic ? 'bg-teal-500 text-white' : 'bg-white text-gray-700'}`}
                 >
                   PUBLIC PROJECT
                 </button>
-                <button 
+                <button
                   onClick={() => handleVisibilityChange(false)}
                   className={`border border-gray-300 rounded-md px-4 py-2 ${!project.isPublic ? 'bg-teal-500 text-white' : 'bg-white text-gray-700'}`}
                 >
@@ -335,7 +335,7 @@ const ProjectDetails = ({ projectId }) => {
               >
                 {saving ? 'SAVING...' : 'SAVE'}
               </button>
-              
+
               <div className="border-t border-gray-200 pt-4">
                 <button
                   onClick={handleDeleteProject}

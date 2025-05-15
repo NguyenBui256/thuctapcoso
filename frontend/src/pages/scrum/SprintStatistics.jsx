@@ -30,10 +30,10 @@ const SprintStatistics = () => {
         <div className="bg-gray-700 text-white p-4 rounded mb-6">
             <div className="flex items-center gap-4">
                 <div className="w-48 h-8 bg-white overflow-hidden relative">
-                    <div 
+                    <div
                         className="h-full bg-green-500 transition-all duration-500"
-                        style={{ 
-                            width: `${progress.totalTasks > 0 ? (progress.completedTasks / progress.totalTasks * 100) : 0}%` 
+                        style={{
+                            width: `${progress.totalTasks > 0 ? (progress.completedTasks / progress.totalTasks * 100) : 0}%`
                         }}
                     ></div>
                     <div className="absolute inset-0 flex items-center justify-center text-sm text-gray-800 font-medium">
@@ -54,7 +54,11 @@ const SprintStatistics = () => {
                         <span className="text-xs text-gray-300">total<br />sprints</span>
                     </div>
                     <div className="flex items-center gap-1">
-                        <span className="text-2xl">{progress.averageTaskPerSprint.toFixed(2)}</span>
+                        <span className="text-2xl">
+                            {typeof progress.averageTaskPerSprint === 'number'
+                                ? progress.averageTaskPerSprint.toFixed(2)
+                                : '0.00'}
+                        </span>
                         <span className="text-xs text-gray-300">average tasks<br />per sprint</span>
                     </div>
                 </div>

@@ -6,10 +6,12 @@ const DuplicateProject = () => {
     const navigate = useNavigate();
     const [projects, setProjects] = useState([]);
     const [selectedProject, setSelectedProject] = useState('');
+    const [projectType, setProjectType] = useState(null);
     const [formData, setFormData] = useState({
         name: '',
         description: '',
-        isPublic: true
+        isPublic: true,
+        ownerId: localStorage.getItem("userId")
     });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -19,6 +21,9 @@ const DuplicateProject = () => {
     }, []);
 
     const loadProjects = async () => {
+        setLoading(true);
+        setError(null);
+
         try {
             console.log('Loading projects...');
             const projects = await projectService.getProjectsForDuplication();
@@ -52,10 +57,18 @@ const DuplicateProject = () => {
         setSelectedProject(projectId);
         const selected = projects.find(p => p.id === Number(projectId));
         if (selected) {
+            // Determine if the source project has a specific type (Scrum or Kanban)
+            let detectedType = null;
+            if (selected.projectType) {
+                detectedType = selected.projectType.toLowerCase();
+            }
+
+            setProjectType(detectedType);
             setFormData({
                 name: `${selected.name} (Copy)`,
                 description: selected.description,
-                isPublic: selected.isPublic
+                isPublic: selected.isPublic,
+                ownerId: localStorage.getItem("userId")
             });
         }
     };
@@ -81,13 +94,82 @@ const DuplicateProject = () => {
             return;
         }
 
-        try {
-            await projectService.duplicateProject(selectedProject, formData);
-            navigate('/projects');
-        } catch (err) {
-            setError('Failed to duplicate project');
-            console.error('Error duplicating project:', err);
+        if (!formData.ownerId) {
+            // Try to get the userId again
+            const userId = localStorage.getItem("userId");
+            if (userId) {
+                setFormData(prev => ({
+                    ...prev,
+                    ownerId: userId
+                }));
+            } else {
+                setError('Error: User ID not found. Please try logging in again.');
+                return;
+            }
         }
+
+        try {
+            setLoading(true);
+            setError(null);
+
+            console.log('Duplicating project with data:', formData);
+            const response = await projectService.duplicateProject(selectedProject, formData);
+            console.log('Project duplicated successfully:', response);
+
+            // Get project ID from the response
+            let projectId = null;
+
+            // Handle different response formats
+            if (response && response.id) {
+                projectId = response.id;
+            } else if (response && response.data && response.data.id) {
+                projectId = response.data.id;
+            }
+
+            if (projectId) {
+                // Enable corresponding module based on project type if detected
+                if (projectType === 'scrum' || projectType === 'kanban') {
+                    try {
+                        console.log(`Enabling ${projectType} module for project ${projectId}`);
+                        // Enable the appropriate module
+                        await projectService.enableProjectModules(
+                            projectId,
+                            [projectType] // Enable only the selected project type module
+                        );
+                        console.log(`${projectType} module enabled successfully`);
+                    } catch (moduleErr) {
+                        console.error(`Error enabling ${projectType} module:`, moduleErr);
+                        // Continue with navigation even if module enabling fails
+                        // The user can enable modules manually later
+                    }
+                }
+
+                // Luôn chuyển đến trang chi tiết dự án
+                navigate(`/projects/${projectId}`);
+            } else {
+                // Fallback to projects page if no projectId
+                navigate('/projects');
+            }
+        } catch (err) {
+            console.error('Error duplicating project:', err);
+            let errorMessage = 'Failed to duplicate project';
+
+            // Try to extract a more descriptive error message
+            if (err.response?.data?.message) {
+                errorMessage = `Error: ${err.response.data.message}`;
+            } else if (err.message) {
+                errorMessage = `Error: ${err.message}`;
+            }
+
+            setError(errorMessage);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Add a retry button handler
+    const handleRetry = () => {
+        loadProjects();
     };
 
     if (loading) {
@@ -107,8 +189,14 @@ const DuplicateProject = () => {
                 </div>
 
                 {error && (
-                    <div className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                        {error}
+                    <div className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded flex justify-between items-center">
+                        <span>{error}</span>
+                        <button
+                            onClick={handleRetry}
+                            className="ml-4 bg-red-200 hover:bg-red-300 text-red-800 font-bold py-1 px-3 rounded text-sm"
+                        >
+                            Retry
+                        </button>
                     </div>
                 )}
 

@@ -55,6 +55,15 @@ import edu.ptit.ttcs.entity.dto.AttachmentDTO;
 import edu.ptit.ttcs.controller.TaskController;
 import edu.ptit.ttcs.entity.Notification;
 import edu.ptit.ttcs.dao.NotificationRepository;
+import edu.ptit.ttcs.service.UserStoryService;
+import edu.ptit.ttcs.entity.dto.response.PjStatusDTO;
+import edu.ptit.ttcs.exception.RequestException;
+import edu.ptit.ttcs.entity.ProjectSettingTag;
+import edu.ptit.ttcs.dao.ProjectSettingTagRepository;
+import edu.ptit.ttcs.entity.Activity;
+import edu.ptit.ttcs.service.NotificationService;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 // Inner class for block response to avoid issues with the DTO
 class UserStoryBlockResponse {
@@ -145,9 +154,24 @@ public class UserStoryController {
     @Autowired
     private NotificationRepository notificationRepository;
 
+    @Autowired
+    private UserStoryService userStoryService;
+
+    @Autowired
+    private ProjectSettingTagRepository projectSettingTagRepository;
+
+    @Autowired
+    private NotificationService notificationService;
+
     @GetMapping("/userstory")
     public List<UserStory> getUserStoriesByStatus(@RequestParam("statusId") Integer statusId) {
-        return userStoryRepository.findByStatusId(statusId);
+        List<UserStory> userStories = userStoryRepository.findByStatusId(statusId);
+
+        // Lọc bỏ các user story đã bị đánh dấu xóa (nếu vẫn còn lọt qua query
+        // repository)
+        return userStories.stream()
+                .filter(story -> story.getIsDeleted() == null || !story.getIsDeleted())
+                .collect(Collectors.toList());
     }
 
     @GetMapping("/userstory/task")
@@ -531,7 +555,8 @@ public class UserStoryController {
     @GetMapping("/userstory/{id}/activities")
     public ResponseEntity<List<ActivityDTO>> getUserStoryActivitiesRest(@PathVariable Integer id) {
         try {
-            List<ActivityDTO> activities = activityService.getUserStoryActivities(id, 1L);
+            User user = securityUtils.getCurrentUser();
+            List<ActivityDTO> activities = activityService.getUserStoryActivities(id, user.getId());
             return ResponseEntity.ok(activities);
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();
@@ -548,61 +573,63 @@ public class UserStoryController {
     public ResponseEntity<List<UserStoryResponseDTO>> getUserStoriesByProject(@PathVariable Long projectId) {
         try {
             List<UserStory> userStories = userStoryRepository.findByProjectId(projectId);
-            if (userStories == null || userStories.isEmpty()) {
-                return ResponseEntity.ok(new ArrayList<>());
-            }
 
-            List<UserStoryResponseDTO> dtos = userStories.stream().map(story -> {
+            // Lọc bỏ các user story đã bị đánh dấu xóa (nếu vẫn còn lọt qua query
+            // repository)
+            userStories = userStories.stream()
+                    .filter(story -> story.getIsDeleted() == null || !story.getIsDeleted())
+                    .collect(Collectors.toList());
+
+            List<UserStoryResponseDTO> responseList = userStories.stream().map(story -> {
+                // Map data từ entity sang DTO
                 UserStoryResponseDTO dto = new UserStoryResponseDTO();
                 dto.setId(story.getId());
                 dto.setName(story.getName());
                 dto.setDescription(story.getDescription());
+
+                // Nếu story có status, lấy ID của status
                 if (story.getStatus() != null) {
                     dto.setStatusId(story.getStatus().getId());
                 }
-                if (story.getSwimlane() != null) {
-                    dto.setSwimlaneId(story.getSwimlane().getId());
-                }
-                if (story.getProject() != null) {
-                    dto.setProjectId(story.getProject().getId());
-                }
+
+                // Các thông tin khác
+                dto.setSwimlaneId(story.getSwimlane() != null ? story.getSwimlane().getId() : null);
+                dto.setProjectId(story.getProject().getId());
                 dto.setUxPoints(story.getUxPoints());
                 dto.setBackPoints(story.getBackPoints());
                 dto.setFrontPoints(story.getFrontPoints());
                 dto.setDesignPoints(story.getDesignPoints());
+                dto.setDueDate(story.getDueDate());
+                dto.setIsBlocked(story.getIsBlock());
 
-                // Set the created date and created by information
-                dto.setCreatedAt(story.getCreatedAt());
-                if (story.getCreatedBy() != null) {
+                // Thêm thông tin người tạo nếu có
+                if (story.getCreatedBy() != null && story.getCreatedBy().getUser() != null) {
                     dto.setCreatedByFullName(story.getCreatedBy().getUser().getFullName());
                     dto.setCreatedByUsername(story.getCreatedBy().getUser().getUsername());
                 }
 
-                // Add assigned users information
+                // Thêm thông tin assignedUsers
                 if (story.getAssignedUsers() != null && !story.getAssignedUsers().isEmpty()) {
                     List<UserDTO> assignedUsers = story.getAssignedUsers().stream()
                             .map(member -> {
-                                User user = member.getUser();
-                                UserDTO userDto = new UserDTO();
-                                userDto.setId(user.getId());
-                                userDto.setUsername(user.getUsername());
-                                userDto.setFullName(user.getFullName());
-                                return userDto;
+                                UserDTO userDTO = new UserDTO();
+                                userDTO.setId(member.getUser().getId());
+                                userDTO.setUsername(member.getUser().getUsername());
+                                userDTO.setFullName(member.getUser().getFullName());
+                                return userDTO;
                             })
                             .collect(Collectors.toList());
                     dto.setAssignedUsers(assignedUsers);
-                } else {
-                    dto.setAssignedUsers(new ArrayList<>());
                 }
-
-                // Also set the isBlocked property
-                dto.setIsBlocked(story.getIsBlock());
 
                 return dto;
             }).collect(Collectors.toList());
-            return ResponseEntity.ok(dtos);
+
+            return ResponseEntity.ok(responseList);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ArrayList<>());
         }
     }
 
@@ -611,6 +638,11 @@ public class UserStoryController {
         try {
             UserStory story = userStoryRepository.findById(id).orElse(null);
             if (story == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            // Kiểm tra thêm một lần nữa nếu user story đã bị đánh dấu xóa
+            if (story.getIsDeleted() != null && story.getIsDeleted()) {
                 return ResponseEntity.notFound().build();
             }
 
@@ -649,9 +681,21 @@ public class UserStoryController {
                 }).collect(Collectors.toList()));
             }
 
+            // Include tags
+            if (story.getTags() != null && !story.getTags().isEmpty()) {
+                dto.setTags(story.getTags().stream().map(tag -> {
+                    UserStoryResponseDTO.TagDTO tagDTO = new UserStoryResponseDTO.TagDTO();
+                    tagDTO.setId(tag.getId());
+                    tagDTO.setName(tag.getName());
+                    tagDTO.setColor(tag.getColor());
+                    return tagDTO;
+                }).collect(Collectors.toList()));
+            }
+
             return ResponseEntity.ok(dto);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body("Error fetching user story: " + e.getMessage());
         }
     }
 
@@ -1222,7 +1266,7 @@ public class UserStoryController {
 
             UserStory userStory = userStoryOpt.get();
 
-            // Record activity before deletion
+            // Get user ID for activity recording
             Long userId = 1L; // Default
             try {
                 ServletRequestAttributes requestAttributes = (ServletRequestAttributes) RequestContextHolder
@@ -1238,6 +1282,7 @@ public class UserStoryController {
                 // Fallback to default
             }
 
+            // Record activity before soft deletion
             activityService.recordUserStoryActivity(
                     userStory.getProject().getId(),
                     userStory.getId(),
@@ -1245,7 +1290,10 @@ public class UserStoryController {
                     "user_story_deleted",
                     "User story \"" + userStory.getName() + "\" was deleted");
 
-            userStoryRepository.deleteById(id);
+            // Perform soft delete
+            userStory.setIsDeleted(true);
+            userStoryRepository.save(userStory);
+
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Failed to delete user story: " + e.getMessage());
@@ -1548,11 +1596,19 @@ public class UserStoryController {
     }
 
     @PostMapping("/{taskId}/attachment")
-    public ResponseEntity<?> addTaskAttachment(
+    public ResponseEntity<?> addAttachmentToTask(
             @PathVariable("taskId") Integer taskId,
             @RequestBody AttachmentDTO attachmentDTO) {
         try {
+            // Determine current user: prefer header, fallback to security context
             User currentUser = securityUtils.getCurrentUser();
+            Long userId = currentUser.getId();
+            if (userId != null) {
+                currentUser = userRepository.findById(userId)
+                        .orElseThrow(() -> new IllegalArgumentException("User not found"));
+            } else {
+                currentUser = securityUtils.getCurrentUser();
+            }
 
             // Create a new attachment
             Attachment attachment = new Attachment();
@@ -1571,12 +1627,18 @@ public class UserStoryController {
             Task task = taskRepository.findById(taskId)
                     .orElseThrow(() -> new IllegalArgumentException("Task not found with ID: " + taskId));
 
-            // Create a TaskAttachment object to link the task and attachment
+            // Add attachment to the task using taskAttachments instead of attachments
+            if (task.getTaskAttachments() == null) {
+                task.setTaskAttachments(new ArrayList<>());
+            }
             TaskAttachment taskAttachment = new TaskAttachment();
             taskAttachment.setTask(task);
             taskAttachment.setAttachment(savedAttachment);
-            taskAttachment.setCreatedAt(LocalDateTime.now());
             taskAttachmentRepository.save(taskAttachment);
+
+            // No need to explicitly add to task's collection as it will be managed by
+            // Hibernate
+            taskRepository.save(task);
 
             // Record activity
             String activityDetail = String.format("Attachment '%s' added", savedAttachment.getFilename());
@@ -1587,8 +1649,17 @@ public class UserStoryController {
                     "attachment_added",
                     activityDetail);
 
-            // delegate to TaskController.getTaskById to return TaskDTO
-            return taskController.getTaskById(task.getId());
+            // Convert saved attachment to DTO for response
+            AttachmentDTO savedAttachmentDTO = new AttachmentDTO();
+            savedAttachmentDTO.setId(savedAttachment.getId());
+            savedAttachmentDTO.setFilename(savedAttachment.getFilename());
+            savedAttachmentDTO.setContentType(savedAttachment.getContentType());
+            savedAttachmentDTO.setFileSize(savedAttachment.getFileSize());
+            savedAttachmentDTO.setUrl(savedAttachment.getUrl());
+            savedAttachmentDTO.setCreatedAt(savedAttachment.getCreatedAt());
+
+            // Return the saved attachment in the response
+            return ResponseEntity.ok(savedAttachmentDTO);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Failed to add attachment: " + e.getMessage());
@@ -1598,12 +1669,12 @@ public class UserStoryController {
     @PostMapping("/userstory/{userStoryId}/attachment")
     public ResponseEntity<?> addAttachment(
             @PathVariable("userStoryId") Integer userStoryId,
-            @RequestBody AttachmentDTO attachmentDTO,
-            @RequestHeader(value = "User-Id", required = false) Long userId) {
+            @RequestBody AttachmentDTO attachmentDTO) {
 
         try {
             // Determine current user: prefer header, fallback to security context
-            User currentUser;
+            User currentUser = securityUtils.getCurrentUser();
+            Long userId = currentUser.getId();
             if (userId != null) {
                 currentUser = userRepository.findById(userId)
                         .orElseThrow(() -> new IllegalArgumentException("User not found"));
@@ -1749,46 +1820,339 @@ public class UserStoryController {
     }
 
     /**
-     * Create notification for user assigned to a user story
+     * Add a tag to a user story
+     * 
+     * @param userStoryId ID of the user story
+     * @param tagId       ID of the tag to add
+     * @return Response entity with success or error message
      */
-    private void createAssigneeNotification(User receiver, UserStory userStory, Long senderId) {
-        Notification notification = new Notification();
-        notification.setReceiver(receiver);
-        notification.setDescription("You have been assigned to user story: " + userStory.getName());
-        notification.setObjectId(userStory.getId());
-        notification.setType("USER_STORY_ASSIGNED");
-        notification.setCreatedAt(LocalDateTime.now());
-        notification.setUpdatedAt(LocalDateTime.now());
+    @PostMapping("/userstory/{userStoryId}/tags/{tagId}")
+    public ResponseEntity<?> addTagToUserStory(
+            @PathVariable Integer userStoryId,
+            @PathVariable Long tagId,
+            @RequestHeader(name = "User-Id", required = false) Long userId) {
+        try {
+            UserStory userStory = userStoryRepository.findById(userStoryId)
+                    .orElseThrow(() -> new RuntimeException("User story not found"));
 
-        User sender = userRepository.findById(senderId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+            ProjectSettingTag tag = projectSettingTagRepository.findById(tagId)
+                    .orElseThrow(() -> new RuntimeException("Tag not found"));
 
-        notification.setCreatedBy(sender);
-        notification.setUpdatedBy(sender);
-        notification.setIsSeen(false);
+            // Check if the tag belongs to the same project as the user story
+            if (!tag.getProject().getId().equals(userStory.getProject().getId())) {
+                return ResponseEntity.badRequest().body("Tag does not belong to the same project");
+            }
 
-        notificationRepository.save(notification);
+            // Check if the user story already has this tag
+            if (userStory.getTags().contains(tag)) {
+                return ResponseEntity.badRequest().body("User story already has this tag");
+            }
+
+            // Add tag to user story
+            userStory.getTags().add(tag);
+            userStoryRepository.save(userStory);
+
+            // Try to record activity safely, only if we have a valid user ID
+            try {
+                // If no userId provided in header, try to get from security context
+                Long effectiveUserId = userId;
+                if (effectiveUserId == null) {
+                    // Try to get from security context using securityUtils if available
+                    if (securityUtils != null) {
+                        try {
+                            effectiveUserId = securityUtils.getCurrentUserId();
+                        } catch (Exception e) {
+                            // Ignore and use default
+                        }
+                    }
+
+                    // If still null, use default (creator ID or 1)
+                    if (effectiveUserId == null) {
+                        // Use the user story creator ID if available
+                        if (userStory.getCreatedBy() != null && userStory.getCreatedBy().getUser() != null) {
+                            effectiveUserId = userStory.getCreatedBy().getUser().getId();
+                        } else {
+                            // Fall back to system user (1)
+                            effectiveUserId = 1L;
+                        }
+                    }
+                }
+
+                // Record activity with the effective user ID
+                activityService.recordUserStoryActivity(
+                        userStory.getProject().getId(),
+                        userStory.getId(),
+                        effectiveUserId,
+                        "tag_added",
+                        "Added tag '" + tag.getName() + "' to user story");
+            } catch (Exception e) {
+                // Log but don't fail the transaction just because activity recording failed
+                System.err.println("Failed to record tag add activity: " + e.getMessage());
+            }
+
+            return ResponseEntity.ok().body("Tag added successfully");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred");
+        }
     }
 
     /**
-     * Create notification for user added as a watcher to a user story
+     * Remove a tag from a user story
+     * 
+     * @param userStoryId ID of the user story
+     * @param tagId       ID of the tag to remove
+     * @return Response entity with success or error message
+     */
+    @DeleteMapping("/userstory/{userStoryId}/tags/{tagId}")
+    public ResponseEntity<?> removeTagFromUserStory(
+            @PathVariable Integer userStoryId,
+            @PathVariable Long tagId,
+            @RequestHeader(name = "User-Id", required = false) Long userId) {
+        try {
+            UserStory userStory = userStoryRepository.findById(userStoryId)
+                    .orElseThrow(() -> new RuntimeException("User story not found"));
+
+            ProjectSettingTag tag = projectSettingTagRepository.findById(tagId)
+                    .orElseThrow(() -> new RuntimeException("Tag not found"));
+
+            // Check if the user story has this tag
+            if (!userStory.getTags().contains(tag)) {
+                return ResponseEntity.badRequest().body("User story does not have this tag");
+            }
+
+            // Remove tag from user story
+            userStory.getTags().remove(tag);
+            userStoryRepository.save(userStory);
+
+            // Try to record activity safely, only if we have a valid user ID
+            try {
+                // If no userId provided in header, try to get from security context
+                Long effectiveUserId = userId;
+                if (effectiveUserId == null) {
+                    // Try to get from security context using securityUtils if available
+                    if (securityUtils != null) {
+                        try {
+                            effectiveUserId = securityUtils.getCurrentUserId();
+                        } catch (Exception e) {
+                            // Ignore and use default
+                        }
+                    }
+
+                    // If still null, use default (creator ID or 1)
+                    if (effectiveUserId == null) {
+                        // Use the user story creator ID if available
+                        if (userStory.getCreatedBy() != null && userStory.getCreatedBy().getUser() != null) {
+                            effectiveUserId = userStory.getCreatedBy().getUser().getId();
+                        } else {
+                            // Fall back to system user (1)
+                            effectiveUserId = 1L;
+                        }
+                    }
+                }
+
+                // Record activity with the effective user ID
+                activityService.recordUserStoryActivity(
+                        userStory.getProject().getId(),
+                        userStory.getId(),
+                        effectiveUserId,
+                        "tag_removed",
+                        "Removed tag '" + tag.getName() + "' from user story");
+            } catch (Exception e) {
+                // Log but don't fail the transaction just because activity recording failed
+                System.err.println("Failed to record tag removal activity: " + e.getMessage());
+            }
+
+            return ResponseEntity.ok().body("Tag removed successfully");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred");
+        }
+    }
+
+    /**
+     * Create a notification for the assignee of a user story
+     * 
+     * @param receiver  The user to receive the notification
+     * @param userStory The user story that the notification is about
+     * @param senderId  ID of the user who triggered the notification
+     */
+    private void createAssigneeNotification(User receiver, UserStory userStory, Long senderId) {
+        String description = "You have been assigned to user story #" + userStory.getId() + ": " + userStory.getName();
+        notificationService.createNotification(
+                receiver,
+                description,
+                userStory.getId(),
+                "USER_STORY_ASSIGNED",
+                senderId);
+    }
+
+    /**
+     * Create a notification for a watcher of a user story
+     * 
+     * @param receiver  The user to receive the notification
+     * @param userStory The user story that the notification is about
+     * @param senderId  ID of the user who triggered the notification
      */
     private void createWatcherNotification(User receiver, UserStory userStory, Long senderId) {
-        Notification notification = new Notification();
-        notification.setReceiver(receiver);
-        notification.setDescription("You have been added as a watcher to user story: " + userStory.getName());
-        notification.setObjectId(userStory.getId());
-        notification.setType("USER_STORY_WATCHING");
-        notification.setCreatedAt(LocalDateTime.now());
-        notification.setUpdatedAt(LocalDateTime.now());
+        String description = "You are now watching user story #" + userStory.getId() + ": " + userStory.getName();
+        notificationService.createNotification(
+                receiver,
+                description,
+                userStory.getId(),
+                "USER_STORY_WATCHING",
+                senderId);
+    }
 
-        User sender = userRepository.findById(senderId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+    /**
+     * Lấy tất cả các trạng thái có thể có của UserStory cho một dự án
+     * 
+     * @param projectId ID của dự án
+     * @return Danh sách các trạng thái
+     */
+    @GetMapping("/project/{projectId}/statuses")
+    public ResponseEntity<?> getUserStoryStatuses(@PathVariable Long projectId) {
+        try {
+            List<PjStatusDTO> statuses = userStoryService.getUserStoryStatuses(projectId);
+            return ResponseEntity.ok(statuses);
+        } catch (RequestException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred");
+        }
+    }
 
-        notification.setCreatedBy(sender);
-        notification.setUpdatedBy(sender);
-        notification.setIsSeen(false);
+    /**
+     * Delete a comment from a user story
+     * Any user can delete comments
+     */
+    @DeleteMapping("/userstory/{userStoryId}/comments/{commentId}")
+    public ResponseEntity<?> deleteComment(
+            @PathVariable Integer userStoryId,
+            @PathVariable Long commentId,
+            @RequestHeader(name = "User-Id", required = false) Long userId) {
+        try {
+            // Get user ID from header or security context
+            if (userId == null) {
+                try {
+                    User user = securityUtils.getCurrentUser();
+                    userId = user.getId();
+                } catch (Exception e) {
+                    // If we can't get the current user, fall back to User-Id header or default
+                    try {
+                        ServletRequestAttributes requestAttributes = (ServletRequestAttributes) RequestContextHolder
+                                .getRequestAttributes();
+                        if (requestAttributes != null) {
+                            HttpServletRequest request = requestAttributes.getRequest();
+                            String userIdHeader = request.getHeader("User-Id");
+                            if (userIdHeader != null) {
+                                userId = Long.parseLong(userIdHeader);
+                            }
+                        }
+                    } catch (Exception ex) {
+                        // Fallback to default
+                        userId = 1L;
+                    }
+                }
+            }
 
-        notificationRepository.save(notification);
+            // Find comment directly without loading the entire user story
+            Optional<Comment> commentOptional = commentRepository.findById(commentId);
+            if (!commentOptional.isPresent()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Comment not found");
+            }
+
+            Comment comment = commentOptional.get();
+
+            // Verify the comment belongs to the user story
+            if (comment.getUserStory() == null || !comment.getUserStory().getId().equals(userStoryId)) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Comment does not belong to this user story");
+            }
+
+            // Store necessary info for activity logging before deletion
+            Integer userStoryIdForLog = userStoryId;
+            Long projectId = null;
+
+            try {
+                if (comment.getUserStory() != null && comment.getUserStory().getProject() != null) {
+                    projectId = comment.getUserStory().getProject().getId();
+                }
+            } catch (Exception e) {
+                // Ignore if we can't get project ID, we'll skip logging activity
+                System.err.println("Failed to get project ID for activity logging: " + e.getMessage());
+            }
+
+            // Delete the comment
+            commentRepository.delete(comment);
+
+            // Explicitly flush to ensure immediate database update
+            commentRepository.flush();
+
+            // Record activity only if we have project ID
+            if (projectId != null) {
+                try {
+                    activityService.recordUserStoryActivity(
+                            projectId,
+                            userStoryIdForLog,
+                            userId,
+                            "comment_deleted",
+                            "Deleted a comment");
+                } catch (Exception e) {
+                    // Just log the error but don't fail the request
+                    System.err.println("Failed to record comment deletion activity: " + e.getMessage());
+                }
+            }
+
+            return ResponseEntity.ok().body("Comment deleted successfully");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error deleting comment: " + e.getMessage());
+        }
+    }
+
+    @PutMapping("/userstory/{id}/soft-delete")
+    public ResponseEntity<?> softDeleteUserStory(@PathVariable Integer id) {
+        try {
+            Optional<UserStory> userStoryOpt = userStoryRepository.findById(id);
+            if (!userStoryOpt.isPresent()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            UserStory userStory = userStoryOpt.get();
+
+            // Get user ID for activity recording
+            Long userId = 1L; // Default
+            try {
+                ServletRequestAttributes requestAttributes = (ServletRequestAttributes) RequestContextHolder
+                        .getRequestAttributes();
+                if (requestAttributes != null) {
+                    HttpServletRequest request = requestAttributes.getRequest();
+                    String userIdHeader = request.getHeader("User-Id");
+                    if (userIdHeader != null) {
+                        userId = Long.parseLong(userIdHeader);
+                    }
+                }
+            } catch (Exception e) {
+                // Fallback to default
+            }
+
+            // Record activity before soft deletion
+            activityService.recordUserStoryActivity(
+                    userStory.getProject().getId(),
+                    userStory.getId(),
+                    userId,
+                    "user_story_deleted",
+                    "User story \"" + userStory.getName() + "\" was deleted");
+
+            // Perform soft delete
+            userStory.setIsDeleted(true);
+            userStoryRepository.save(userStory);
+
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Failed to delete user story: " + e.getMessage());
+        }
     }
 }

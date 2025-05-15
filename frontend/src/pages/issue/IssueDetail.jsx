@@ -442,7 +442,8 @@ export default function IssueDetail() {
 
     // Check if current user is watching
     const isCurrentUserWatching = () => {
-        return watchers.some(watcher => watcher.id === parseInt(userId));
+        // Make sure watchers is an array before using some()
+        return Array.isArray(watchers) && watchers.some(watcher => watcher.id === parseInt(userId));
     }
 
     // Toggle watch function

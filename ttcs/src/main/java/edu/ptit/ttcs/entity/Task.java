@@ -68,4 +68,6 @@ public class Task {
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL)
     private List<TaskAttachment> taskAttachments = new ArrayList<>();
 
+    @Column(name = "is_deleted")
+    private Boolean isDeleted = false;
 }

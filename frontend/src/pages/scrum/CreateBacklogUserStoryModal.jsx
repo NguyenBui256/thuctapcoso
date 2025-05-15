@@ -15,6 +15,7 @@ const CreateBacklogUserStoryModal = ({
 }) => {
     // Refs
     const modalRef = useRef(null);
+    const statusDropdownRef = useRef(null);
 
     // Form data states
     const [title, setTitle] = useState('');
@@ -32,6 +33,7 @@ const CreateBacklogUserStoryModal = ({
     const [frontPoints, setFrontPoints] = useState(0);
     const [designPoints, setDesignPoints] = useState(0);
     const [showDueDatePicker, setShowDueDatePicker] = useState(false);
+    const [showStatusDropdown, setShowStatusDropdown] = useState(false);
 
     // Fallback data for testing if API fails
     const fallbackMembers = [
@@ -41,16 +43,38 @@ const CreateBacklogUserStoryModal = ({
     ];
 
     // Data for dropdowns
-    const statuses = [
-        { id: 1, name: 'New' },
-        { id: 2, name: 'Ready' },
-        { id: 3, name: 'In Progress' },
-        { id: 4, name: 'Ready for Test' },
-        { id: 5, name: 'Done' },
-        { id: 6, name: 'Archived' }
-    ];
+    const [statuses, setStatuses] = useState([]);
     const [sprints, setSprints] = useState([]);
     const [projectMembers, setProjectMembers] = useState([]);
+
+    // Function to fetch statuses
+    const fetchStatuses = async () => {
+        try {
+            const response = await axios.get(`/api/kanban/board/project/${projectId}/statuses`);
+            if (response.data && Array.isArray(response.data)) {
+                console.log("Fetched user story statuses:", response.data);
+                setStatuses(response.data);
+            } else {
+                // Fallback to defaults if response is not as expected
+                setDefaultStatuses();
+            }
+        } catch (error) {
+            console.error('Error fetching user story statuses:', error);
+            setDefaultStatuses();
+        }
+    };
+
+    // Function to set default statuses as fallback
+    const setDefaultStatuses = () => {
+        setStatuses([
+            { id: 1, name: 'New', color: '#3498db' },
+            { id: 2, name: 'Ready', color: '#9b59b6' },
+            { id: 3, name: 'In Progress', color: '#f39c12' },
+            { id: 4, name: 'Ready for Test', color: '#f1c40f' },
+            { id: 5, name: 'Done', color: '#2ecc71' },
+            { id: 6, name: 'Archived', color: '#95a5a6' }
+        ]);
+    };
 
     // Update status and sprint when initial values change
     useEffect(() => {
@@ -135,10 +159,14 @@ const CreateBacklogUserStoryModal = ({
                     console.error('Error fetching project members:', err);
                     setProjectMembers(fallbackMembers);
                 }
+
+                // Fetch statuses
+                await fetchStatuses();
             } catch (err) {
                 console.error('Error in fetchData:', err);
                 toast.error('Failed to load data. Using default values.');
                 setProjectMembers(fallbackMembers);
+                setDefaultStatuses();
             }
         };
 
@@ -161,6 +189,23 @@ const CreateBacklogUserStoryModal = ({
             handleCancel();
         }
     };
+
+    // Add event listener to close status dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutsideDropdown = (e) => {
+            if (statusDropdownRef.current && !statusDropdownRef.current.contains(e.target)) {
+                setShowStatusDropdown(false);
+            }
+        };
+
+        if (showStatusDropdown) {
+            document.addEventListener('mousedown', handleClickOutsideDropdown);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutsideDropdown);
+        };
+    }, [showStatusDropdown]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -227,10 +272,16 @@ const CreateBacklogUserStoryModal = ({
             resetForm();
             onHide();
 
-            // Refresh the user stories list
+            // Refresh the user stories list with the created user story data
             setTimeout(() => {
                 if (onUserStoryCreated) {
-                    onUserStoryCreated({});
+                    // Truyền thông tin user story vừa tạo (bao gồm sprintId) để component cha có thể cập nhật UI
+                    const createdUserStory = response.data;
+                    onUserStoryCreated({
+                        userStory: createdUserStory,
+                        sprintId: sprintId ? parseInt(sprintId) : null,
+                        statusId: parseInt(statusId)
+                    });
                 }
             }, 500);
         } catch (err) {
@@ -260,6 +311,7 @@ const CreateBacklogUserStoryModal = ({
         setFrontPoints(0);
         setDesignPoints(0);
         setShowDueDatePicker(false);
+        setShowStatusDropdown(false);
     };
 
     const handleCancel = () => {
@@ -383,18 +435,48 @@ const CreateBacklogUserStoryModal = ({
                                 <div className="md:w-1/3">
                                     <div className="mb-4">
                                         <label className="block text-xs font-medium text-gray-500 uppercase mb-1">STATUS</label>
-                                        <select
-                                            value={statusId}
-                                            onChange={(e) => setStatusId(parseInt(e.target.value))}
-                                            className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        >
-                                            <option value="">Select status</option>
-                                            {statuses.map(status => (
-                                                <option key={status.id} value={status.id}>
-                                                    {status.name}
-                                                </option>
-                                            ))}
-                                        </select>
+                                        <div className="relative" ref={statusDropdownRef}>
+                                            {/* Custom dropdown with color indicators */}
+                                            <div
+                                                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-sm flex items-center cursor-pointer"
+                                                onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                                            >
+                                                <div
+                                                    className="w-4 h-4 rounded-full mr-2"
+                                                    style={{
+                                                        backgroundColor: statuses.find(s => s.id === statusId)?.color || '#cccccc',
+                                                    }}
+                                                ></div>
+                                                <span>
+                                                    {statuses.find(s => s.id === statusId)?.name || 'Select status'}
+                                                </span>
+                                                <svg className="h-5 w-5 text-gray-400 ml-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                                </svg>
+                                            </div>
+
+                                            {/* Dropdown options */}
+                                            {showStatusDropdown && (
+                                                <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg">
+                                                    {statuses.map(status => (
+                                                        <div
+                                                            key={status.id}
+                                                            className={`px-3 py-2 flex items-center cursor-pointer hover:bg-gray-100 ${status.id === statusId ? 'bg-gray-100' : ''}`}
+                                                            onClick={() => {
+                                                                setStatusId(status.id);
+                                                                setShowStatusDropdown(false);
+                                                            }}
+                                                        >
+                                                            <div
+                                                                className="w-4 h-4 rounded-full mr-2"
+                                                                style={{ backgroundColor: status.color || '#cccccc' }}
+                                                            ></div>
+                                                            <span>{status.name}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
 
                                     <div className="mb-4">

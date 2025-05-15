@@ -29,15 +29,14 @@ export default function TaigaUserStoryDetail() {
     const [watchers, setWatchers] = useState([]);
     const [showWatcherDropdown, setShowWatcherDropdown] = useState(false);
 
-    // Define available statuses
-    const statuses = [
-        { id: 1, name: 'NEW', color: 'bg-blue-400' },
-        { id: 2, name: 'READY', color: 'bg-red-500' },
-        { id: 3, name: 'IN PROGRESS', color: 'bg-orange-400' },
-        { id: 4, name: 'READY FOR TEST', color: 'bg-yellow-400' },
-        { id: 5, name: 'DONE', color: 'bg-green-500' },
-        { id: 6, name: 'ARCHIVED', color: 'bg-gray-400' }
-    ];
+    // Replace hardcoded statuses with state
+    const [statuses, setStatuses] = useState([]);
+    const [taskStatuses, setTaskStatuses] = useState([]);
+
+    // Add tag related states
+    const [projectTags, setProjectTags] = useState([]);
+    const [showTagsDropdown, setShowTagsDropdown] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
 
     // Add editable fields
     const [editMode, setEditMode] = useState(false);
@@ -65,22 +64,35 @@ export default function TaigaUserStoryDetail() {
     const [showTaskAssigneeDropdown, setShowTaskAssigneeDropdown] = useState(false);
     const [userStoryTasks, setUserStoryTasks] = useState([]);
 
-    // Task statuses
-    const taskStatuses = [
-        { id: 1, name: 'New', color: 'bg-blue-400' },
-        { id: 2, name: 'In progress', color: 'bg-orange-400' },
-        { id: 3, name: 'Ready for test', color: 'bg-yellow-400' },
-        { id: 4, name: 'READY FOR TEST', color: 'bg-yellow-400' },
-        { id: 5, name: 'DONE', color: 'bg-green-500' },
-        { id: 6, name: 'ARCHIVED', color: 'bg-gray-400' }
-    ];
-
     /* Attachments section */
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef(null);
 
     // Thêm lại attachment refresh trigger
     const [attachmentRefreshTrigger, setAttachmentRefreshTrigger] = useState(0);
+
+    // Add function to fetch available tags for the project
+    const fetchAvailableTags = useCallback(async (projectId) => {
+        try {
+            console.log('Fetching available tags for project ID:', projectId);
+            const response = await axios.get(`/api/v1/projects/${projectId}/tags`);
+            console.log('Available tags response:', response.data);
+
+            // Handle different response formats
+            if (response.data && Array.isArray(response.data)) {
+                setProjectTags(response.data);
+            } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
+                setProjectTags(response.data.data);
+            } else {
+                console.warn('Unexpected tags response format:', response.data);
+                setProjectTags([]);
+            }
+        } catch (error) {
+            console.error('Error fetching available tags:', error);
+            message.error('Failed to load available tags');
+            setProjectTags([]);
+        }
+    }, []);
 
     const getCurrentUserId = () => {
         const user = JSON.parse(localStorage.getItem('user'));
@@ -92,7 +104,24 @@ export default function TaigaUserStoryDetail() {
             console.log('Fetching tasks for userStory ID:', userStoryId);
             const response = await axios.get(`/api/tasks/userstory/${userStoryId}`);
             console.log('Tasks data:', response.data);
-            setUserStoryTasks(response.data || []);
+
+            // Verify the data is what we expect
+            if (Array.isArray(response.data)) {
+                // Filter tasks to ensure they belong to this user story (double check)
+                const filteredTasks = response.data.filter(task => {
+                    if (task.userStoryId && task.userStoryId === parseInt(userStoryId)) {
+                        return true;
+                    }
+                    console.warn(`Task ${task.id} has userStoryId ${task.userStoryId} which doesn't match current userStory ${userStoryId}`);
+                    return false;
+                });
+
+                console.log(`Filtered tasks: ${filteredTasks.length} out of ${response.data.length} belong to this user story`);
+                setUserStoryTasks(filteredTasks);
+            } else {
+                console.error('Unexpected response format for tasks, expected array but got:', typeof response.data);
+                setUserStoryTasks([]);
+            }
         } catch (error) {
             console.error('Error fetching tasks:', error);
             message.error('Failed to load tasks');
@@ -485,27 +514,47 @@ export default function TaigaUserStoryDetail() {
             // Lưu lại thông tin về các tệp đính kèm hiện tại
             const currentAttachments = userStory.attachments || [];
 
-            // Use PATCH endpoint specifically for status updates
-            const response = await axios.put(`/api/kanban/board/userstory/${userStoryId}/status`, {
-                statusId: statusId
-            });
+            // Update UI optimistically first
+            setUserStory(prevState => ({
+                ...prevState,
+                statusId: statusId,
+                attachments: currentAttachments
+            }));
 
-            // Nếu response.data có dữ liệu, sử dụng nó để cập nhật state
-            if (response.data) {
+            setShowStatusDropdown(false);
+
+            let success = false;
+            let response;
+
+            // Try first approach with path variable
+            try {
+                // First try the simpler endpoint pattern that has better success
+                response = await axios.put(`/api/kanban/board/userstory/${userStoryId}/status/${statusId}`);
+                success = true;
+            } catch (err) {
+                console.warn("First status update approach failed, trying alternative...", err);
+
+                // If that fails, try the request body approach
+                try {
+                    response = await axios.put(`/api/kanban/board/userstory/${userStoryId}/status`, {
+                        statusId: statusId
+                    });
+                    success = true;
+                } catch (secondErr) {
+                    // If both fail, throw the error to be caught by outer catch
+                    console.error("Both status update approaches failed", secondErr);
+                    throw secondErr;
+                }
+            }
+
+            // If we get here, one of the approaches worked
+            if (success && response?.data) {
+                // Nếu response.data có dữ liệu, sử dụng nó để cập nhật state
                 setUserStory(prevState => ({
                     ...response.data,
                     attachments: response.data.attachments || currentAttachments
                 }));
-            } else {
-                // Update local state if no complete data returned
-                setUserStory(prevState => ({
-                    ...prevState,
-                    statusId: statusId,
-                    attachments: currentAttachments
-                }));
             }
-
-            setShowStatusDropdown(false);
 
             // Record activity for status change
             await recordActivity(
@@ -532,6 +581,13 @@ export default function TaigaUserStoryDetail() {
             toast.success(`Status updated to ${newStatus?.name || statusId}`);
         } catch (err) {
             console.error('Error updating status:', err);
+
+            // Revert UI to original status
+            setUserStory(prevState => ({
+                ...prevState,
+                statusId: userStory.statusId
+            }));
+
             toast.error('Failed to update status');
         }
     };
@@ -605,24 +661,48 @@ export default function TaigaUserStoryDetail() {
         }
     };
 
-    // Update handleDeleteUserStory to record activity
+    // Update handleDeleteUserStory to use soft delete as fallback
     const handleDeleteUserStory = async () => {
-        if (window.confirm('Are you sure you want to delete this user story? This action cannot be undone.')) {
+        if (!window.confirm('Are you sure you want to delete this user story? This action cannot be undone.')) {
+            return;
+        }
+
+        try {
+            // Show a loading toast
+            const loadingToastId = toast.loading('Deleting user story...');
+
             try {
-                // Record activity before deletion (might not be stored if story is deleted)
+                // Record activity before deletion
                 await recordActivity('user_story_deleted', 'User story was deleted');
 
-                // Trigger làm mới hoạt động
-                triggerActivitiesRefresh();
-
+                // Sử dụng hard delete để xóa hoàn toàn khỏi database
                 await axios.delete(`/api/kanban/board/userstory/${userStoryId}`);
-                alert('User story deleted successfully');
+
+                toast.update(loadingToastId, {
+                    render: 'User story deleted successfully',
+                    type: 'success',
+                    isLoading: false,
+                    autoClose: 2000
+                });
+
                 // Navigate back to the kanban board after deletion
                 navigate(`/projects/${userStory.projectId}/kanban`);
-            } catch (err) {
-                console.error('Error deleting user story:', err);
-                alert('Failed to delete user story. Please try again.');
+            } catch (error) {
+                console.error('Error with deletion:', error);
+                console.error('Error details:', error.response?.data);
+
+                // For other errors, show the error message
+                toast.update(loadingToastId, {
+                    render: 'Failed to delete user story: ' +
+                        (error.response?.data?.message || error.message),
+                    type: 'error',
+                    isLoading: false,
+                    autoClose: 5000
+                });
             }
+        } catch (error) {
+            console.error('Error in delete handler:', error);
+            toast.error('An unexpected error occurred while trying to delete the user story');
         }
     };
 
@@ -850,11 +930,7 @@ export default function TaigaUserStoryDetail() {
                 };
 
                 // Gửi request nhưng không chờ đợi kết quả
-                axios.post(`/api/kanban/board/userstory/${userStoryId}/attachment`, attachmentData, {
-                    headers: {
-                        'User-Id': getCurrentUserId()
-                    }
-                })
+                axios.post(`/api/kanban/board/userstory/${userStoryId}/attachment`, attachmentData)
                     .then(response => {
                         console.log('Attachment saved to server:', response.data);
                         // Không cần làm gì thêm vì đã cập nhật UI trước đó
@@ -934,6 +1010,195 @@ export default function TaigaUserStoryDetail() {
         }
     };
 
+    // Add function to fetch statuses
+    const fetchUserStoryStatuses = async (projectId) => {
+        try {
+            if (!projectId) {
+                console.error("Project ID is required to fetch user story statuses");
+                return;
+            }
+
+            const response = await axios.get(`/api/kanban/board/project/${projectId}/statuses`);
+            if (response.data && Array.isArray(response.data)) {
+                console.log("Fetched user story statuses:", response.data);
+                setStatuses(response.data);
+            }
+        } catch (error) {
+            console.error('Error fetching user story statuses:', error);
+            // Set default statuses as fallback
+            setStatuses([
+                { id: 1, name: 'NEW', color: '#3498db' },
+                { id: 2, name: 'READY', color: '#e74c3c' },
+                { id: 3, name: 'IN PROGRESS', color: '#f39c12' },
+                { id: 4, name: 'READY FOR TEST', color: '#f1c40f' },
+                { id: 5, name: 'DONE', color: '#2ecc71' },
+                { id: 6, name: 'ARCHIVED', color: '#95a5a6' }
+            ]);
+        }
+    };
+
+    // Add function to fetch task statuses
+    const fetchTaskStatuses = async (projectId) => {
+        try {
+            console.log('Fetching task statuses for project:', projectId);
+            const response = await axios.get(`/api/tasks/project/${projectId}/statuses`);
+            if (response.data) {
+                console.log('Task statuses:', response.data);
+                setTaskStatuses(response.data);
+            }
+        } catch (error) {
+            console.error('Error fetching task statuses:', error);
+            // Set default statuses as fallback
+            setTaskStatuses([
+                { id: 1, name: 'New', color: '#3498db' },
+                { id: 2, name: 'In progress', color: '#f39c12' },
+                { id: 3, name: 'Ready for test', color: '#f1c40f' },
+                { id: 4, name: 'READY FOR TEST', color: '#f1c40f' },
+                { id: 5, name: 'DONE', color: '#2ecc71' },
+                { id: 6, name: 'ARCHIVED', color: '#95a5a6' }
+            ]);
+        }
+    };
+
+    // Add useEffect to fetch statuses when the component mounts
+    useEffect(() => {
+        if (userStory && userStory.projectId) {
+            fetchUserStoryStatuses(userStory.projectId);
+            fetchTaskStatuses(userStory.projectId);
+            fetchAvailableTags(userStory.projectId);
+        }
+    }, [userStory, fetchAvailableTags]);
+
+    // Add function to handle adding a tag to a user story
+    const handleAddTag = async (tagId) => {
+        try {
+            console.log(`Adding tag ${tagId} to user story ${userStoryId}`);
+
+            // Find the tag in projectTags to get its details for optimistic UI update
+            const tagToAdd = projectTags.find(tag => tag.id === tagId);
+
+            // Optimistically update UI before API call completes
+            if (tagToAdd && userStory) {
+                // Create a new tags array with the new tag added
+                const updatedTags = [...(userStory.tags || []), tagToAdd];
+                // Update user story with the new tags
+                setUserStory({
+                    ...userStory,
+                    tags: updatedTags
+                });
+                // Hide the dropdown
+                setShowTagsDropdown(false);
+            }
+
+            // Send the API request
+            const response = await axios.post(`/api/kanban/board/userstory/${userStoryId}/tags/${tagId}`);
+
+            if (response.data) {
+                // Success notification
+                message.success('Tag added successfully');
+
+                // Record activity
+                await recordActivity('tag_added', `Added tag to user story`);
+
+                // Trigger activities refresh
+                triggerActivitiesRefresh();
+
+                // No need to call fetchUserStory here since we've already updated the UI
+            }
+        } catch (error) {
+            console.error('Error adding tag to user story:', error);
+            message.error('Failed to add tag to user story');
+
+            // Refresh user story data to restore correct state in case of error
+            await fetchUserStory();
+        }
+    };
+
+    // Add function to handle removing a tag from a user story
+    const handleRemoveTag = async (tagId) => {
+        try {
+            console.log(`Removing tag ${tagId} from user story ${userStoryId}`);
+
+            // Optimistic update - remove the tag locally immediately before API call
+            if (userStory && userStory.tags) {
+                const updatedTags = userStory.tags.filter(tag => tag.id !== tagId);
+                setUserStory({ ...userStory, tags: updatedTags });
+            }
+
+            // Then send the API request
+            const response = await axios.delete(`/api/kanban/board/userstory/${userStoryId}/tags/${tagId}`);
+
+            if (response.status === 200) {
+                message.success('Tag removed successfully');
+
+                // Record activity
+                await recordActivity('tag_removed', `Removed tag from user story`);
+
+                // Trigger activities refresh
+                triggerActivitiesRefresh();
+            }
+        } catch (error) {
+            console.error('Error removing tag from user story:', error);
+            message.error('Failed to remove tag from user story');
+            // Refresh user story data to restore correct state
+            await fetchUserStory();
+        }
+    };
+
+    const handleDeleteComment = async (commentId) => {
+        if (!window.confirm('Are you sure you want to delete this comment?')) {
+            return;
+        }
+
+        try {
+            console.log(`Deleting comment ID ${commentId} from user story ${userStoryId}`);
+
+            // Optimistic UI update - remove comment from state immediately
+            const previousComments = [...comments];
+            setComments(prevComments => prevComments.filter(comment => comment.id !== commentId));
+
+            // Show pending status
+            toast.info('Deleting comment...');
+
+            // Set up request timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+            // Call the API to delete the comment
+            await axios.delete(`/api/kanban/board/userstory/${userStoryId}/comments/${commentId}`, {
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+
+            // Show success message
+            toast.success('Comment deleted successfully');
+
+            // Record the activity
+            await recordActivity('comment_deleted', 'Deleted a comment');
+
+            // Refresh activities list
+            triggerActivitiesRefresh();
+        } catch (error) {
+            console.error('Error deleting comment:', error);
+            console.error('Response data:', error.response?.data);
+            console.error('Status code:', error.response?.status);
+
+            // Revert optimistic update if there was an error
+            if (error.name === 'AbortError') {
+                // Request timed out
+                toast.error('Request timeout. The server took too long to respond.');
+
+                // Still trigger refresh to make sure our UI is updated with the latest state
+                triggerActivitiesRefresh();
+            } else {
+                // Other errors - revert the change and show error message
+                setComments(previousComments);
+                toast.error(`Failed to delete comment: ${error.response?.data || error.message}`);
+            }
+        }
+    };
+
     // Update the loading display
     if (loading) {
         return (
@@ -983,9 +1248,9 @@ export default function TaigaUserStoryDetail() {
     };
 
     const getStatusColor = (statusId) => {
-        if (!statusId) return 'bg-gray-300';
+        if (!statusId) return '#cccccc';
         const status = statuses.find(s => s.id === statusId);
-        return status ? status.color : 'bg-gray-300';
+        return status ? status.color : '#cccccc';
     };
 
     return (
@@ -1030,7 +1295,8 @@ export default function TaigaUserStoryDetail() {
                     <div className="relative">
                         <button
                             onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                            className={`${getStatusColor(userStory.statusId)} text-white px-3 py-1 rounded-sm ml-2 flex items-center`}
+                            className={`text-white px-3 py-1 rounded-sm ml-2 flex items-center`}
+                            style={{ backgroundColor: getStatusColor(userStory.statusId) }}
                         >
                             {getStatusName(userStory.statusId)} <ChevronDown size={16} />
                         </button>
@@ -1043,7 +1309,7 @@ export default function TaigaUserStoryDetail() {
                                         className={`flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer ${status.id === userStory.statusId ? 'bg-gray-100' : ''}`}
                                         onClick={() => handleStatusChange(status.id)}
                                     >
-                                        <div className={`w-3 h-3 rounded-full ${status.color} mr-2`}></div>
+                                        <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: status.color }}></div>
                                         <span>{status.name}</span>
                                     </div>
                                 ))}
@@ -1058,28 +1324,72 @@ export default function TaigaUserStoryDetail() {
                 {/* Left content area */}
                 <div className="flex-grow p-4 border-r border-gray-200">
                     {/* Epic link */}
-                    <div className="mb-6">
+                    {/* <div className="mb-6">
                         <a href="#" className="text-blue-500 flex items-center">
                             <span className="mr-2">🔗</span>
                             Link to epic
                         </a>
-                    </div>
+                    </div> */}
 
                     {/* Taskboard section */}
                     <div className="mb-6">
                         <div className="bg-gray-100 py-2 px-4 text-sm font-semibold">
-                            TASKBOARD
+                            TAGS
                         </div>
-                        <div className="flex mt-2 space-x-2">
-                            <button className="bg-green-500 text-white px-3 py-1 rounded-sm flex items-center text-sm">
-                                dddd <X size={14} className="ml-1" />
-                            </button>
-                            <button className="bg-green-400 text-white px-3 py-1 rounded-sm flex items-center text-sm">
-                                done <X size={14} className="ml-1" />
-                            </button>
-                            <button className="bg-white border border-gray-300 px-3 py-1 rounded-sm flex items-center text-sm">
-                                Add tag <Plus size={14} className="ml-1" />
-                            </button>
+                        <div className="flex mt-2 space-x-2 flex-wrap">
+                            {userStory.tags && userStory.tags.length > 0 ? (
+                                userStory.tags.map(tag => (
+                                    <div
+                                        key={tag.id}
+                                        className="flex items-center px-3 py-1 rounded-sm text-white mb-2"
+                                        style={{ backgroundColor: tag.color || '#cccccc' }}
+                                    >
+                                        <span>{tag.name}</span>
+                                        <button
+                                            type="button"
+                                            className="ml-1 cursor-pointer bg-transparent border-0 p-0 text-white focus:outline-none"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                console.log("Tag removal button clicked for tag ID:", tag.id);
+                                                handleRemoveTag(tag.id);
+                                            }}
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                ))
+                            ) : (
+                                <span className="text-gray-500 italic">No tags applied</span>
+                            )}
+                            <div className="relative">
+                                <button
+                                    className="bg-white border border-gray-300 px-3 py-1 rounded-sm flex items-center text-sm mb-2"
+                                    onClick={() => setShowTagsDropdown(!showTagsDropdown)}
+                                >
+                                    Add tag <Plus size={14} className="ml-1" />
+                                </button>
+
+                                {showTagsDropdown && (
+                                    <div className="dropdown-menu dropdown-arrow-down absolute z-50 left-0 mt-1 w-48 bg-white border border-gray-200 rounded shadow-lg">
+                                        {projectTags.length > 0 ? (
+                                            projectTags
+                                                .filter(tag => !userStory.tags || !userStory.tags.some(t => t.id === tag.id))
+                                                .map(tag => (
+                                                    <div
+                                                        key={tag.id}
+                                                        className="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                                        onClick={() => handleAddTag(tag.id)}
+                                                    >
+                                                        <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: tag.color }}></div>
+                                                        <span>{tag.name}</span>
+                                                    </div>
+                                                ))
+                                        ) : (
+                                            <div className="px-4 py-2 text-gray-500">No available tags</div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -1181,7 +1491,8 @@ export default function TaigaUserStoryDetail() {
                                 {/* Status dropdown */}
                                 <div className="relative">
                                     <button
-                                        className="flex items-center px-3 py-2 border border-gray-300 bg-white"
+                                        className="flex items-center px-3 py-2 border border-gray-300 text-white"
+                                        style={{ backgroundColor: taskStatuses.find(s => s.id === newTaskStatusId)?.color || '#cccccc' }}
                                         onClick={() => setShowTaskStatusDropdown(!showTaskStatusDropdown)}
                                     >
                                         {taskStatuses.find(s => s.id === newTaskStatusId)?.name || 'New'} <ChevronDown size={14} className="ml-1" />
@@ -1192,12 +1503,13 @@ export default function TaigaUserStoryDetail() {
                                             {taskStatuses.map(status => (
                                                 <div
                                                     key={status.id}
-                                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center"
                                                     onClick={() => {
                                                         setNewTaskStatusId(status.id);
                                                         setShowTaskStatusDropdown(false);
                                                     }}
                                                 >
+                                                    <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: status.color }}></div>
                                                     {status.name}
                                                 </div>
                                             ))}
@@ -1290,7 +1602,7 @@ export default function TaigaUserStoryDetail() {
                                                 <span>{task.subject || "Unnamed Task"}</span>
                                             </div>
                                             <div className="flex items-center">
-                                                <button className={`${statusColor} text-white px-2 py-1 rounded-sm text-sm flex items-center`}>
+                                                <button className={`${statusColor} text-white px-2 py-1 rounded-sm text-sm flex items-center`} style={{ backgroundColor: statusColor }}>
                                                     {statusName} <ChevronDown size={14} className="ml-1" />
                                                 </button>
                                                 <div className="ml-2 w-6 h-6 bg-gray-200 rounded-sm flex items-center justify-center text-xs">
@@ -1344,9 +1656,19 @@ export default function TaigaUserStoryDetail() {
                                                             <span className="font-medium">{comment.userFullName}</span>
                                                             <span className="text-gray-500 text-sm ml-2">@{comment.username}</span>
                                                         </div>
-                                                        <span className="text-gray-500 text-sm">
-                                                            {new Date(comment.createdAt).toLocaleString()}
-                                                        </span>
+                                                        <div className="flex items-center">
+                                                            <span className="text-gray-500 text-sm mr-2">
+                                                                {new Date(comment.createdAt).toLocaleString()}
+                                                            </span>
+                                                            {/* Always show delete button for all comments */}
+                                                            <button
+                                                                onClick={() => handleDeleteComment(comment.id)}
+                                                                className="text-red-500 hover:text-red-700 ml-1 p-1"
+                                                                title="Delete comment"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                     <p className="mt-1 text-gray-700">{comment.content}</p>
                                                 </div>
@@ -1611,18 +1933,12 @@ export default function TaigaUserStoryDetail() {
                     </div>
 
                     {/* Action buttons */}
-                    <div className="flex justify-end space-x-2 mt-8">
+                    <div className="flex justify-center space-x-2 mt-8">
                         <button
                             className="bg-red-500 p-2 rounded text-white"
                             onClick={() => setShowDueDateModal(true)}
                         >
                             <Clock size={16} />
-                        </button>
-                        <button className="bg-gray-100 p-2 rounded text-gray-500 hover:bg-gray-200">
-                            <Users size={16} />
-                        </button>
-                        <button className="bg-gray-100 p-2 rounded text-gray-500 hover:bg-gray-200">
-                            <Paperclip size={16} />
                         </button>
                         <button
                             className={`p-2 rounded ${userStory.blocked || userStory.isBlocked ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-500'} hover:${userStory.blocked || userStory.isBlocked ? 'bg-red-600' : 'bg-gray-200'}`}
@@ -1630,9 +1946,6 @@ export default function TaigaUserStoryDetail() {
                             title={userStory.blocked || userStory.isBlocked ? 'Unblock this user story' : 'Block this user story'}
                         >
                             <Lock size={16} />
-                        </button>
-                        <button className="bg-gray-100 p-2 rounded text-gray-500 hover:bg-gray-200">
-                            <List size={16} />
                         </button>
                         <button
                             className="bg-red-500 p-2 rounded text-white hover:bg-red-600"

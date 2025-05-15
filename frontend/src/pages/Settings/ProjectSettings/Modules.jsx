@@ -23,7 +23,7 @@ const Modules = ({ projectId }) => {
       try {
         setLoading(true);
         setError(null);
-        
+
         const response = await fetchWithAuth(
           `${BASE_API_URL}/v1/projects/${projectId}/modules`,
           `/projects/${projectId}/settings`,
@@ -33,7 +33,7 @@ const Modules = ({ projectId }) => {
         if (response && response.ok) {
           const responseData = await response.json();
           const moduleSettings = {};
-          
+
           if (responseData.data && Array.isArray(responseData.data)) {
             responseData.data.forEach(module => {
               if (module.module && module.module.name) {
@@ -46,7 +46,18 @@ const Modules = ({ projectId }) => {
                 };
               }
             });
-            
+
+            // Ensure all expected modules exist with defaults if not present in API response
+            const expectedModules = ['epics', 'scrum', 'kanban', 'issues', 'wiki'];
+            expectedModules.forEach(moduleName => {
+              if (!moduleSettings[moduleName]) {
+                moduleSettings[moduleName] = {
+                  isOn: false,
+                  description: ''
+                };
+              }
+            });
+
             setModules(moduleSettings);
           }
         } else {
@@ -68,26 +79,60 @@ const Modules = ({ projectId }) => {
   const handleToggleModule = async (module) => {
     try {
       setError(null);
-      
+
+      // Check if the module exists before trying to toggle it
+      if (!modules[module]) {
+        setError(`Module ${module} not found. Cannot toggle settings.`);
+        return;
+      }
+
+      // Debug logs - before toggle
+      console.log(`Before toggle - Module ${module} isOn:`, modules[module]?.isOn);
+      console.log("All modules before toggle:", JSON.stringify(modules, null, 2));
+
       // Optimistically update UI
       setModules(prev => ({
         ...prev,
         [module]: {
           ...prev[module],
-          isOn: !prev[module].isOn
+          isOn: !prev[module]?.isOn
         }
       }));
 
-      // Prepare module settings for update
-      const moduleSettings = Object.entries(modules).map(([moduleName, moduleData]) => ({
-        id: moduleData.id,
-        module: {
-          id: moduleData.moduleId
-        },
-        isOn: moduleName === module ? !moduleData.isOn : moduleData.isOn,
-        projectId: parseInt(projectId)
-      }));
-      
+      // Log updated state
+      setTimeout(() => {
+        console.log(`After toggle in UI - Module ${module} isOn (expected):`, !modules[module]?.isOn);
+      }, 0);
+
+      // Prepare module settings for update - only include modules with ID and moduleId
+      let moduleSettings = Object.entries(modules)
+        .filter(([_, moduleData]) => moduleData.id && moduleData.moduleId)
+        .map(([moduleName, moduleData]) => ({
+          id: moduleData.id,
+          module: {
+            id: moduleData.moduleId
+          },
+          isOn: moduleName === module ? !moduleData.isOn : moduleData.isOn,
+          projectId: parseInt(projectId)
+        }));
+
+      // Remove duplicate modules (keeping only the first occurrence of each module.id)
+      const moduleIdMap = new Map();
+      moduleSettings = moduleSettings.filter(setting => {
+        const moduleId = setting.module.id;
+        if (!moduleIdMap.has(moduleId)) {
+          moduleIdMap.set(moduleId, true);
+          return true;
+        }
+        console.log(`Removing duplicate module with id ${moduleId}`);
+        return false;
+      });
+
+      // Debug logs - payload
+      console.log("API request payload:", JSON.stringify(moduleSettings, null, 2));
+      console.log(`Module ${module} in payload isOn:`,
+        moduleSettings.find(m => m.module.id === modules[module]?.moduleId)?.isOn);
+
       const response = await fetchWithAuth(
         `${BASE_API_URL}/v1/projects/${projectId}/modules`,
         `/projects/${projectId}/settings`,
@@ -100,33 +145,82 @@ const Modules = ({ projectId }) => {
           body: JSON.stringify(moduleSettings)
         }
       );
-      
+
       if (response && response.ok) {
+        // Debug logs - success response
+        console.log("API update successful");
+
         // Notify parent to refresh Sidebar's module settings
         refreshModuleSettings();
+
+        // Fetch updated module settings
+        const refreshResponse = await fetchWithAuth(
+          `${BASE_API_URL}/v1/projects/${projectId}/modules`,
+          `/projects/${projectId}/settings`,
+          true
+        );
+
+        if (refreshResponse && refreshResponse.ok) {
+          const responseData = await refreshResponse.json();
+          console.log("Response after refresh:", JSON.stringify(responseData, null, 2));
+
+          if (responseData.data && Array.isArray(responseData.data)) {
+            const updatedModules = {};
+            responseData.data.forEach(module => {
+              if (module.module && module.module.name) {
+                const moduleName = module.module.name.toLowerCase();
+                updatedModules[moduleName] = {
+                  id: module.id,
+                  moduleId: module.module.id,
+                  isOn: module.isOn,
+                  description: module.module.description || ''
+                };
+              }
+            });
+
+            // Ensure all expected modules exist
+            Object.keys(modules).forEach(moduleName => {
+              if (!updatedModules[moduleName]) {
+                updatedModules[moduleName] = modules[moduleName];
+              }
+            });
+
+            console.log("Updated modules after refresh:", JSON.stringify(updatedModules, null, 2));
+            console.log(`Module ${module} after server refresh isOn:`, updatedModules[module]?.isOn);
+
+            setModules(updatedModules);
+          }
+        }
       } else {
+        // Debug logs - error response
+        console.error("API update failed:", response.status);
+
         // Revert the optimistic update if the request fails
         setModules(prev => ({
           ...prev,
           [module]: {
             ...prev[module],
-            isOn: !prev[module].isOn
+            isOn: !prev[module]?.isOn
           }
         }));
-        
+
         const errorData = await response.json();
+        console.error("Error data:", errorData);
         setError(errorData.message || 'Failed to update module settings. Please try again.');
       }
     } catch (err) {
+      // Debug logs - exception
+      console.error("Exception occurred:", err);
+
       // Revert the optimistic update if there's an error
       setModules(prev => ({
         ...prev,
         [module]: {
           ...prev[module],
-          isOn: !prev[module].isOn
+          isOn: !prev[module]?.isOn
         }
       }));
-      
+
       console.error('Error updating module settings:', err);
       setError('An error occurred while updating module settings.');
     }
@@ -136,17 +230,25 @@ const Modules = ({ projectId }) => {
     try {
       setSaving(true);
       setError(null);
-      
+
       // Convert modules object to array of module settings
-      const moduleSettings = Object.entries(modules).map(([moduleName, moduleData]) => ({
-        id: moduleData.id,
-        module: {
-          id: moduleData.moduleId
-        },
-        isOn: moduleData.isOn,
-        projectId: parseInt(projectId)
-      }));
-      
+      const moduleSettings = Object.entries(modules)
+        .filter(([_, moduleData]) => moduleData.id && moduleData.moduleId)
+        .map(([moduleName, moduleData]) => ({
+          id: moduleData.id,
+          module: {
+            id: moduleData.moduleId
+          },
+          isOn: moduleData.isOn,
+          projectId: parseInt(projectId)
+        }));
+
+      if (moduleSettings.length === 0) {
+        setError('No valid module settings to save.');
+        setSaving(false);
+        return;
+      }
+
       const response = await fetchWithAuth(
         `${BASE_API_URL}/v1/projects/${projectId}/modules`,
         `/projects/${projectId}/settings`,
@@ -159,7 +261,7 @@ const Modules = ({ projectId }) => {
           body: JSON.stringify(moduleSettings)
         }
       );
-      
+
       if (response && response.ok) {
         const responseData = await response.json();
         if (responseData.data) {
@@ -176,6 +278,14 @@ const Modules = ({ projectId }) => {
               };
             }
           });
+
+          // Preserve existing modules that weren't in the response
+          Object.keys(modules).forEach(moduleName => {
+            if (!updatedModules[moduleName]) {
+              updatedModules[moduleName] = modules[moduleName];
+            }
+          });
+
           setModules(updatedModules);
         }
         alert('Module settings updated successfully!');
@@ -220,10 +330,10 @@ const Modules = ({ projectId }) => {
               <p className="text-sm text-gray-500">{modules.epics?.description || 'Organize issues into larger units of work'}</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
-              <input 
-                type="checkbox" 
-                className="sr-only peer" 
-                checked={modules.epics?.isOn}
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={modules.epics?.isOn || false}
                 onChange={() => handleToggleModule('epics')}
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
@@ -236,10 +346,10 @@ const Modules = ({ projectId }) => {
               <p className="text-sm text-gray-500">{modules.scrum?.description || 'Manage project using sprints and backlogs'}</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
-              <input 
-                type="checkbox" 
-                className="sr-only peer" 
-                checked={modules.scrum?.isOn}
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={modules.scrum?.isOn || false}
                 onChange={() => handleToggleModule('scrum')}
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
@@ -252,10 +362,10 @@ const Modules = ({ projectId }) => {
               <p className="text-sm text-gray-500">{modules.kanban?.description || 'Visualize workflow with customizable boards'}</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
-              <input 
-                type="checkbox" 
-                className="sr-only peer" 
-                checked={modules.kanban?.isOn}
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={modules.kanban?.isOn || false}
                 onChange={() => handleToggleModule('kanban')}
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
@@ -268,10 +378,10 @@ const Modules = ({ projectId }) => {
               <p className="text-sm text-gray-500">{modules.issues?.description || 'Track tasks, bugs, and feature requests'}</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
-              <input 
-                type="checkbox" 
-                className="sr-only peer" 
-                checked={modules.issues?.isOn}
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={modules.issues?.isOn || false}
                 onChange={() => handleToggleModule('issues')}
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
@@ -284,10 +394,10 @@ const Modules = ({ projectId }) => {
               <p className="text-sm text-gray-500">{modules.wiki?.description || 'Document project requirements and knowledge'}</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
-              <input 
-                type="checkbox" 
-                className="sr-only peer" 
-                checked={modules.wiki?.isOn}
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={modules.wiki?.isOn || false}
                 onChange={() => handleToggleModule('wiki')}
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>

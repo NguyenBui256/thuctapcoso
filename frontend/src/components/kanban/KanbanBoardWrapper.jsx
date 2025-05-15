@@ -31,18 +31,25 @@ const KanbanBoardWrapper = () => {
     const [activeFilters, setActiveFilters] = useState({});
     const [filterMode, setFilterMode] = useState('include');
     const [activeSprint, setActiveSprint] = useState(null);
+    const [defaultColumns, setDefaultColumns] = useState([
+        { id: 1, name: 'NEW', status: 1, color: 'bg-blue-400' },
+        { id: 2, name: 'READY', status: 2, color: 'bg-red-500' },
+        { id: 3, name: 'IN PROGRESS', status: 3, color: 'bg-orange-400' },
+        { id: 4, name: 'READY FOR TEST', status: 4, color: 'bg-yellow-400' },
+        { id: 5, name: 'DONE', status: 5, color: 'bg-green-500' },
+        { id: 6, name: 'ARCHIVED', status: 6, color: 'bg-gray-400' }
+    ]);
 
     useEffect(() => {
-        const fetchData = async () => {
+        const fetchInitialData = async () => {
             if (!projectId) {
                 setError('Invalid project ID');
                 setLoading(false);
                 return;
             }
 
+            setLoading(true);
             try {
-                setLoading(true);
-
                 // Fetch active sprint
                 try {
                     const activeSprintResponse = await axios.get(`/api/project/${projectId}/sprint/active`);
@@ -69,57 +76,30 @@ const KanbanBoardWrapper = () => {
                     return;
                 }
 
-                const defaultColumns = [
-                    { id: 1, name: 'NEW', status: 1, color: 'bg-blue-400' },
-                    { id: 2, name: 'READY', status: 2, color: 'bg-red-500' },
-                    { id: 3, name: 'IN PROGRESS', status: 3, color: 'bg-orange-400' },
-                    { id: 4, name: 'READY FOR TEST', status: 4, color: 'bg-yellow-400' },
-                    { id: 5, name: 'DONE', status: 5, color: 'bg-green-500' },
-                    { id: 6, name: 'ARCHIVED', status: 6, color: 'bg-gray-400' }
-                ];
-
-                // Initialize all columns as expanded
-                const initialExpandedState = {};
-                defaultColumns.forEach(col => {
-                    initialExpandedState[col.id] = true;
-                });
-                setExpandedColumns(initialExpandedState);
-
-                const userStoriesResponse = await axios.get(`/api/kanban/board/userstory/project/${projectId}`);
-                const fetchedUserStories = userStoriesResponse.data || [];
-
-                // Associate user stories with valid swimlanes
-                if (fetchedUserStories.length > 0 && fetchedSwimlanes.length > 0) {
-                    // Check if there are stories with swimlaneId that doesn't exist in fetchedSwimlanes
-                    const validSwimlaneIds = fetchedSwimlanes.map(lane => lane.id);
-                    const fixedUserStories = fetchedUserStories.map(story => {
-                        if (!validSwimlaneIds.includes(story.swimlaneId)) {
-                            return {
-                                ...story,
-                                swimlaneId: fetchedSwimlanes[0].id // Assign to first swimlane if invalid
-                            };
-                        }
-                        return story;
-                    });
-                    setUserStories(fixedUserStories);
-                    setFilteredUserStories(fixedUserStories);
-                } else {
-                    setUserStories(fetchedUserStories);
-                    setFilteredUserStories(fetchedUserStories);
-                }
+                // Fetch statuses for columns
+                await fetchStatuses();
 
                 setSwimlanes(fetchedSwimlanes);
-                setColumns(defaultColumns);
 
+                // Fetch user stories
+                const userStoriesResponse = await axios.get(`/api/kanban/board/userstory/project/${projectId}`);
+                const fetchedUserStories = userStoriesResponse.data || [];
+                console.log('Fetched user stories:', fetchedUserStories);
+
+                // Validate user stories with swimlanes
+                const validatedUserStories = validateUserStories(fetchedUserStories, fetchedSwimlanes);
+
+                setUserStories(validatedUserStories);
+                setFilteredUserStories(validatedUserStories);
             } catch (error) {
-                console.error('Error fetching kanban data:', error);
-                setError('Failed to load Kanban board data');
+                console.error('Error loading data:', error);
+                setError(error.message || 'Failed to load data');
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchData();
+        fetchInitialData();
     }, [projectId, refreshTrigger]);
 
     // Apply filters when either the stories, active filters, or filter mode changes
@@ -374,66 +354,72 @@ const KanbanBoardWrapper = () => {
 
     const renderUserStories = (columnStatus, swimlaneId) => {
         const stories = getUserStoriesForColumn(columnStatus, swimlaneId);
-        return stories.map((story, index) => (
-            <Draggable
-                key={`story-${story.id}`}
-                draggableId={`story-${story.id}`}
-                index={index}
-            >
-                {(provided, snapshot) => (
-                    <div
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        {...provided.dragHandleProps}
-                        className={`bg-white border border-gray-200 rounded mb-2 cursor-pointer ${snapshot.isDragging ? 'shadow-lg' : ''} ${zoomLevel !== 'compact' ? 'p-3' : 'p-2'}`}
-                        onClick={() => navigate(`/projects/${projectId}/userstory/${story.id}`)}
-                        style={{
-                            ...provided.draggableProps.style,
-                            opacity: draggingItemId === story.id.toString() && !snapshot.isDragging ? 0.5 : 1,
-                            transform: provided.draggableProps.style?.transform,
-                        }}
-                    >
-                        <div className="flex justify-between items-center">
-                            <span className="text-xs text-teal-600 font-medium">
-                                #{story.id} {zoomLevel !== 'compact' && story.name}
-                            </span>
-                            <div className={`${zoomLevel === 'compact' ? 'w-6 h-6' : 'w-7 h-7'} ${story.id % 3 === 0 ? 'bg-gray-200' : 'bg-pink-200'} rounded-full flex items-center justify-center`}></div>
-                        </div>
+        return stories.map((story, index) => {
+            // Log để debug thông tin assignedUsers
+            console.debug(`UserStory #${story.id} assignedUsers:`, story.assignedUsers);
 
-                        {/* Additional content based on zoom level */}
-                        {zoomLevel !== 'compact' && (
-                            <div className="mt-2">
-                                {story.assignedUsers && story.assignedUsers.length > 0 ? (
-                                    <div className="flex items-center mt-1">
-                                        {story.assignedUsers.slice(0, 2).map((user, idx) => (
-                                            <div key={idx} className="w-6 h-6 bg-purple-200 rounded-full mr-1 flex items-center justify-center">
-                                                <span className="text-[10px] text-purple-800 font-bold">
-                                                    {user.fullName ? user.fullName.charAt(0).toUpperCase() : '?'}
-                                                </span>
-                                            </div>
-                                        ))}
-                                        {story.assignedUsers.length > 2 && (
-                                            <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
-                                                <span className="text-[10px] text-gray-600">+{story.assignedUsers.length - 2}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center mt-1">
-                                        <div className="w-6 h-6 bg-gray-100 rounded-full mr-2"></div>
-                                        <span className="text-xs text-gray-500">Not assigned</span>
-                                    </div>
-                                )}
-
-                                {zoomLevel === 'expanded' && story.description && (
-                                    <p className="text-xs text-gray-600 mt-2 line-clamp-2">{story.description}</p>
-                                )}
+            return (
+                <Draggable
+                    key={`story-${story.id}`}
+                    draggableId={`story-${story.id}`}
+                    index={index}
+                >
+                    {(provided, snapshot) => (
+                        <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            {...provided.dragHandleProps}
+                            className={`bg-white border border-gray-200 rounded mb-2 cursor-pointer ${snapshot.isDragging ? 'shadow-lg' : ''} ${zoomLevel !== 'compact' ? 'p-3' : 'p-2'}`}
+                            onClick={() => navigate(`/projects/${projectId}/userstory/${story.id}`)}
+                            style={{
+                                ...provided.draggableProps.style,
+                                opacity: draggingItemId === story.id.toString() && !snapshot.isDragging ? 0.5 : 1,
+                                transform: provided.draggableProps.style?.transform,
+                            }}
+                        >
+                            <div className="flex justify-between items-center">
+                                <span className="text-xs text-teal-600 font-medium">
+                                    #{story.id} {zoomLevel !== 'compact' && story.name}
+                                </span>
+                                <div className={`${zoomLevel === 'compact' ? 'w-6 h-6' : 'w-7 h-7'} ${story.id % 3 === 0 ? 'bg-gray-200' : 'bg-pink-200'} rounded-full flex items-center justify-center`}></div>
                             </div>
-                        )}
-                    </div>
-                )}
-            </Draggable>
-        ));
+
+                            {/* Additional content based on zoom level */}
+                            {zoomLevel !== 'compact' && (
+                                <div className="mt-2">
+                                    {story.assignedUsers && story.assignedUsers.length > 0 ? (
+                                        <div className="flex items-center mt-1">
+                                            {story.assignedUsers.slice(0, 2).map((user, idx) => (
+                                                <div key={idx} className="w-6 h-6 bg-purple-200 rounded-full mr-1 flex items-center justify-center">
+                                                    <span className="text-[10px] text-purple-800 font-bold">
+                                                        {user.fullName ? user.fullName.charAt(0).toUpperCase() :
+                                                            user.username ? user.username.charAt(0).toUpperCase() : '?'}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                            {story.assignedUsers.length > 2 && (
+                                                <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
+                                                    <span className="text-[10px] text-gray-600">+{story.assignedUsers.length - 2}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center mt-1">
+                                            <div className="w-6 h-6 bg-gray-100 rounded-full mr-2"></div>
+                                            <span className="text-xs text-gray-500">Not assigned</span>
+                                        </div>
+                                    )}
+
+                                    {zoomLevel === 'expanded' && story.description && (
+                                        <p className="text-xs text-gray-600 mt-2 line-clamp-2">{story.description}</p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </Draggable>
+            );
+        });
     };
 
     const countStoriesInColumn = (columnStatus) => {
@@ -441,16 +427,8 @@ const KanbanBoardWrapper = () => {
     };
 
     const handleOpenUserStoryModal = (status, swimlaneId) => {
-        // Convert status name to status id
-        const statusMap = {
-            'NEW': 1,
-            'READY': 2,
-            'IN PROGRESS': 3,
-            'READY FOR TEST': 4,
-            'DONE': 5,
-            'ARCHIVED': 6
-        };
-        setModalInitialStatus(statusMap[status] || 1);
+        // Use the column status ID directly instead of looking up by name
+        setModalInitialStatus(status);
         setModalInitialSwimlaneId(swimlaneId);
         setShowUserStoryModal(true);
     };
@@ -630,6 +608,72 @@ const KanbanBoardWrapper = () => {
         await fetchActivities(userStory.id);
     };
 
+    // Fix the fetchStatuses function to correctly process color data from API
+    const fetchStatuses = async () => {
+        try {
+            if (!projectId) {
+                console.error("Project ID is required to fetch statuses");
+                return;
+            }
+
+            const response = await axios.get(`/api/kanban/board/project/${projectId}/statuses`);
+            if (response.data && Array.isArray(response.data)) {
+                console.log("Fetched user story statuses:", response.data);
+
+                // Map the response data to the format expected by the component
+                const mappedColumns = response.data.map(status => ({
+                    id: status.id,
+                    name: status.name,
+                    status: status.id,
+                    color: status.color ? status.color : '#cccccc' // Use color directly from API
+                }));
+
+                setDefaultColumns(mappedColumns);
+                setColumns(mappedColumns);
+
+                // Initialize all columns as expanded
+                const initialExpandedState = {};
+                mappedColumns.forEach(col => {
+                    initialExpandedState[col.id] = true;
+                });
+                setExpandedColumns(initialExpandedState);
+
+                return mappedColumns;
+            }
+        } catch (error) {
+            console.error('Error fetching user story statuses:', error);
+            // Use the default columns as fallback
+            setColumns(defaultColumns);
+
+            // Initialize expanded state for default columns
+            const initialExpandedState = {};
+            defaultColumns.forEach(col => {
+                initialExpandedState[col.id] = true;
+            });
+            setExpandedColumns(initialExpandedState);
+
+            return defaultColumns;
+        }
+    };
+
+    // Add this function to validate user stories with swimlanes
+    const validateUserStories = (stories, swimlanes) => {
+        if (stories.length > 0 && swimlanes.length > 0) {
+            // Check if there are stories with swimlaneId that doesn't exist in fetchedSwimlanes
+            const validSwimlaneIds = swimlanes.map(lane => lane.id);
+            return stories.map(story => {
+                if (!validSwimlaneIds.includes(story.swimlaneId)) {
+                    return {
+                        ...story,
+                        swimlaneId: swimlanes[0].id // Assign to first swimlane if invalid
+                    };
+                }
+                return story;
+            });
+        }
+        return stories;
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen">
@@ -731,12 +775,12 @@ const KanbanBoardWrapper = () => {
                                     {expandedColumns[column.id] ? (
                                         <>
                                             <div className="flex items-center">
-                                                <div className={`w-4 h-4 ${getColumnColor(column.id)} rounded-sm mr-1`}></div>
+                                                <div className="w-4 h-4 rounded-sm mr-1" style={{ backgroundColor: column.color }}></div>
                                                 <span className="text-xs font-medium">{column.name}</span>
                                             </div>
                                             <div className="flex items-center space-x-1">
                                                 <button
-                                                    onClick={() => handleOpenUserStoryModal(column.name, swimlanes[0]?.id)}
+                                                    onClick={() => handleOpenUserStoryModal(column.status, swimlanes[0]?.id)}
                                                     className="text-gray-500 hover:text-gray-700"
                                                 >
                                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -852,18 +896,5 @@ const KanbanBoardWrapper = () => {
         </div>
     );
 };
-
-// Helper function to get column color based on column ID
-function getColumnColor(columnId) {
-    switch (columnId) {
-        case 1: return 'bg-blue-400';
-        case 2: return 'bg-red-500';
-        case 3: return 'bg-orange-400';
-        case 4: return 'bg-yellow-400';
-        case 5: return 'bg-green-500';
-        case 6: return 'bg-gray-400';
-        default: return 'bg-gray-500';
-    }
-}
 
 export default KanbanBoardWrapper;

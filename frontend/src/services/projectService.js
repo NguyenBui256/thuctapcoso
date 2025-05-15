@@ -147,27 +147,64 @@ export const projectService = {
             });
             console.log('Projects API Response:', response.data);
 
-            // Check if response has data and content
-            if (response.data && response.data.data && response.data.data.content) {
-                return response.data.data.content;
+            // Check if response has data property
+            if (response.data && response.data.data) {
+                // If data is wrapped in a content property
+                if (response.data.data.content) {
+                    return response.data.data.content;
+                }
+                // If data is an array directly
+                if (Array.isArray(response.data.data)) {
+                    return response.data.data;
+                }
+                return [];
+            }
+
+            // Check if response is an array directly
+            if (Array.isArray(response.data)) {
+                return response.data;
             }
 
             // If none of the above, return empty array
             console.warn('Unexpected API response format:', response.data);
             return [];
         } catch (error) {
-            console.error('Error fetching projects for duplication:', error.response?.data || error.message);
-            throw error;
+            console.error('Error fetching projects for duplication:', error);
+            return []; // Return empty array instead of throwing to prevent UI crashes
         }
     },
 
     // Duplicate project
     duplicateProject: async (projectId, formData) => {
         try {
+            // Ensure ownerId is set
+            if (!formData.ownerId) {
+                const userId = localStorage.getItem("userId");
+                if (!userId) {
+                    throw new Error("User ID not found. Please try logging in again.");
+                }
+                formData = { ...formData, ownerId: userId };
+            }
+
+            console.log('Calling API to duplicate project:', projectId, 'with data:', formData);
             const response = await api.post(`/v1/projects/${projectId}/duplicate`, formData);
+            console.log('Project duplication successful:', response.data);
             return response.data;
         } catch (error) {
-            console.error('Error duplicating project:', error.response?.data || error.message);
+            console.error('Error duplicating project:', {
+                status: error.response?.status,
+                statusText: error.response?.statusText,
+                data: error.response?.data,
+                message: error.message
+            });
+
+            // Add detailed error information
+            if (error.response?.data?.message?.includes("is_on doesn't have a default value")) {
+                console.error("This appears to be a database error with project modules. Please contact the administrator.");
+            } else if (error.response?.data?.message?.includes("return value of \"edu.ptit.ttcs.entity.Project.getOwner()\" is null")) {
+                console.error("Source project has a null owner. This should be fixed after this update.");
+            }
+
             throw error;
         }
     },
@@ -250,6 +287,67 @@ export const projectService = {
             return response.data;
         } catch (error) {
             console.error('Error updating member role:', error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    // Get project modules
+    getProjectModules: async (projectId) => {
+        try {
+            const response = await api.get(`/v1/projects/${projectId}/modules`);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching project modules:', error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    // Enable specific modules for a project (like Scrum or Kanban)
+    enableProjectModules: async (projectId, moduleNames) => {
+        try {
+            // First get all modules
+            const modulesResponse = await api.get(`/v1/projects/${projectId}/modules`);
+            let moduleData = modulesResponse.data;
+
+            console.log('Module data received:', moduleData);
+
+            // Ensure moduleData is an array - handle different API response formats
+            if (!Array.isArray(moduleData)) {
+                // If moduleData is not an array, it might be wrapped in a data property
+                if (moduleData && moduleData.data && Array.isArray(moduleData.data)) {
+                    moduleData = moduleData.data;
+                } else {
+                    console.error('Unexpected module data format:', moduleData);
+                    throw new Error('Invalid module data format from API');
+                }
+            }
+
+            if (moduleData.length === 0) {
+                console.warn('No modules found for project', projectId);
+                return [];
+            }
+
+            // Prepare modules for update
+            const updatedModules = moduleData.map(module => {
+                const moduleName = module.module?.name?.toLowerCase() || '';
+                return {
+                    id: module.id,
+                    module: {
+                        id: module.module?.id || module.moduleId
+                    },
+                    isOn: moduleNames.includes(moduleName), // Enable only specified modules
+                    projectId: parseInt(projectId)
+                };
+            });
+
+            console.log('Updating modules with data:', updatedModules);
+
+            // Update modules
+            const response = await api.put(`/v1/projects/${projectId}/modules`, updatedModules);
+            console.log('Modules updated successfully:', response.data);
+            return response.data;
+        } catch (error) {
+            console.error('Error enabling project modules:', error);
             throw error;
         }
     }

@@ -77,4 +77,7 @@ public class UserStory extends BaseEntity {
     @ManyToMany
     @JoinTable(name = "user_story_attachment", joinColumns = @JoinColumn(name = "user_story_id"), inverseJoinColumns = @JoinColumn(name = "attachment_id"))
     private Set<Attachment> attachments = new HashSet<>();
+
+    @Column(name = "is_deleted")
+    private Boolean isDeleted = false;
 }

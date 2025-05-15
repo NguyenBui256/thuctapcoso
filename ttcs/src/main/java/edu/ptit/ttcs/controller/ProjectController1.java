@@ -5,32 +5,36 @@ import edu.ptit.ttcs.entity.User;
 import edu.ptit.ttcs.entity.dto.CreateProjectDTO;
 import edu.ptit.ttcs.entity.dto.PageResponse;
 import edu.ptit.ttcs.entity.dto.ProjectDTO;
-import edu.ptit.ttcs.entity.dto.response.PjStatusDTO;
 import edu.ptit.ttcs.entity.dto.ProjectMemberDTO;
 import edu.ptit.ttcs.entity.dto.response.PjStatusDTO;
 import edu.ptit.ttcs.mapper.ProjectMapper;
-import edu.ptit.ttcs.service.ProjectService;
 import edu.ptit.ttcs.service.ProjectMemberService;
+import edu.ptit.ttcs.service.ProjectService;
 import edu.ptit.ttcs.service.UserService;
 import edu.ptit.ttcs.util.ApiResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import edu.ptit.ttcs.util.SecurityUtils;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/projects")
 @RequiredArgsConstructor
+@Slf4j
 public class ProjectController1 {
 
     private final ProjectService projectService;
     private final UserService userService;
     private final ProjectMapper projectMapper;
     private final ProjectMemberService projectMemberService;
+    private final SecurityUtils securityUtils;
 
     @PostMapping
     public ResponseEntity<Project> createProject(@RequestBody CreateProjectDTO createProjectDTO) {
@@ -61,9 +65,36 @@ public class ProjectController1 {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ProjectDTO> getProjectById(@PathVariable Long id) {
-        Project project = projectService.findById(id);
-        return ResponseEntity.ok(projectMapper.toDTO(project));
+    public ResponseEntity<ApiResponse<ProjectDTO>> getProjectById(@PathVariable Long id) {
+        try {
+            Project project = projectService.findById(id);
+            if (project == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            // Get current user
+            User currentUser = securityUtils.getCurrentUser();
+            if (currentUser == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(new ApiResponse<>("error", "User not authenticated", null));
+            }
+
+            Long userId = currentUser.getId();
+
+            // Check if user is a project member
+            boolean isMember = projectService.isUserProjectMember(id, userId);
+            if (!isMember) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(new ApiResponse<>("error", "You do not have access to this project", null));
+            }
+
+            ProjectDTO projectDTO = projectMapper.toDTO(project);
+            return ResponseEntity.ok(new ApiResponse<>("success", "Project retrieved successfully", projectDTO));
+        } catch (Exception e) {
+            log.error("Error fetching project by ID {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>("error", e.getMessage(), null));
+        }
     }
 
     @GetMapping("/user/{userId}")
@@ -174,6 +205,7 @@ public class ProjectController1 {
             return ResponseEntity
                     .ok(new ApiResponse<>("success", "Assigned projects retrieved successfully", projects));
         } catch (Exception e) {
+            log.error("Error getting assigned projects: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
         }
     }
@@ -197,6 +229,7 @@ public class ProjectController1 {
             List<ProjectDTO> projects = projectService.findWatchedProjects(currentUser.getId());
             return ResponseEntity.ok(new ApiResponse<>("success", "Watched projects retrieved successfully", projects));
         } catch (Exception e) {
+            log.error("Error getting watched projects: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
         }
     }
@@ -220,7 +253,39 @@ public class ProjectController1 {
             List<ProjectDTO> projects = projectService.findJoinedProjects(currentUser.getId());
             return ResponseEntity.ok(new ApiResponse<>("success", "Joined projects retrieved successfully", projects));
         } catch (Exception e) {
+            log.error("Error getting joined projects: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(new ApiResponse<>("error", e.getMessage(), null));
+        }
+    }
+
+    @GetMapping("/{projectId}/check-membership")
+    public ResponseEntity<ApiResponse<Boolean>> checkProjectMembership(
+            @PathVariable Long projectId) {
+        try {
+            User user = securityUtils.getCurrentUser();
+            if (user == null) {
+                log.warn("No authenticated user found via SecurityUtils");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(new ApiResponse<>("error", "User not authenticated", false));
+            }
+
+            Long userId = user.getId();
+            log.info("Checking membership for project {} and user {}", projectId, userId);
+
+            // Check if user is a project member
+            boolean isMember = projectService.isUserProjectMember(projectId, userId);
+            log.info("Membership check result for user {} in project {}: {}", userId, projectId, isMember);
+
+            if (isMember) {
+                return ResponseEntity.ok(new ApiResponse<>("success", "User is a project member", true));
+            } else {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(new ApiResponse<>("error", "User is not a project member", false));
+            }
+        } catch (Exception e) {
+            log.error("Error checking project membership for project {}: {}", projectId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>("error", e.getMessage(), false));
         }
     }
 }
