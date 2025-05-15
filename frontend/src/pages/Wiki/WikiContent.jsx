@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { FiEdit2, FiTrash2, FiDownload, FiUpload, FiX, FiSave, FiFile } from 'react-icons/fi';
 import { format } from 'date-fns';
@@ -17,6 +17,7 @@ const WikiContent = ({ page, onUpdatePage, onDeletePage, loading, error }) => {
   const [editTitle, setEditTitle] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
+  const textareaRef = useRef(null);
 
   useEffect(() => {
     if (page) {
@@ -25,13 +26,98 @@ const WikiContent = ({ page, onUpdatePage, onDeletePage, loading, error }) => {
     }
   }, [page]);
 
+  // Handle keyboard shortcuts for formatting
+  const handleKeyDown = useCallback((e) => {
+    if (!e.ctrlKey) return;
+
+    // Get the current selection in the textarea
+    const start = e.target.selectionStart;
+    const end = e.target.selectionEnd;
+    const selectedText = editContent.substring(start, end);
+    
+    let newText = editContent;
+    let newCursorPos = end;
+
+    switch (e.key.toLowerCase()) {
+      case 'b': // Bold
+        e.preventDefault();
+        if (selectedText) {
+          newText = editContent.substring(0, start) + '**' + selectedText + '**' + editContent.substring(end);
+          newCursorPos = end + 4; // account for ** markers
+        } else {
+          newText = editContent.substring(0, start) + '**Bold Text**' + editContent.substring(end);
+          newCursorPos = start + 12; // position cursor after insertion
+        }
+        break;
+      case 'i': // Italic
+        e.preventDefault();
+        if (selectedText) {
+          newText = editContent.substring(0, start) + '*' + selectedText + '*' + editContent.substring(end);
+          newCursorPos = end + 2; // account for * markers
+        } else {
+          newText = editContent.substring(0, start) + '*Italic Text*' + editContent.substring(end);
+          newCursorPos = start + 13; // position cursor after insertion
+        }
+        break;
+      case 'k': // Link
+        e.preventDefault();
+        if (selectedText) {
+          newText = editContent.substring(0, start) + '[' + selectedText + '](https://example.com)' + editContent.substring(end);
+          newCursorPos = end + 21; // account for markup
+        } else {
+          newText = editContent.substring(0, start) + '[Link Text](https://example.com)' + editContent.substring(end);
+          newCursorPos = start + 11; // position cursor after insertion
+        }
+        break;
+      case 'q': // Quote
+        e.preventDefault();
+        if (selectedText) {
+          newText = editContent.substring(0, start) + '> ' + selectedText + editContent.substring(end);
+          newCursorPos = end + 2; // account for > marker
+        } else {
+          newText = editContent.substring(0, start) + '> Quote text' + editContent.substring(end);
+          newCursorPos = start + 12; // position cursor after insertion
+        }
+        break;
+      case 'c': // Code block (Ctrl+Shift+C)
+        if (e.shiftKey) {
+          e.preventDefault();
+          if (selectedText) {
+            newText = editContent.substring(0, start) + '```\n' + selectedText + '\n```' + editContent.substring(end);
+            newCursorPos = end + 8; // account for code markers
+          } else {
+            newText = editContent.substring(0, start) + '```\nCode block\n```' + editContent.substring(end);
+            newCursorPos = start + 16; // position cursor after insertion
+          }
+        }
+        break;
+      default:
+        return; // Exit for other keys
+    }
+
+    setEditContent(newText);
+    
+    // Set cursor position after state update
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+      }
+    }, 0);
+  }, [editContent]);
+
   const handleSave = () => {
     if (page) {
-      onUpdatePage({
+      // Create a copy to avoid reference issues
+      const updatedPageData = {
         ...page,
         title: editTitle,
-        content: editContent
-      });
+        content: editContent,
+        // Add current timestamp to force UI update
+        lastEditTime: new Date().getTime()
+      };
+      
+      onUpdatePage(updatedPageData);
       setIsEditing(false);
     }
   };
@@ -308,10 +394,10 @@ const WikiContent = ({ page, onUpdatePage, onDeletePage, loading, error }) => {
             </div>
             <div className="p-4">
               <div className="toolbar border border-gray-200 rounded-t-md p-2 bg-gray-50 flex flex-wrap gap-2">
-                <button className="p-1 hover:bg-taiga-light-gray rounded" title="Bold" onClick={() => setEditContent(prev => prev + '**Bold Text**')}>
+                <button className="p-1 hover:bg-taiga-light-gray rounded" title="Bold (Ctrl + B)" onClick={() => setEditContent(prev => prev + '**Bold Text**')}>
                   <span className="font-bold">B</span>
                 </button>
-                <button className="p-1 hover:bg-taiga-light-gray rounded" title="Italic" onClick={() => setEditContent(prev => prev + '*Italic Text*')}>
+                <button className="p-1 hover:bg-taiga-light-gray rounded" title="Italic (Ctrl + I)" onClick={() => setEditContent(prev => prev + '*Italic Text*')}>
                   <span className="italic">I</span>
                 </button>
                 <button className="p-1 hover:bg-taiga-light-gray rounded" title="Heading" onClick={() => setEditContent(prev => prev + '\n## Heading\n')}>
@@ -320,13 +406,13 @@ const WikiContent = ({ page, onUpdatePage, onDeletePage, loading, error }) => {
                 <button className="p-1 hover:bg-taiga-light-gray rounded" title="List" onClick={() => setEditContent(prev => prev + '\n- List item\n- Another item\n')}>
                   •
                 </button>
-                <button className="p-1 hover:bg-taiga-light-gray rounded" title="Link" onClick={() => setEditContent(prev => prev + '[Link Text](https://example.com)')}>
+                <button className="p-1 hover:bg-taiga-light-gray rounded" title="Link (Ctrl + K)" onClick={() => setEditContent(prev => prev + '[Link Text](https://example.com)')}>
                   🔗
                 </button>
                 <button className="p-1 hover:bg-taiga-light-gray rounded" title="Image" onClick={() => setEditContent(prev => prev + '\n![Image Alt](https://example.com/image.jpg)\n')}>
                   🖼️
                 </button>
-                <button className="p-1 hover:bg-taiga-light-gray rounded" title="Code" onClick={() => setEditContent(prev => prev + '\n```\nCode block\n```\n')}>
+                <button className="p-1 hover:bg-taiga-light-gray rounded" title="Code (Ctrl + Shift + C)" onClick={() => setEditContent(prev => prev + '\n```\nCode block\n```\n')}>
                   {'</>'}
                 </button>
               </div>
@@ -335,6 +421,8 @@ const WikiContent = ({ page, onUpdatePage, onDeletePage, loading, error }) => {
                 onChange={(e) => setEditContent(e.target.value)}
                 className="w-full h-64 p-3 border border-gray-200 border-t-0 rounded-b-md focus:outline-none focus:border-taiga-primary"
                 placeholder="Write your content here using Markdown..."
+                ref={textareaRef}
+                onKeyDown={handleKeyDown}
               />
             </div>
             <div className="flex justify-end p-4 border-t">

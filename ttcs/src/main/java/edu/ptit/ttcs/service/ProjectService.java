@@ -28,7 +28,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -46,6 +45,8 @@ public class ProjectService {
     private final PjSettingStatusRepository pjSettingStatusRepository;
     private final ModuleService moduleService;
     private final PermissionRepository permissionRepository;
+    private final PermissionService permissionService;
+    private final ProjectRolePermissionRepository projectRolePermissionRepository;
 
     @Transactional
     public Project save(Project project) {
@@ -238,6 +239,8 @@ public class ProjectService {
                 if (roleName == ProjectRoleName.PROJECT_MANAGER) {
                     managerRole = projectRole;
                 }
+                // Initialize default permissions based on role
+                initializeRolePermissions(projectRole);
             }
 
             // Update member with role and creator info
@@ -259,28 +262,63 @@ public class ProjectService {
         Project sourceProject = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Project not found"));
 
+        // Handle null owner in source project
+        if (sourceProject.getOwner() == null) {
+            log.warn("Source project {} has null owner, using createdBy as owner", sourceProject.getId());
+            if (sourceProject.getCreatedBy() != null) {
+                sourceProject.setOwner(sourceProject.getCreatedBy());
+                sourceProject = projectRepository.save(sourceProject);
+            }
+        }
+
         User currentUser = securityUtils.getCurrentUser();
 
         User creator = userRepository.findById(projectDTO.getOwnerId())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        ProjectMember projectMember = projectMemberRepository.findByProjectAndUser(sourceProject, creator)
-                .orElseThrow(() -> new RuntimeException("Project Member not found"));
+        // Check if the project member exists
+        ProjectMember projectMember = null;
+        try {
+            projectMember = projectMemberRepository.findByProjectAndUser(sourceProject, creator)
+                    .orElse(null);
+        } catch (Exception e) {
+            log.warn("Error finding project member: {}", e.getMessage());
+        }
+
+        // If project member not found, create a temporary one for reference only
+        if (projectMember == null) {
+            log.info(
+                    "Project Member not found for user {} in project {}. Creating new project without member reference.",
+                    creator.getId(), sourceProject.getId());
+        }
 
         Project newProject = new Project();
         newProject.setName(projectDTO.getName());
         newProject.setDescription(projectDTO.getDescription());
         newProject.setIsPublic(projectDTO.getIsPublic());
         newProject.setLogoUrl(sourceProject.getLogoUrl());
+        // Set owner explicitly
+        newProject.setOwner(creator);
         // Không set createdBy lúc này
         newProject.setCreatedBy(null);
-        newProject.setModules(new HashSet<>(sourceProject.getModules()));
+        // Do not set modules here, as we'll initialize them properly below
+        // newProject.setModules(new HashSet<>(sourceProject.getModules()));
         newProject.setCreatedAt(LocalDateTime.now());
         newProject.setUpdatedAt(LocalDateTime.now());
         newProject.setIsDeleted(false);
 
         // Save without createdBy first
         newProject = projectRepository.save(newProject);
+
+        // Initialize default modules for the new project
+        try {
+            moduleService.initializeProjectModules(newProject.getId());
+            log.info("Successfully initialized default modules for duplicated project ID: {}", newProject.getId());
+        } catch (Exception e) {
+            log.error("Error initializing modules for duplicated project ID: {} - Error: {}", newProject.getId(),
+                    e.getMessage());
+            // Continue with project duplication even if module initialization fails
+        }
 
         // Create a ProjectMember for the current user
         ProjectMember creatorMember = new ProjectMember();
@@ -390,13 +428,67 @@ public class ProjectService {
                 .toList();
     }
 
+    @Transactional
+    public void initializeRolePermissions(ProjectRole role) {
+        log.info("Initializing permissions for role: {} - ID: {}", role.getRoleName(), role.getId());
+        String roleName = role.getRoleName();
+
+        try {
+            // Get all permissions
+            List<Permission> allPermissions = permissionService.findAll();
+            log.info("Found {} permissions to initialize for role: {}", allPermissions.size(), roleName);
+
+            // Important: Save the role first to ensure it has an ID
+            if (role.getId() == null) {
+                role = projectRoleRepository.save(role);
+                log.info("Saved role with new ID: {}", role.getId());
+            }
+
+            log.info("Creating new permissions for role {}", role.getId());
+            List<ProjectRolePermission> newPermissions = new ArrayList<>();
+
+            // Add all permissions one by one
+            for (Permission permission : allPermissions) {
+                try {
+                    // Check if this permission is already assigned to the role to avoid duplicates
+                    if (projectRolePermissionRepository.existsByProjectRoleAndPermission(role, permission)) {
+                        log.debug("Permission {}.{} already exists for role {}, skipping",
+                                permission.getModule(), permission.getName(), roleName);
+                        continue;
+                    }
+
+                    // Create new permission mapping
+                    ProjectRolePermission prp = new ProjectRolePermission();
+                    prp.setProjectRole(role);
+                    prp.setPermission(permission);
+                    prp.setIsEnabled(true);
+
+                    // Save the permission mapping
+                    prp = projectRolePermissionRepository.save(prp);
+                    log.info("New PRP: {} - {}", prp.getId(), prp.getPermission().getId());
+                    newPermissions.add(prp);
+
+                    log.debug("Added permission {}.{} to role {}",
+                            permission.getModule(), permission.getName(), roleName);
+                } catch (Exception e) {
+                    log.error("Error adding permission {} to role {}: {}",
+                            permission.getId(), role.getId(), e.getMessage());
+                }
+            }
+
+            log.info("Successfully added {} permissions to role {}", newPermissions.size(), role.getId());
+        } catch (Exception e) {
+            log.error("Error initializing permissions for role {}: {}", roleName, e.getMessage(), e);
+        }
+    }
+
     public boolean userHasAccessToProject(Long userId, Long projectId) {
         return isUserProjectMember(projectId, userId);
     }
 
     /**
      * Find projects where user is assigned to tasks
-     * 
+     *
      * @param userId The ID of the user
      * @return List of projects
      */
@@ -416,7 +508,7 @@ public class ProjectService {
 
     /**
      * Find projects where user is watching tasks
-     * 
+     *
      * @param userId The ID of the user
      * @return List of projects
      */
@@ -436,7 +528,7 @@ public class ProjectService {
 
     /**
      * Find projects where user is a member
-     * 
+     *
      * @param userId The ID of the user
      * @return List of projects
      */
@@ -485,69 +577,5 @@ public class ProjectService {
         } catch (Exception e) {
             log.error("Error handling null owner for project {}: {}", project.getId(), e.getMessage(), e);
         }
-    }
-
-    @Transactional
-    public ProjectRole initializeRolePermissions(ProjectRole role) {
-        log.info("Initializing permissions for role: {}", role.getRoleName());
-        Set<Permission> permissions = new HashSet<>();
-        String roleName = role.getRoleName();
-
-        try {
-            // Common permissions for all roles - read access to basic modules
-            List<Permission> viewPermissions = permissionRepository.findAll().stream()
-                    .filter(p -> p.getMethod().equals("GET"))
-                    .collect(Collectors.toList());
-            permissions.addAll(viewPermissions);
-
-            if (roleName.equals(ProjectRoleName.PROJECT_MANAGER.name())) {
-                // Project Manager gets all permissions
-                permissions.addAll(permissionRepository.findAll());
-            } else if (roleName.equals(ProjectRoleName.FRONTEND_DEVELOPER.name()) ||
-                    roleName.equals(ProjectRoleName.BACKEND_DEVELOPER.name())) {
-                // Developers get task and User Story related permissions
-                permissions.addAll(permissionRepository.findByModule("Tasks"));
-                permissions.addAll(permissionRepository.findByModule("User Stories"));
-
-                // Add ability to comment on issues
-                permissions.addAll(permissionRepository.findByMethodAndModule("POST", "Issues"));
-
-                // Wiki access
-                permissions.addAll(permissionRepository.findByModule("Wiki"));
-            } else if (roleName.equals(ProjectRoleName.QA_ENGINEER.name()) ||
-                    roleName.equals(ProjectRoleName.TESTER.name())) {
-                // QA and Testers get issue permissions
-                permissions.addAll(permissionRepository.findByModule("Issues"));
-
-                // Read-only access to tasks and user stories
-                permissions.addAll(permissionRepository.findByMethodAndModule("GET", "Tasks"));
-                permissions.addAll(permissionRepository.findByMethodAndModule("GET", "User Stories"));
-
-                // Comment ability
-                permissions.addAll(permissionRepository.findByMethodAndModule("POST", "Tasks"));
-                permissions.addAll(permissionRepository.findByMethodAndModule("POST", "User Stories"));
-
-                // Wiki access
-                permissions.addAll(permissionRepository.findByModule("Wiki"));
-            } else if (roleName.equals(ProjectRoleName.BUSINESS_ANALYST.name())) {
-                // Business analysts get epic and user story permissions
-                permissions.addAll(permissionRepository.findByModule("Epics"));
-                permissions.addAll(permissionRepository.findByModule("User Stories"));
-
-                // Read-only access to tasks
-                permissions.addAll(permissionRepository.findByMethodAndModule("GET", "Tasks"));
-
-                // Wiki full access
-                permissions.addAll(permissionRepository.findByModule("Wiki"));
-            }
-
-            // Assign permissions to the role
-            role.setPermissions(permissions);
-            log.info("Initialized {} permissions for role {}", permissions.size(), roleName);
-        } catch (Exception e) {
-            log.error("Error initializing permissions for role {}: {}", roleName, e.getMessage(), e);
-        }
-
-        return role;
     }
 }

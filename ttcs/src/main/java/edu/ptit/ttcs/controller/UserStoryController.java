@@ -62,6 +62,8 @@ import edu.ptit.ttcs.entity.ProjectSettingTag;
 import edu.ptit.ttcs.dao.ProjectSettingTagRepository;
 import edu.ptit.ttcs.entity.Activity;
 import edu.ptit.ttcs.service.NotificationService;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 // Inner class for block response to avoid issues with the DTO
 class UserStoryBlockResponse {
@@ -604,6 +606,20 @@ public class UserStoryController {
                 if (story.getCreatedBy() != null && story.getCreatedBy().getUser() != null) {
                     dto.setCreatedByFullName(story.getCreatedBy().getUser().getFullName());
                     dto.setCreatedByUsername(story.getCreatedBy().getUser().getUsername());
+                }
+
+                // Thêm thông tin assignedUsers
+                if (story.getAssignedUsers() != null && !story.getAssignedUsers().isEmpty()) {
+                    List<UserDTO> assignedUsers = story.getAssignedUsers().stream()
+                            .map(member -> {
+                                UserDTO userDTO = new UserDTO();
+                                userDTO.setId(member.getUser().getId());
+                                userDTO.setUsername(member.getUser().getUsername());
+                                userDTO.setFullName(member.getUser().getFullName());
+                                return userDTO;
+                            })
+                            .collect(Collectors.toList());
+                    dto.setAssignedUsers(assignedUsers);
                 }
 
                 return dto;
@@ -1579,15 +1595,86 @@ public class UserStoryController {
         }
     }
 
+    @PostMapping("/{taskId}/attachment")
+    public ResponseEntity<?> addAttachmentToTask(
+            @PathVariable("taskId") Integer taskId,
+            @RequestBody AttachmentDTO attachmentDTO) {
+        try {
+            // Determine current user: prefer header, fallback to security context
+            User currentUser = securityUtils.getCurrentUser();
+            Long userId = currentUser.getId();
+            if (userId != null) {
+                currentUser = userRepository.findById(userId)
+                        .orElseThrow(() -> new IllegalArgumentException("User not found"));
+            } else {
+                currentUser = securityUtils.getCurrentUser();
+            }
+
+            // Create a new attachment
+            Attachment attachment = new Attachment();
+            attachment.setFilename(attachmentDTO.getFilename());
+            attachment.setContentType(attachmentDTO.getContentType());
+            attachment.setFileSize(attachmentDTO.getFileSize());
+            attachment.setUrl(attachmentDTO.getUrl());
+            attachment.setIsDelete(false);
+            attachment.setCreatedAt(LocalDateTime.now());
+            attachment.setCreatedBy(currentUser);
+
+            // Save the attachment
+            Attachment savedAttachment = attachmentRepository.save(attachment);
+
+            // Find the task
+            Task task = taskRepository.findById(taskId)
+                    .orElseThrow(() -> new IllegalArgumentException("Task not found with ID: " + taskId));
+
+            // Add attachment to the task using taskAttachments instead of attachments
+            if (task.getTaskAttachments() == null) {
+                task.setTaskAttachments(new ArrayList<>());
+            }
+            TaskAttachment taskAttachment = new TaskAttachment();
+            taskAttachment.setTask(task);
+            taskAttachment.setAttachment(savedAttachment);
+            taskAttachmentRepository.save(taskAttachment);
+
+            // No need to explicitly add to task's collection as it will be managed by
+            // Hibernate
+            taskRepository.save(task);
+
+            // Record activity
+            String activityDetail = String.format("Attachment '%s' added", savedAttachment.getFilename());
+            activityService.recordTaskActivity(
+                    task.getProject().getId(),
+                    task.getId(),
+                    currentUser.getId(),
+                    "attachment_added",
+                    activityDetail);
+
+            // Convert saved attachment to DTO for response
+            AttachmentDTO savedAttachmentDTO = new AttachmentDTO();
+            savedAttachmentDTO.setId(savedAttachment.getId());
+            savedAttachmentDTO.setFilename(savedAttachment.getFilename());
+            savedAttachmentDTO.setContentType(savedAttachment.getContentType());
+            savedAttachmentDTO.setFileSize(savedAttachment.getFileSize());
+            savedAttachmentDTO.setUrl(savedAttachment.getUrl());
+            savedAttachmentDTO.setCreatedAt(savedAttachment.getCreatedAt());
+
+            // Return the saved attachment in the response
+            return ResponseEntity.ok(savedAttachmentDTO);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to add attachment: " + e.getMessage());
+        }
+    }
+
     @PostMapping("/userstory/{userStoryId}/attachment")
     public ResponseEntity<?> addAttachment(
             @PathVariable("userStoryId") Integer userStoryId,
-            @RequestBody AttachmentDTO attachmentDTO,
-            @RequestHeader(value = "User-Id", required = false) Long userId) {
+            @RequestBody AttachmentDTO attachmentDTO) {
 
         try {
             // Determine current user: prefer header, fallback to security context
-            User currentUser;
+            User currentUser = securityUtils.getCurrentUser();
+            Long userId = currentUser.getId();
             if (userId != null) {
                 currentUser = userRepository.findById(userId)
                         .orElseThrow(() -> new IllegalArgumentException("User not found"));

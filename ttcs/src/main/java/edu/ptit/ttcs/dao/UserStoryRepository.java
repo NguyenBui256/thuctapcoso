@@ -1,5 +1,6 @@
 package edu.ptit.ttcs.dao;
 
+import edu.ptit.ttcs.entity.Project;
 import edu.ptit.ttcs.entity.Task;
 import edu.ptit.ttcs.entity.UserStory;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -37,4 +38,6 @@ public interface UserStoryRepository extends JpaRepository<UserStory, Integer>, 
      */
     @Query("SELECT us FROM UserStory us WHERE us.sprint.id = :sprintId AND (us.isDeleted = false OR us.isDeleted IS NULL)")
     List<UserStory> findBySprintId(@Param("sprintId") Long sprintId);
+
+    List<UserStory> findAllByProject(Project project);
 }

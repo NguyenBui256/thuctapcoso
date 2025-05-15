@@ -514,27 +514,47 @@ export default function TaigaUserStoryDetail() {
             // Lưu lại thông tin về các tệp đính kèm hiện tại
             const currentAttachments = userStory.attachments || [];
 
-            // Use PATCH endpoint specifically for status updates
-            const response = await axios.put(`/api/kanban/board/userstory/${userStoryId}/status`, {
-                statusId: statusId
-            });
+            // Update UI optimistically first
+            setUserStory(prevState => ({
+                ...prevState,
+                statusId: statusId,
+                attachments: currentAttachments
+            }));
 
-            // Nếu response.data có dữ liệu, sử dụng nó để cập nhật state
-            if (response.data) {
+            setShowStatusDropdown(false);
+
+            let success = false;
+            let response;
+
+            // Try first approach with path variable
+            try {
+                // First try the simpler endpoint pattern that has better success
+                response = await axios.put(`/api/kanban/board/userstory/${userStoryId}/status/${statusId}`);
+                success = true;
+            } catch (err) {
+                console.warn("First status update approach failed, trying alternative...", err);
+
+                // If that fails, try the request body approach
+                try {
+                    response = await axios.put(`/api/kanban/board/userstory/${userStoryId}/status`, {
+                        statusId: statusId
+                    });
+                    success = true;
+                } catch (secondErr) {
+                    // If both fail, throw the error to be caught by outer catch
+                    console.error("Both status update approaches failed", secondErr);
+                    throw secondErr;
+                }
+            }
+
+            // If we get here, one of the approaches worked
+            if (success && response?.data) {
+                // Nếu response.data có dữ liệu, sử dụng nó để cập nhật state
                 setUserStory(prevState => ({
                     ...response.data,
                     attachments: response.data.attachments || currentAttachments
                 }));
-            } else {
-                // Update local state if no complete data returned
-                setUserStory(prevState => ({
-                    ...prevState,
-                    statusId: statusId,
-                    attachments: currentAttachments
-                }));
             }
-
-            setShowStatusDropdown(false);
 
             // Record activity for status change
             await recordActivity(
@@ -561,6 +581,13 @@ export default function TaigaUserStoryDetail() {
             toast.success(`Status updated to ${newStatus?.name || statusId}`);
         } catch (err) {
             console.error('Error updating status:', err);
+
+            // Revert UI to original status
+            setUserStory(prevState => ({
+                ...prevState,
+                statusId: userStory.statusId
+            }));
+
             toast.error('Failed to update status');
         }
     };
@@ -903,11 +930,7 @@ export default function TaigaUserStoryDetail() {
                 };
 
                 // Gửi request nhưng không chờ đợi kết quả
-                axios.post(`/api/kanban/board/userstory/${userStoryId}/attachment`, attachmentData, {
-                    headers: {
-                        'User-Id': getCurrentUserId()
-                    }
-                })
+                axios.post(`/api/kanban/board/userstory/${userStoryId}/attachment`, attachmentData)
                     .then(response => {
                         console.log('Attachment saved to server:', response.data);
                         // Không cần làm gì thêm vì đã cập nhật UI trước đó
@@ -1301,12 +1324,12 @@ export default function TaigaUserStoryDetail() {
                 {/* Left content area */}
                 <div className="flex-grow p-4 border-r border-gray-200">
                     {/* Epic link */}
-                    <div className="mb-6">
+                    {/* <div className="mb-6">
                         <a href="#" className="text-blue-500 flex items-center">
                             <span className="mr-2">🔗</span>
                             Link to epic
                         </a>
-                    </div>
+                    </div> */}
 
                     {/* Taskboard section */}
                     <div className="mb-6">
@@ -1910,18 +1933,12 @@ export default function TaigaUserStoryDetail() {
                     </div>
 
                     {/* Action buttons */}
-                    <div className="flex justify-end space-x-2 mt-8">
+                    <div className="flex justify-center space-x-2 mt-8">
                         <button
                             className="bg-red-500 p-2 rounded text-white"
                             onClick={() => setShowDueDateModal(true)}
                         >
                             <Clock size={16} />
-                        </button>
-                        <button className="bg-gray-100 p-2 rounded text-gray-500 hover:bg-gray-200">
-                            <Users size={16} />
-                        </button>
-                        <button className="bg-gray-100 p-2 rounded text-gray-500 hover:bg-gray-200">
-                            <Paperclip size={16} />
                         </button>
                         <button
                             className={`p-2 rounded ${userStory.blocked || userStory.isBlocked ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-500'} hover:${userStory.blocked || userStory.isBlocked ? 'bg-red-600' : 'bg-gray-200'}`}
@@ -1929,9 +1946,6 @@ export default function TaigaUserStoryDetail() {
                             title={userStory.blocked || userStory.isBlocked ? 'Unblock this user story' : 'Block this user story'}
                         >
                             <Lock size={16} />
-                        </button>
-                        <button className="bg-gray-100 p-2 rounded text-gray-500 hover:bg-gray-200">
-                            <List size={16} />
                         </button>
                         <button
                             className="bg-red-500 p-2 rounded text-white hover:bg-red-600"

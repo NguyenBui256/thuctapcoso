@@ -85,6 +85,7 @@ public class ProjectMapper {
         dto.setOwnerId(project.getOwner().getId());
         dto.setOwnerUsername(
                 project.getCreatedBy() != null ? project.getCreatedBy().getUsername() : "Unknown");
+        dto.setIsDelete(project.getIsDeleted());
 
         // Set module ID from the first module (assuming one module per project)
         if (!project.getModules().isEmpty()) {

@@ -31,6 +31,9 @@ import edu.ptit.ttcs.entity.Attachment;
 import edu.ptit.ttcs.entity.TaskAttachment;
 import edu.ptit.ttcs.entity.dto.AttachmentDTO;
 import edu.ptit.ttcs.service.NotificationService;
+import edu.ptit.ttcs.util.SecurityUtils;
+
+import org.apache.catalina.security.SecurityUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -62,6 +65,9 @@ public class TaskController {
 
     @Autowired
     private UserStoryRepository userStoryRepository;
+
+    @Autowired
+    private SecurityUtils securityUtils;
 
     @Autowired
     private ProjectSettingTagRepository projectSettingTagRepository;
@@ -289,9 +295,10 @@ public class TaskController {
     @PutMapping("/{id}")
     public ResponseEntity<TaskDTO> updateTask(
             @PathVariable Integer id,
-            @RequestBody TaskRequestDTO taskRequestDTO,
-            @RequestHeader(name = "User-Id", required = false) Long userId) {
+            @RequestBody TaskRequestDTO taskRequestDTO) {
 
+        User user = securityUtils.getCurrentUser();
+        Long userId = user.getId();
         Optional<Task> taskOptional = taskRepository.findById(id);
         if (!taskOptional.isPresent()) {
             return ResponseEntity.notFound().build();

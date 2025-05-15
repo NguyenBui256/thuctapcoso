@@ -272,10 +272,16 @@ const CreateBacklogUserStoryModal = ({
             resetForm();
             onHide();
 
-            // Refresh the user stories list
+            // Refresh the user stories list with the created user story data
             setTimeout(() => {
                 if (onUserStoryCreated) {
-                    onUserStoryCreated({});
+                    // Truyền thông tin user story vừa tạo (bao gồm sprintId) để component cha có thể cập nhật UI
+                    const createdUserStory = response.data;
+                    onUserStoryCreated({
+                        userStory: createdUserStory,
+                        sprintId: sprintId ? parseInt(sprintId) : null,
+                        statusId: parseInt(statusId)
+                    });
                 }
             }, 500);
         } catch (err) {

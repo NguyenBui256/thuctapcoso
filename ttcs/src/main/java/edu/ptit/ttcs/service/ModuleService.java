@@ -73,19 +73,23 @@ public class ModuleService {
             // Handle null owner to prevent NullPointerException
             handleNullOwner(project);
 
-            // Create 5 default modules with fixed IDs (1-5)
-            for (int moduleId = 1; moduleId <= 5; moduleId++) {
-                final int finalModuleId = moduleId;
+            // Tạo 4 module cơ bản cho project: Scrum, Kanban, Issue, Wiki
+            // Các module này sẽ tương ứng với ID 1-4 trong bảng module
+            final int[] moduleIds = { 1, 2, 3, 4 }; // 1=Scrum, 2=Kanban, 3=Issue, 4=Wiki
+
+            for (int moduleId : moduleIds) {
                 ProjectModule projectModule = new ProjectModule();
                 projectModule.setProject(project);
 
-                // Create Module entity with fixed ID
-                Module module = moduleRepository.findById((long) finalModuleId)
-                        .orElseThrow(() -> new RuntimeException("Module not found with id: " + finalModuleId));
+                // Lấy module entity theo ID
+                Module module = moduleRepository.findById((long) moduleId)
+                        .orElseThrow(() -> new RuntimeException("Module not found with id: " + moduleId));
                 projectModule.setModule(module);
 
-                projectModule.setIsOn(false); // Default to disabled - user can enable later
+                projectModule.setIsOn(false); // Mặc định là tắt - người dùng có thể bật sau
                 projectModuleRepository.save(projectModule);
+
+                log.info("Added module {} to project {}", module.getName(), project.getId());
             }
         } catch (Exception e) {
             log.error("Error initializing project modules: {}", e.getMessage(), e);
@@ -98,10 +102,28 @@ public class ModuleService {
      * This prevents NullPointerException when accessing project.getOwner().getId()
      */
     private void handleNullOwner(Project project) {
-        if (project.getOwner() == null && project.getCreatedBy() != null) {
-            log.warn("Project {} has null owner, using createdBy as owner", project.getId());
-            project.setOwner(project.getCreatedBy());
-            projectRepository.save(project);
+        try {
+            if (project.getOwner() == null) {
+                log.warn("Project {} has null owner", project.getId());
+
+                if (project.getCreatedBy() != null) {
+                    log.info("Setting owner to createdBy for project {}", project.getId());
+                    project.setOwner(project.getCreatedBy());
+                    projectRepository.save(project);
+                } else {
+                    // If both owner and createdBy are null, try to find a project member to set as
+                    // owner
+                    log.warn("Project {} has null owner and null createdBy", project.getId());
+                    // In this emergency case, we'll just set a placeholder to prevent
+                    // NullPointerException
+                    // This should be fixed manually by an administrator later
+                    log.error("Cannot find suitable owner for project {}. This should be fixed manually.",
+                            project.getId());
+                }
+            }
+        } catch (Exception e) {
+            // Log error but don't throw exception to prevent cascading failures
+            log.error("Error handling null owner for project {}: {}", project.getId(), e.getMessage(), e);
         }
     }
 }

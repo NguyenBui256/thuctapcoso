@@ -2,6 +2,7 @@ package edu.ptit.ttcs.controller;
 
 import edu.ptit.ttcs.entity.dto.request.SaveSprintDTO;
 import edu.ptit.ttcs.entity.dto.response.SprintDTO;
+import edu.ptit.ttcs.entity.dto.response.SprintProgressDTO;
 import edu.ptit.ttcs.service.SprintService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +43,11 @@ public class SprintController {
         return ResponseEntity.ok().body(Map.of(
                 "status", "success"
         ));
+    }
+
+    @GetMapping("/progress")
+    public ResponseEntity<SprintProgressDTO> getProgress(@RequestParam long projectId){
+        return ResponseEntity.ok(sprintService.getProgress(projectId));
     }
 
 }

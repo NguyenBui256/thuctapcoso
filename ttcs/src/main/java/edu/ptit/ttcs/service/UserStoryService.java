@@ -130,15 +130,44 @@ public class UserStoryService {
                     return dto;
                 })
                 .toList();
+
+        // Lấy danh sách trạng thái user_story cho project
         List<PjStatusDTO> statuses = pjSettingStatusRepository.findAllByProjectAndType(project, StatusType.USER_STORY)
                 .stream()
                 .map(status -> ModelMapper.getInstance().map(status, PjStatusDTO.class))
                 .filter(dto -> statusFiltered.stream().noneMatch(st -> st == dto.getId()))
                 .toList();
+
+        // Nếu danh sách trạng thái rỗng, thử dùng các chuỗi type khác
+        if (statuses.isEmpty()) {
+            // Thử với "USERSTORY"
+            statuses = pjSettingStatusRepository.findAllByProjectAndType(project, "USERSTORY")
+                    .stream()
+                    .map(status -> ModelMapper.getInstance().map(status, PjStatusDTO.class))
+                    .filter(dto -> statusFiltered.stream().noneMatch(st -> st == dto.getId()))
+                    .toList();
+
+            // Nếu vẫn trống, thử với "USER_STORY" viết hoa
+            if (statuses.isEmpty()) {
+                statuses = pjSettingStatusRepository.findAllByProjectAndType(project, "USER_STORY")
+                        .stream()
+                        .map(status -> ModelMapper.getInstance().map(status, PjStatusDTO.class))
+                        .filter(dto -> statusFiltered.stream().noneMatch(st -> st == dto.getId()))
+                        .toList();
+            }
+        }
+
+        // Log thông tin debug
+        System.out.println("Filter data - Statuses count: " + statuses.size());
+        if (!statuses.isEmpty()) {
+            System.out.println("Status examples: " + statuses.get(0).getName());
+        }
+
         List<PjRoleDTO> roles = projectRoleRepository.findAllByProject(project).stream()
                 .map(role -> ModelMapper.getInstance().map(role, PjRoleDTO.class))
                 .filter(dto -> roleFiltered.stream().noneMatch(r -> r == dto.getId()))
                 .toList();
+
         return FilterData.builder()
                 .assigns(memberDTOs.stream().filter(dto -> assignFiltered.stream().noneMatch(a -> a == dto.getId()))
                         .toList())
@@ -243,4 +272,7 @@ public class UserStoryService {
                 .toList();
     }
 
+    public List<UserStory> getAllByProject(Project project) {
+        return userStoryRepository.findAllByProject(project);
+    }
 }

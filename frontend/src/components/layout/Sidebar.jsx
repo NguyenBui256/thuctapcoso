@@ -15,7 +15,6 @@ const Sidebar = ({ currentProject, onToggleCollapse, moduleSettingsVersion }) =>
   });
   const [loading, setLoading] = useState(true);
   const location = useLocation();
-
   // Custom styles for the new primary color
   const primaryColor = "rgb(153, 214, 220)";
   const styles = {
@@ -178,12 +177,7 @@ const Sidebar = ({ currentProject, onToggleCollapse, moduleSettingsVersion }) =>
         </div>
 
         <div className="mt-auto space-y-1">
-          <Link
-            to={currentProject?.id && `/projects/${currentProject.id}/search`}
-            className={`flex items-center justify-${sidebarCollapsed ? 'center' : 'start'} px-3 py-2 text-sm rounded-md ${activeTab === 'search' ? 'text-white' : 'text-gray-200 hover:bg-gray-700'}`}
-            onClick={() => setActiveTab('search')}
-            style={activeTab === 'search' ? styles.bgPrimary : {}}
-          >
+          <Link to={currentProject?.id && `/projects/${currentProject.id}/search`} className={`flex items-center justify-${sidebarCollapsed ? 'center' : 'start'} px-3 py-2 text-sm text-gray-200 hover:bg-gray-700 rounded-md`}>
             <svg className="w-6 h-6 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>

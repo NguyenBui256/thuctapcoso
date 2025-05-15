@@ -354,66 +354,72 @@ const KanbanBoardWrapper = () => {
 
     const renderUserStories = (columnStatus, swimlaneId) => {
         const stories = getUserStoriesForColumn(columnStatus, swimlaneId);
-        return stories.map((story, index) => (
-            <Draggable
-                key={`story-${story.id}`}
-                draggableId={`story-${story.id}`}
-                index={index}
-            >
-                {(provided, snapshot) => (
-                    <div
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        {...provided.dragHandleProps}
-                        className={`bg-white border border-gray-200 rounded mb-2 cursor-pointer ${snapshot.isDragging ? 'shadow-lg' : ''} ${zoomLevel !== 'compact' ? 'p-3' : 'p-2'}`}
-                        onClick={() => navigate(`/projects/${projectId}/userstory/${story.id}`)}
-                        style={{
-                            ...provided.draggableProps.style,
-                            opacity: draggingItemId === story.id.toString() && !snapshot.isDragging ? 0.5 : 1,
-                            transform: provided.draggableProps.style?.transform,
-                        }}
-                    >
-                        <div className="flex justify-between items-center">
-                            <span className="text-xs text-teal-600 font-medium">
-                                #{story.id} {zoomLevel !== 'compact' && story.name}
-                            </span>
-                            <div className={`${zoomLevel === 'compact' ? 'w-6 h-6' : 'w-7 h-7'} ${story.id % 3 === 0 ? 'bg-gray-200' : 'bg-pink-200'} rounded-full flex items-center justify-center`}></div>
-                        </div>
+        return stories.map((story, index) => {
+            // Log để debug thông tin assignedUsers
+            console.debug(`UserStory #${story.id} assignedUsers:`, story.assignedUsers);
 
-                        {/* Additional content based on zoom level */}
-                        {zoomLevel !== 'compact' && (
-                            <div className="mt-2">
-                                {story.assignedUsers && story.assignedUsers.length > 0 ? (
-                                    <div className="flex items-center mt-1">
-                                        {story.assignedUsers.slice(0, 2).map((user, idx) => (
-                                            <div key={idx} className="w-6 h-6 bg-purple-200 rounded-full mr-1 flex items-center justify-center">
-                                                <span className="text-[10px] text-purple-800 font-bold">
-                                                    {user.fullName ? user.fullName.charAt(0).toUpperCase() : '?'}
-                                                </span>
-                                            </div>
-                                        ))}
-                                        {story.assignedUsers.length > 2 && (
-                                            <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
-                                                <span className="text-[10px] text-gray-600">+{story.assignedUsers.length - 2}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center mt-1">
-                                        <div className="w-6 h-6 bg-gray-100 rounded-full mr-2"></div>
-                                        <span className="text-xs text-gray-500">Not assigned</span>
-                                    </div>
-                                )}
-
-                                {zoomLevel === 'expanded' && story.description && (
-                                    <p className="text-xs text-gray-600 mt-2 line-clamp-2">{story.description}</p>
-                                )}
+            return (
+                <Draggable
+                    key={`story-${story.id}`}
+                    draggableId={`story-${story.id}`}
+                    index={index}
+                >
+                    {(provided, snapshot) => (
+                        <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            {...provided.dragHandleProps}
+                            className={`bg-white border border-gray-200 rounded mb-2 cursor-pointer ${snapshot.isDragging ? 'shadow-lg' : ''} ${zoomLevel !== 'compact' ? 'p-3' : 'p-2'}`}
+                            onClick={() => navigate(`/projects/${projectId}/userstory/${story.id}`)}
+                            style={{
+                                ...provided.draggableProps.style,
+                                opacity: draggingItemId === story.id.toString() && !snapshot.isDragging ? 0.5 : 1,
+                                transform: provided.draggableProps.style?.transform,
+                            }}
+                        >
+                            <div className="flex justify-between items-center">
+                                <span className="text-xs text-teal-600 font-medium">
+                                    #{story.id} {zoomLevel !== 'compact' && story.name}
+                                </span>
+                                <div className={`${zoomLevel === 'compact' ? 'w-6 h-6' : 'w-7 h-7'} ${story.id % 3 === 0 ? 'bg-gray-200' : 'bg-pink-200'} rounded-full flex items-center justify-center`}></div>
                             </div>
-                        )}
-                    </div>
-                )}
-            </Draggable>
-        ));
+
+                            {/* Additional content based on zoom level */}
+                            {zoomLevel !== 'compact' && (
+                                <div className="mt-2">
+                                    {story.assignedUsers && story.assignedUsers.length > 0 ? (
+                                        <div className="flex items-center mt-1">
+                                            {story.assignedUsers.slice(0, 2).map((user, idx) => (
+                                                <div key={idx} className="w-6 h-6 bg-purple-200 rounded-full mr-1 flex items-center justify-center">
+                                                    <span className="text-[10px] text-purple-800 font-bold">
+                                                        {user.fullName ? user.fullName.charAt(0).toUpperCase() :
+                                                            user.username ? user.username.charAt(0).toUpperCase() : '?'}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                            {story.assignedUsers.length > 2 && (
+                                                <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
+                                                    <span className="text-[10px] text-gray-600">+{story.assignedUsers.length - 2}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center mt-1">
+                                            <div className="w-6 h-6 bg-gray-100 rounded-full mr-2"></div>
+                                            <span className="text-xs text-gray-500">Not assigned</span>
+                                        </div>
+                                    )}
+
+                                    {zoomLevel === 'expanded' && story.description && (
+                                        <p className="text-xs text-gray-600 mt-2 line-clamp-2">{story.description}</p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </Draggable>
+            );
+        });
     };
 
     const countStoriesInColumn = (columnStatus) => {
@@ -421,16 +427,8 @@ const KanbanBoardWrapper = () => {
     };
 
     const handleOpenUserStoryModal = (status, swimlaneId) => {
-        // Convert status name to status id
-        const statusMap = {
-            'NEW': 1,
-            'READY': 2,
-            'IN PROGRESS': 3,
-            'READY FOR TEST': 4,
-            'DONE': 5,
-            'ARCHIVED': 6
-        };
-        setModalInitialStatus(statusMap[status] || 1);
+        // Use the column status ID directly instead of looking up by name
+        setModalInitialStatus(status);
         setModalInitialSwimlaneId(swimlaneId);
         setShowUserStoryModal(true);
     };
@@ -782,7 +780,7 @@ const KanbanBoardWrapper = () => {
                                             </div>
                                             <div className="flex items-center space-x-1">
                                                 <button
-                                                    onClick={() => handleOpenUserStoryModal(column.name, swimlanes[0]?.id)}
+                                                    onClick={() => handleOpenUserStoryModal(column.status, swimlanes[0]?.id)}
                                                     className="text-gray-500 hover:text-gray-700"
                                                 >
                                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

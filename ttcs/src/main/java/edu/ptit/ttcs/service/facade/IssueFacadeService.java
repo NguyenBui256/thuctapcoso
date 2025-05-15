@@ -47,7 +47,7 @@ public class IssueFacadeService {
 
     public List<IssueDTO> getList(long projectId,
             Long sprintId,
-            Long epicId,
+            boolean excludeSprint,
             String sortBy,
             String order,
             FilterParams filters) {
@@ -58,19 +58,17 @@ public class IssueFacadeService {
         ProjectMember member = projectMemberService.getByProjectAndUser(project, user);
         if (member == null)
             throw new RequestException("Member not belong to project");
-        if (sprintId != null) {
-            Sprint sprint = sprintRepository.findById(sprintId)
-                    .orElseThrow(() -> new RequestException("Sprint not found"));
-            if (!sprint.getProject().getId().equals(project.getId()))
-                throw new RequestException("Sprint not belong to project");
-            specs = specs.and(IssueSpecs.belongToSprint(sprintId));
+        if(excludeSprint){
+            specs = specs.and(IssueSpecs.notBelongToSprint());
         }
-        if (epicId != null) {
-            Epic epic = epicRepository.findById(epicId)
-                    .orElseThrow(() -> new RequestException("Epic not found"));
-            if (!epic.getProject().getId().equals(project.getId()))
-                throw new RequestException("Epic not belong to project");
-            specs = specs.and(IssueSpecs.belongToEpic(epicId));
+        else{
+            if (sprintId != null) {
+                Sprint sprint = sprintRepository.findById(sprintId)
+                        .orElseThrow(() -> new RequestException("Sprint not found"));
+                if (!sprint.getProject().getId().equals(project.getId()))
+                    throw new RequestException("Sprint not belong to project");
+                specs = specs.and(IssueSpecs.belongToSprint(sprintId));
+            }
         }
         if (filters.getKeyword() != null) {
             specs = specs.and(IssueSpecs.hasKeyword(filters.getKeyword()));
@@ -550,6 +548,32 @@ public class IssueFacadeService {
         dto.setCreatedAt(comment.getCreatedAt());
         dto.setUpdatedAt(comment.getUpdatedAt());
         return dto;
+    }
+
+    public void detach(long issueId, long sprintId) {
+        Sprint sprint = sprintRepository.findById(sprintId)
+                .orElseThrow(() -> new RequestException("Sprint not found"));
+        User user = securityUtils.getCurrentUser();
+        ProjectMember member = projectMemberService.getByProjectAndUser(sprint.getProject(), user);
+        if (member == null)
+            throw new RequestException("Member is not in project");
+        Issue issue = issueRepository.findById(issueId)
+                .orElseThrow(() -> new RequestException("Issue not found"));
+        issue.setSprint(null);
+        issueRepository.save(issue);
+    }
+
+    public void attach(long issueId, long sprintId) {
+        Sprint sprint = sprintRepository.findById(sprintId)
+                .orElseThrow(() -> new RequestException("Sprint not found"));
+        User user = securityUtils.getCurrentUser();
+        ProjectMember member = projectMemberService.getByProjectAndUser(sprint.getProject(), user);
+        if (member == null)
+            throw new RequestException("Member is not in project");
+        Issue issue = issueRepository.findById(issueId)
+                .orElseThrow(() -> new RequestException("Issue not found"));
+        issue.setSprint(sprint);
+        issueRepository.save(issue);
     }
 
     /**

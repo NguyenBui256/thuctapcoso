@@ -1,44 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { fetchWithAuth } from '../../../utils/AuthUtils';
 import { BASE_API_URL } from '../../../common/constants';
+import { toast } from 'react-toastify';
 
 function PermissionsTable({ projectId, roleId }) {
   const [permissions, setPermissions] = useState([]);
   const [rolePermissions, setRolePermissions] = useState([]);
+  const [permissionEnabledStatus, setPermissionEnabledStatus] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [changes, setChanges] = useState({});
-  const [successMessage, setSuccessMessage] = useState('');
   const [userId, setUserId] = useState(null);
-
-  // Module-wise permission groups as seen in the screenshot
-  const permissionGroups = [
-    { 
-      name: 'Epics', 
-      actions: ['View epics', 'Add epics', 'Modify epics', 'Comment epics', 'Delete epics'] 
-    },
-    { 
-      name: 'Sprints', 
-      actions: ['View sprints', 'Add sprints', 'Modify sprints', 'Delete sprints'] 
-    },
-    {
-      name: 'User Stories',
-      actions: ['View user stories', 'Add user stories', 'Modify user stories', 'Comment user stories', 'Delete user stories']
-    },
-    {
-      name: 'Tasks',
-      actions: ['View tasks', 'Add tasks', 'Modify tasks', 'Comment tasks', 'Delete tasks']
-    },
-    {
-      name: 'Issues',
-      actions: ['View issues', 'Add issues', 'Modify issues', 'Comment issues', 'Delete issues']
-    },
-    {
-      name: 'Wiki',
-      actions: ['View wiki pages', 'Add wiki pages', 'Modify wiki pages', 'Delete wiki pages', 'Add wiki links']
-    }
-  ];
+  const [permissionGroups, setPermissionGroups] = useState([]);
+  const [rolePermissionsData, setRolePermissionsData] = useState([]);
 
   useEffect(() => {
     // Get user ID from local storage
@@ -61,6 +36,34 @@ function PermissionsTable({ projectId, roleId }) {
       fetchPermissionsData();
     }
   }, [projectId, roleId, userId]);
+
+  // Process permissions into groups once they are loaded
+  useEffect(() => {
+    if (permissions.length > 0) {
+      organizePermissionsIntoGroups();
+    }
+  }, [permissions]);
+
+  const organizePermissionsIntoGroups = () => {
+    // Get unique modules
+    const modules = [...new Set(permissions.map(p => p.module))];
+    
+    // Create groups for each module
+    const groups = modules.map(module => {
+      // Get all permissions for this module
+      const modulePermissions = permissions.filter(p => p.module === module);
+      
+      // Extract unique action names
+      const actions = [...new Set(modulePermissions.map(p => p.name))];
+      
+      return {
+        name: module,
+        actions: actions
+      };
+    });
+    
+    setPermissionGroups(groups);
+  };
 
   const fetchPermissionsData = async () => {
     if (!userId) return;
@@ -89,11 +92,14 @@ function PermissionsTable({ projectId, roleId }) {
         allPermissions = permissionsResponse.data;
       }
       
-      setPermissions(Array.isArray(allPermissions) ? allPermissions : []);
+      const permissionsList = Array.isArray(allPermissions) ? allPermissions : [];
+      setPermissions(permissionsList);
       
-      // Fetch role-specific permissions
+      console.log('All permissions set:', permissionsList);
+      
+      // Fetch all permissions with their enabled status for the current role
       const rolePermissionsRes = await fetchWithAuth(
-        `${BASE_API_URL}/v1/projects/${projectId}/roles/${roleId}/permissions`,
+        `${BASE_API_URL}/v1/projects/${projectId}/roles/${roleId}/permissions/all`,
         null,
         true
       );
@@ -103,15 +109,52 @@ function PermissionsTable({ projectId, roleId }) {
       }
 
       const rolePermsResponse = await rolePermissionsRes.json();
-      console.log('Role permissions response:', rolePermsResponse);
       
-      // Extract role permissions from response
-      let rolePerms = rolePermsResponse;
-      if (rolePermsResponse && rolePermsResponse.data) {
-        rolePerms = rolePermsResponse.data;
-      }
+      // Trích xuất dữ liệu từ response đảm bảo lấy đúng cấu trúc data
+      let rolePermsWithStatus = [];
       
-      setRolePermissions(Array.isArray(rolePerms) ? rolePerms : []);
+      // Kiểm tra cấu trúc phản hồi API và trích xuất dữ liệu phù hợp
+      rolePermsWithStatus = rolePermsResponse.data.data;
+      console.log('PERMISSIONS:', rolePermsWithStatus);
+      
+      // Map permissions để matching dễ dàng hơn
+      const permissionsMap = {};
+      permissionsList.forEach(p => {
+        permissionsMap[p.id] = p;
+      });
+      
+      // Extract enabled status for each permission
+      const newEnabledStatus = {};
+      
+      rolePermsWithStatus.forEach(item => {
+        if (item && item.permission && item.permission.id) {
+          // Force isEnabled to be a boolean
+          const isEnabled = item.isEnabled === true;
+          newEnabledStatus[item.permission.id] = isEnabled;
+        } else if (item && item.permissionId) {
+          // Fallback: nếu chỉ có permissionId
+          const isEnabled = item.isEnabled === true;
+          newEnabledStatus[item.permissionId] = isEnabled;
+        }
+      });
+    
+      setPermissionEnabledStatus(newEnabledStatus);
+      
+      // Get enabled permissions for backwards compatibility
+      const enabledPermissions = [];
+      
+      rolePermsWithStatus.forEach(item => {
+        if (item && item.isEnabled) {
+          if (item.permission) {
+            enabledPermissions.push(item.permission);
+          } else if (item.permissionId && permissionsMap[item.permissionId]) {
+            enabledPermissions.push(permissionsMap[item.permissionId]);
+          }
+        }
+      });
+      
+      setRolePermissions(enabledPermissions);
+      
       // Reset changes when loading new role permissions
       setChanges({});
     } catch (err) {
@@ -123,26 +166,21 @@ function PermissionsTable({ projectId, roleId }) {
   };
 
   const isPermissionEnabled = (module, action) => {
-    const permissionName = `${action.toLowerCase()}`;
     const permission = permissions.find(p => 
-      p.module.toLowerCase() === module.toLowerCase() && 
-      p.name.toLowerCase() === permissionName
+      p.module === module && 
+      p.name === action
     );
     
     if (!permission) return false;
     
-    return rolePermissions.some(rp => rp.id === permission.id);
-  };
-
-  const hasPermissionChanged = (permissionId) => {
-    return changes[permissionId] !== undefined;
+    // Lấy trạng thái trực tiếp từ map
+    return permissionEnabledStatus[permission.id] === true;
   };
 
   const togglePermission = (module, action) => {
-    const permissionName = `${action.toLowerCase()}`;
     const permission = permissions.find(p => 
-      p.module.toLowerCase() === module.toLowerCase() && 
-      p.name.toLowerCase() === permissionName
+      p.module === module && 
+      p.name === action
     );
     
     if (!permission) {
@@ -150,48 +188,63 @@ function PermissionsTable({ projectId, roleId }) {
       return;
     }
 
-    const isCurrentlyEnabled = rolePermissions.some(rp => rp.id === permission.id);
-    const newValue = !isCurrentlyEnabled;
-
-    // Update changes object for API call
-    setChanges(prev => ({
-      ...prev,
-      [permission.id]: newValue
-    }));
-
-    // Update local state for immediate feedback
-    if (newValue) {
-      setRolePermissions(prev => [...prev, permission]);
-    } else {
-      setRolePermissions(prev => prev.filter(p => p.id !== permission.id));
-    }
+    const permissionId = permission.id;
     
-    // Clear success message when making new changes
-    setSuccessMessage('');
-  };
+    // Lấy trạng thái hiện tại từ map
+    const isCurrentlyEnabled = permissionEnabledStatus[permissionId] === true;
+    const newValue = !isCurrentlyEnabled;
+    
+    console.log(`Toggling permission ${permissionId} (${module}.${action}): ${isCurrentlyEnabled} -> ${newValue}`);
 
-  const saveChanges = async () => {
-    if (!userId || Object.keys(changes).length === 0) return;
+    // Tìm permission trong rolePermissionsData (nếu có)
+    let permissionData = rolePermissionsData.find(p => 
+      (p.permission && p.permission.id === permissionId) || 
+      (p.permissionId === permissionId)
+    );
+
+    console.log('Found permission data:', permissionData);
+    
+    let prpId = null;
+    
+    if (permissionData) {
+      prpId = permissionData.id;
+      
+      // Cập nhật rolePermissionsData để đồng bộ với UI
+      setRolePermissionsData(prev => 
+        prev.map(item => {
+          if ((item.permission && item.permission.id === permissionId) ||
+              (item.permissionId === permissionId)) {
+            return {...item, isEnabled: newValue};
+          }
+          return item;
+        })
+      );
+    }
+
+    // Cập nhật UI ngay lập tức
+    setPermissionEnabledStatus(prev => ({
+      ...prev,
+      [permissionId]: newValue
+    }));
+    
+    // Save changes directly 
+    saveSinglePermission(prpId, permissionId, newValue);
+  };
+  
+  const saveSinglePermission = async (prpId, permissionId, isEnabled) => {
+    if (!userId) return;
 
     setSaving(true);
-    setSuccessMessage('');
     setError(null);
 
     try {
-      // Format the data as expected by the backend
-      // Convert the changes object to a list of permission IDs with their enabled status
-      const permissionIdsToUpdate = [];
+      const payload = { isEnabled };
       
-      // Add permission IDs that should be enabled
-      Object.entries(changes).forEach(([permissionId, enabled]) => {
-        if (enabled) {
-          permissionIdsToUpdate.push(parseInt(permissionId, 10));
-        }
-      });
+      console.log(`Updating permission ${permissionId} to ${isEnabled ? 'enabled' : 'disabled'}`);
       
-      // Make the API call to update role permissions
+      // Sử dụng endpoint mới cập nhật từng permission
       const res = await fetchWithAuth(
-        `${BASE_API_URL}/v1/user/${userId}/project/${projectId}/roles/${roleId}`,
+        `${BASE_API_URL}/v1/projects/${projectId}/roles/${roleId}/permission/${permissionId}`,
         null,
         true,
         {
@@ -199,29 +252,133 @@ function PermissionsTable({ projectId, roleId }) {
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({
-            roleName: rolePermissions[0]?.roleName || `Role ${roleId}`,
-            permissionIds: permissionIdsToUpdate
-          })
+          body: JSON.stringify(payload)
         }
       );
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData?.message || `Failed to save permission changes: ${res.status}`);
+      const status = res.status;
+      let responseText = '';
+      
+      try {
+        const responseBody = await res.text();
+        responseText = responseBody;
+        console.log('Response body:', responseBody);
+      } catch (textError) {
+        console.error('Error reading response text:', textError);
       }
 
-      const response = await res.json();
-      console.log('Save permissions response:', response);
+      if (!res.ok) {
+        throw new Error(`Failed to save permission change: ${status} - ${responseText}`);
+      }
+
+      let response;
+      try {
+        response = JSON.parse(responseText);
+        console.log('Save permission response:', response);
+      } catch (jsonError) {
+        console.error('Error parsing JSON response:', jsonError);
+        response = { message: 'Permission updated successfully' };
+      }
       
-      setSuccessMessage('Permissions updated successfully');
-      setChanges({});
+      // Thay thế hiển thị trong component bằng toast notification
+      toast.success('Update Success', {
+        position: "bottom-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
       
-      // Refresh permissions after save to ensure data consistency
-      fetchPermissionsData();
+      // Refresh permissions after a short delay to ensure UI is consistent
+      setTimeout(() => fetchPermissionsData(), 1000);
     } catch (err) {
-      console.error('Error saving permissions:', err);
-      setError(err.message || 'An error occurred while saving permissions');
+      console.error('Error saving permission:', err);
+      setError(err.message || 'An error occurred while saving permission');
+      
+      // Show error with toast
+      toast.error(err.message || 'Failed to update permission', {
+        position: "bottom-right",
+        autoClose: 5000,
+      });
+      
+      // Revert UI change on error
+      setPermissionEnabledStatus(prev => ({
+        ...prev,
+        [permissionId]: !isEnabled
+      }));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const initializePermissions = async () => {
+    if (!userId) return;
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      console.log(`Initializing all permissions for role ${roleId}`);
+      
+      // Gọi API để khởi tạo lại tất cả quyền
+      const res = await fetchWithAuth(
+        `${BASE_API_URL}/v1/projects/${projectId}/roles/${roleId}/permissions/init?defaultEnabled=true`,
+        null,
+        true,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      const status = res.status;
+      let responseText = '';
+      
+      try {
+        const responseBody = await res.text();
+        responseText = responseBody;
+        console.log('Response body:', responseBody);
+      } catch (textError) {
+        console.error('Error reading response text:', textError);
+      }
+
+      if (!res.ok) {
+        throw new Error(`Failed to initialize permissions: ${status} - ${responseText}`);
+      }
+
+      let response;
+      try {
+        response = JSON.parse(responseText);
+        console.log('Initialize permissions response:', response);
+      } catch (jsonError) {
+        console.error('Error parsing JSON response:', jsonError);
+        response = { message: 'Permissions initialized successfully' };
+      }
+      
+      // Thay thế hiển thị message bằng toast
+      toast.success('Permissions initialized successfully', {
+        position: "bottom-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
+      
+      // Refresh permissions to show updated state
+      await fetchPermissionsData();
+    } catch (err) {
+      console.error('Error initializing permissions:', err);
+      setError(err.message || 'An error occurred while initializing permissions');
+      
+      // Show error with toast
+      toast.error(err.message || 'Failed to initialize permissions', {
+        position: "bottom-right",
+        autoClose: 5000,
+      });
     } finally {
       setSaving(false);
     }
@@ -239,33 +396,17 @@ function PermissionsTable({ projectId, roleId }) {
     return <div className="p-6">No permissions found. Please contact an administrator.</div>;
   }
 
+  if (permissionGroups.length === 0) {
+    return <div className="p-6">Organizing permissions...</div>;
+  }
+
   return (
     <div className="p-6">
-      {successMessage && (
-        <div className="bg-green-100 text-green-700 p-3 mb-4 rounded">
-          {successMessage}
-        </div>
-      )}
-      
       {error && (
         <div className="bg-red-100 text-red-700 p-3 mb-4 rounded">
           {error}
         </div>
       )}
-      
-      <div className="mb-4 flex justify-end">
-        <button 
-          onClick={saveChanges}
-          disabled={Object.keys(changes).length === 0 || saving}
-          className={`px-4 py-2 rounded ${
-            Object.keys(changes).length === 0 || saving
-              ? 'bg-gray-300 cursor-not-allowed'
-              : 'bg-blue-500 text-white hover:bg-blue-600'
-          }`}
-        >
-          {saving ? 'Saving...' : 'Save Changes'}
-        </button>
-      </div>
 
       {permissionGroups.map((group) => (
         <div key={group.name} className="mb-8">
@@ -284,18 +425,31 @@ function PermissionsTable({ projectId, roleId }) {
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {group.actions.map((action) => {
-                  const permissionName = action.toLowerCase();
                   const permission = permissions.find(p => 
-                    p.module.toLowerCase() === group.name.toLowerCase() && 
-                    p.name.toLowerCase() === permissionName
+                    p.module === group.name && 
+                    p.name === action
                   );
                   
                   const isEnabled = isPermissionEnabled(group.name, action);
 
+                  // Format action name for display (capitalize first letter of each word)
+                  const displayName = action
+                    .split(' ')
+                    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                    .join(' ');
+
+                  const toggleClasses = `w-11 h-6 ${isEnabled ? 'bg-emerald-500' : 'bg-gray-200'} rounded-full 
+                    peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] 
+                    after:bg-white after:border-gray-300 after:border after:rounded-full 
+                    after:h-5 after:w-5 after:transition-all 
+                    ${isEnabled ? 'after:translate-x-full after:border-white' : ''}
+                    ${!permission ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                    peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300`;
+
                   return (
                     <tr key={action}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {action}
+                        {displayName}
                         {permission && <div className="text-xs text-gray-500">{permission.apiPath}</div>}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -307,9 +461,7 @@ function PermissionsTable({ projectId, roleId }) {
                             onChange={() => togglePermission(group.name, action)}
                             disabled={!permission}
                           />
-                          <div className={`w-11 h-6 ${permission ? 'bg-gray-200' : 'bg-gray-100'} peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
-                            isEnabled ? 'peer-checked:bg-blue-500' : ''
-                          } ${!permission ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
+                          <div className={toggleClasses}></div>
                         </label>
                       </td>
                     </tr>

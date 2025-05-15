@@ -14,16 +14,21 @@ const TaskDetail = () => {
     const navigate = useNavigate();
 
     const [taskDetails, setTaskDetails] = useState({
-        id: 1,
-        project: 'ZG nnn',
+        id: null,
+        project: '',
         projectId: null,
         createdBy: 'Unknown',
-        createdAt: '20 Apr 2025 14:56',
+        createdAt: '',
         attachments: [],
         comments: [],
         assignees: [],
         watchers: [],
-        statusId: 1
+        tags: [],
+        statusId: null,
+        subject: '',
+        description: '',
+        isBlocked: false,
+        points: 0
     });
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -98,12 +103,14 @@ const TaskDetail = () => {
 
     // Replace getStatusColor function
     const getStatusColor = (statusId) => {
+        if (!statusId) return '#cccccc'; // Default color for null or undefined statusId
         const status = statuses.find(s => s.id === statusId);
         return status && status.color ? status.color : '#cccccc';
     };
 
     // Replace getStatusName function
     const getStatusName = (statusId) => {
+        if (!statusId) return 'UNKNOWN'; // Default name for null or undefined statusId
         const status = statuses.find(s => s.id === statusId);
         return status ? status.name : 'UNKNOWN';
     };
@@ -222,30 +229,42 @@ const TaskDetail = () => {
                 if (!isMounted) return;
 
                 const taskData = response.data;
+                console.log('Received task data:', taskData);
+
+                // Ensure task data has all required fields with defaults
+                const processedTaskData = {
+                    ...taskData,
+                    attachments: taskData.attachments || [],
+                    comments: taskData.comments || [],
+                    assignees: taskData.assignees || [],
+                    watchers: taskData.watchers || [],
+                    tags: taskData.tags || [],
+                    statusId: taskData.statusId || null
+                };
 
                 // Preserve existing comments when updating task details
                 setTaskDetails(prev => ({
-                    ...taskData,
-                    comments: prev?.comments || taskData.comments || []
+                    ...processedTaskData,
+                    comments: prev?.comments || processedTaskData.comments || []
                 }));
 
                 // Initialize editable fields
-                setEditedSubject(taskData.subject || '');
-                setEditedDescription(taskData.description || '');
-                setEditedDueDate(taskData.dueDate ? new Date(taskData.dueDate) : null);
-                setIsBlocked(taskData.isBlocked || false);
-                setEditedPoints(taskData.points || 0);
+                setEditedSubject(processedTaskData.subject || '');
+                setEditedDescription(processedTaskData.description || '');
+                setEditedDueDate(processedTaskData.dueDate ? new Date(processedTaskData.dueDate) : null);
+                setIsBlocked(processedTaskData.isBlocked || false);
+                setEditedPoints(processedTaskData.points || 0);
 
                 // Directly fetch tags if projectId is available
-                if (taskData.projectId) {
-                    console.log("Task has projectId, directly fetching tags:", taskData.projectId);
-                    fetchAvailableTags(taskData.projectId);
+                if (processedTaskData.projectId) {
+                    console.log("Task has projectId, directly fetching tags:", processedTaskData.projectId);
+                    fetchAvailableTags(processedTaskData.projectId);
                 }
 
                 // Fetch available assignees if project ID is available
-                if (taskData.userStoryId && isMounted) {
+                if (processedTaskData.userStoryId && isMounted) {
                     try {
-                        const userStoryResponse = await axios.get(`/api/kanban/board/userstory/${taskData.userStoryId}`, {
+                        const userStoryResponse = await axios.get(`/api/kanban/board/userstory/${processedTaskData.userStoryId}`, {
                             signal: controller.signal
                         });
 
@@ -253,7 +272,7 @@ const TaskDetail = () => {
 
                         if (userStoryResponse.data && userStoryResponse.data.projectId) {
                             // Lưu lại projectId từ user story nếu task không có
-                            if (!taskData.projectId) {
+                            if (!processedTaskData.projectId) {
                                 setTaskDetails(prev => ({
                                     ...prev,
                                     projectId: userStoryResponse.data.projectId
@@ -331,12 +350,17 @@ const TaskDetail = () => {
     }, [taskId, fetchTaskDetails, fetchComments, fetchActivities, projectId]);
 
     useEffect(() => {
-        if (taskDetails.watchers && taskDetails.watchers.length > 0) {
+        if (taskDetails && taskDetails.watchers && taskDetails.watchers.length > 0) {
             setWatchers(taskDetails.watchers);
+        } else if (taskDetails && !taskDetails.watchers) {
+            // Initialize with empty array if watchers is undefined
+            setWatchers([]);
         }
-    }, [taskDetails.watchers]);
+    }, [taskDetails, taskDetails?.watchers]);
 
     useEffect(() => {
+        if (!taskDetails) return;
+
         if (taskDetails.assignees && taskDetails.assignees.length > 0) {
             console.log('Assigned users from API:', taskDetails.assignees);
             // Kiểm tra cấu trúc của dữ liệu
@@ -358,30 +382,30 @@ const TaskDetail = () => {
     }, [taskDetails]);
 
     useEffect(() => {
-        if (taskDetails) {
-            setEditedSubject(taskDetails.subject || '');
-            setEditedDescription(taskDetails.description || '');
-            setEditedDueDate(taskDetails.dueDate ? new Date(taskDetails.dueDate) : null);
-            setIsBlocked(taskDetails.isBlocked || false);
-            setEditedPoints(taskDetails.points || 0);
-        }
+        if (!taskDetails) return;
+
+        setEditedSubject(taskDetails.subject || '');
+        setEditedDescription(taskDetails.description || '');
+        setEditedDueDate(taskDetails.dueDate ? new Date(taskDetails.dueDate) : null);
+        setIsBlocked(taskDetails.isBlocked || false);
+        setEditedPoints(taskDetails.points || 0);
     }, [taskDetails]);
 
     // Sửa useEffect để có cleanup và tránh vòng lặp vô hạn
     useEffect(() => {
-        if (taskDetails.comments) {
-            // Chỉ cập nhật khi comments thực sự thay đổi để tránh vòng lặp
-            const currentCommentsCount = taskDetails.comments.length;
-            const prevCommentsCount = taskDetails.comments ? taskDetails.comments.length : 0;
+        if (!taskDetails || !taskDetails.comments) return;
 
-            if (currentCommentsCount !== prevCommentsCount) {
-                setTaskDetails(prev => ({
-                    ...prev,
-                    comments: taskDetails.comments
-                }));
-            }
+        // Chỉ cập nhật khi comments thực sự thay đổi để tránh vòng lặp
+        const currentCommentsCount = taskDetails.comments.length;
+        const prevCommentsCount = taskDetails.comments ? taskDetails.comments.length : 0;
+
+        if (currentCommentsCount !== prevCommentsCount) {
+            setTaskDetails(prev => ({
+                ...prev,
+                comments: taskDetails.comments
+            }));
         }
-    }, [taskDetails.comments]);
+    }, [taskDetails?.comments]);
 
     // Sửa useEffect để activities luôn được cập nhật khi có trigger và có cleanup
     useEffect(() => {
@@ -800,30 +824,48 @@ const TaskDetail = () => {
         setError(null);
 
         try {
+            // Create a complete update object with all fields
             const updateData = {
-                id: taskDetails.id,
-                subject: editedSubject,
+                name: editedSubject,         // Changed from subject to name to match backend
                 description: editedDescription || '',
-                statusId: taskDetails.statusId, // Keep current status ID
-                // Include any other fields that need to be updated
+                statusId: taskDetails.statusId,
                 isBlocked: isBlocked,
-                points: editedPoints
+                points: editedPoints,
+                dueDate: editedDueDate,
+                userStoryId: taskDetails.userStoryId // Ensure userStoryId is included
             };
 
+            console.log('Updating task with data:', updateData);
+
+            // Single API call with all data
             const response = await axios.put(`/api/tasks/${taskDetails.id}`, updateData);
-            setTaskDetails(response.data);
+            console.log('Update response:', response);
+
+            // Update local state with response data
+            setTaskDetails(prev => ({
+                ...prev,
+                ...response.data
+            }));
+
             setEditMode(false);
             toast.success('Task updated successfully');
 
             // Record activity
             await recordActivity('task_updated', 'Task details updated');
 
-            // Trigger activities refresh
+            // Refresh data
             triggerActivitiesRefresh();
-        } catch (err) {
-            console.error('Error saving changes:', err);
-            setError('Failed to save changes. Please try again.');
-            toast.error('Failed to save task changes');
+            await fetchTaskDetails();
+
+        } catch (error) {
+            console.error('Update failed:', error);
+            if (error.response) {
+                console.error('Error status:', error.response.status);
+                console.error('Error data:', error.response.data);
+                toast.error(`Failed to update task: ${error.response.data?.message || 'Unknown error'}`);
+            } else {
+                toast.error('Network error. Please check your connection and try again.');
+            }
         } finally {
             setIsSaving(false);
         }
@@ -916,7 +958,6 @@ const TaskDetail = () => {
             await axios.post(
                 `/api/tasks/${taskDetails.id}/activities`,
                 activityData,
-                { headers: { 'User-Id': userId } }
             );
 
             // Luôn fetch activities sau khi ghi lại hoạt động, bất kể activeTab là gì
@@ -1043,8 +1084,17 @@ const TaskDetail = () => {
 
                 if (attachResponse.data) {
                     toast.success('File attached successfully!');
-                    // Refresh the task to show the new attachment
-                    fetchTaskDetails();
+
+                    // Cập nhật UI ngay lập tức mà không cần tải lại trang
+                    // Thêm tệp đính kèm mới vào danh sách hiện tại
+                    const newAttachment = attachResponse.data;
+                    setTaskDetails(prev => ({
+                        ...prev,
+                        attachments: [...(prev.attachments || []), newAttachment]
+                    }));
+
+                    // Cập nhật hoạt động
+                    triggerActivitiesRefresh();
                 } else {
                     toast.error('Failed to attach file to task');
                 }
@@ -1332,9 +1382,9 @@ const TaskDetail = () => {
                         <button
                             onClick={() => setShowStatusDropdown(!showStatusDropdown)}
                             className="text-white px-3 py-1 rounded-sm ml-2 flex items-center"
-                            style={{ backgroundColor: getStatusColor(taskDetails.statusId) }}
+                            style={{ backgroundColor: taskDetails && taskDetails.statusId ? getStatusColor(taskDetails.statusId) : '#cccccc' }}
                         >
-                            {getStatusName(taskDetails.statusId)} <ChevronDown size={16} />
+                            {taskDetails && taskDetails.statusId ? getStatusName(taskDetails.statusId) : 'Status'} <ChevronDown size={16} />
                         </button>
 
                         {showStatusDropdown && (
@@ -1343,7 +1393,7 @@ const TaskDetail = () => {
                                     statuses.map(status => (
                                         <div
                                             key={status.id}
-                                            className={`flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer ${status.id === taskDetails.statusId ? 'bg-gray-100' : ''}`}
+                                            className={`flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer ${taskDetails && taskDetails.statusId === status.id ? 'bg-gray-100' : ''}`}
                                             onClick={() => handleStatusChange(status.id)}
                                         >
                                             <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: status.color }}></div>
@@ -1787,18 +1837,12 @@ const TaskDetail = () => {
                     </div>
 
                     {/* Action buttons */}
-                    <div className="flex justify-end space-x-2 mt-8">
+                    <div className="flex justify-center space-x-2 mt-8">
                         <button
                             className="bg-red-500 p-2 rounded text-white"
                             onClick={() => setShowDueDatePicker(true)}
                         >
                             <Clock size={16} />
-                        </button>
-                        <button className="bg-gray-100 p-2 rounded text-gray-500 hover:bg-gray-200">
-                            <Users size={16} />
-                        </button>
-                        <button className="bg-gray-100 p-2 rounded text-gray-500 hover:bg-gray-200">
-                            <Paperclip size={16} />
                         </button>
                         <button
                             className={`p-2 rounded ${isBlocked ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-500'} hover:${isBlocked ? 'bg-red-600' : 'bg-gray-200'}`}
@@ -1806,9 +1850,6 @@ const TaskDetail = () => {
                             title={isBlocked ? 'Unblock this task' : 'Block this task'}
                         >
                             <Lock size={16} />
-                        </button>
-                        <button className="bg-gray-100 p-2 rounded text-gray-500 hover:bg-gray-200">
-                            <List size={16} />
                         </button>
                         <button
                             className="bg-red-500 p-2 rounded text-white hover:bg-red-600"

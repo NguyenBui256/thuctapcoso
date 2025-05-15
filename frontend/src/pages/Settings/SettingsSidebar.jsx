@@ -181,15 +181,6 @@ const SettingsSidebar = ({ section, subSection, onSectionChange, onSubSectionCha
                 {item.name}
               </button>
             ))}
-            
-            {section === 'permissions' && (
-              <button
-                onClick={() => onSubSectionChange('new-role')}
-                className="flex items-center justify-center w-full px-3 py-2 mt-4 text-sm text-blue-600 border border-dashed border-blue-300 rounded-md hover:bg-blue-50"
-              >
-                + New Role
-              </button>
-            )}
           </nav>
         </div>
       </div>

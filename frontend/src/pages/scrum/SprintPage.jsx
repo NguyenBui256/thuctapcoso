@@ -17,6 +17,7 @@ import { useParams, useNavigate } from "react-router-dom"
 import { toast } from "react-toastify"
 import CreateTaskModal from "../../components/kanban/CreateTaskModal"
 import SprintProgressBar from "../../components/sprint/SprintProgressBar"
+import IssueSection from "../../components/sprint/IssueSection"
 
 const filterss = ['statuses', 'assigns', 'createdBy', 'roles']
 const filterNames = ['Trạng thái', 'Phân công', 'Tạo bởi', 'Vai trò']
@@ -1179,29 +1180,8 @@ export default function SprintPage() {
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="container mx-auto px-4 py-4 mt-4 border-t border-teal-200">
-        <div className="flex items-center">
-          <input type="checkbox" className="mr-2" />
-          <span className="text-gray-600 font-medium">SPRINT ISSUES</span>
-
-          <div className="ml-6 flex items-center">
-            <div className="w-10 h-5 bg-teal-500 rounded-full relative">
-              <div className="absolute right-0.5 top-0.5 bg-white w-4 h-4 rounded-full"></div>
-            </div>
-            <span className="ml-2 text-gray-600">Tags</span>
-          </div>
-
-          <div className="ml-auto flex items-center">
-            <button className="mr-2">
-              <Plus className="h-5 w-5 text-gray-500" />
-            </button>
-            <button>
-              <MoreVertical className="h-5 w-5 text-gray-500" />
-            </button>
-          </div>
-        </div>
-      </div>
+      {/* Thay thế phần Footer cũ bằng component IssueSection */}
+      <IssueSection projectId={projectId} sprintId={sprintId} />
 
       {/* Add CreateTaskModal component at the end, before the closing DragDropContext tag */}
       <CreateTaskModal
@@ -1212,6 +1192,17 @@ export default function SprintPage() {
         initialStatusId={1}
         onTaskCreated={handleTaskCreated}
       />
+      {/* </div> */}
+
+      {/* Add CreateTaskModal component at the end, before the closing DragDropContext tag */}
+      {/* <CreateTaskModal
+        show={showCreateTaskModal}
+        onHide={() => setShowCreateTaskModal(false)}
+        projectId={projectId}
+        userStoryId={selectedUserStory}
+        initialStatusId={1}
+        onTaskCreated={handleTaskCreated}
+      /> */}
     </DragDropContext>
   )
 }

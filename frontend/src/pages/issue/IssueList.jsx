@@ -246,17 +246,28 @@ export default function IssueList(){
                 </div>
             </div>
             {/* Modal tạo issue mới */}
-            <IssueCreateModal
-                open={showCreateModal}
-                onCreate={handleCreateIssue}
-                onClose={() => setShowCreateModal(false)}
-                tags={filters.tags || []}
-                statuses={filters.statuses || []}
-                types={filters.types || []}
-                severities={filters.severities || []}
-                assigns={filters.assigns || []}
-                priorities={filters.priorities || []}
-            />
+            {showCreateModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+                    <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl p-8 relative">
+                        <button
+                            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl"
+                            onClick={() => setShowCreateModal(false)}
+                        >
+                            ×
+                        </button>
+                        <IssueCreateModal
+                            onCreate={handleCreateIssue}
+                            onClose={() => setShowCreateModal(false)}
+                            tags={filters.tags || []}
+                            statuses={filters.statuses || []}
+                            types={filters.types || []}
+                            severities={filters.severities || []}
+                            assigns={filters.assigns || []}
+                            priorities={filters.priorities || []}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
