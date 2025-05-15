@@ -24,6 +24,8 @@ export default function TaigaUserStoryDetail() {
     const [availableAssignees, setAvailableAssignees] = useState([]);
     const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
     const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+    const [statusId, setStatusId] = useState(null);
+    const [initialStatusId, setInitialStatusId] = useState(null);
 
     // Add watcher related states
     const [watchers, setWatchers] = useState([]);
@@ -57,7 +59,7 @@ export default function TaigaUserStoryDetail() {
 
     // Task related states
     const [newTaskTitle, setNewTaskTitle] = useState('');
-    const [newTaskStatusId, setNewTaskStatusId] = useState(1); // Default to NEW status (id: 1)
+    const [newTaskStatusId, setNewTaskStatusId] = useState(null); // Default to NEW status (id: 1)
     const [newTaskAssignee, setNewTaskAssignee] = useState(null);
     const [isCreatingTask, setIsCreatingTask] = useState(false);
     const [showTaskStatusDropdown, setShowTaskStatusDropdown] = useState(false);
@@ -174,6 +176,7 @@ export default function TaigaUserStoryDetail() {
             }
 
             setUserStory(userStoryData);
+            setInitialStatusId(userStoryData.statusId); // Set initial status ID when user story is loaded
 
             // Đồng bộ state attachments từ userStoryData
             if (userStoryData.attachments) {
@@ -252,6 +255,25 @@ export default function TaigaUserStoryDetail() {
         }
     }, [userStoryId, attachmentRefreshTrigger, fetchUserStory]);
 
+    useEffect(() => {
+        if (taskStatuses.length > 0) {
+            setNewTaskStatusId(taskStatuses[0].id);
+        } else {
+            setNewTaskStatusId(null);
+        }
+    }, [taskStatuses]);
+
+    useEffect(() => {
+        if (statuses.length > 0) {
+            if (initialStatusId && statuses.some(status => status.id === initialStatusId)) {
+                setStatusId(initialStatusId);
+            } else {
+                setStatusId(statuses[0].id);
+            }
+        } else {
+            setStatusId(null);
+        }
+    }, [statuses, initialStatusId]);
     // Hàm helper để trigger làm mới hoạt động
     const triggerActivitiesRefresh = () => {
         setActivitiesRefreshTrigger(prev => prev + 1);
@@ -804,7 +826,7 @@ export default function TaigaUserStoryDetail() {
 
             // Reset form
             setNewTaskTitle('');
-            setNewTaskStatusId(1);
+            setNewTaskStatusId(null);
             setNewTaskAssignee(null);
             setIsCreatingTask(false);
 
