@@ -3,7 +3,7 @@ import { FiX, FiUser, FiUserPlus, FiMail, FiTrash2, FiAward } from 'react-icons/
 import { getUserInitials } from '../../utils/helpers';
 import { fetchWithAuth } from '../../utils/AuthUtils';
 import { BASE_API_URL } from '../../common/constants';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, projectId, sortOption, sortDirection }) => {
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -228,7 +228,7 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
     return (
       <div className={`bg-white rounded-lg shadow-sm p-4 mb-4 ${isCurrentUser ? 'border-2 border-blue-400' : ''}`}>
         <div className="flex items-start">
-          <div className="w-12 h-12 bg-taiga-primary flex items-center justify-center text-white rounded-full mr-4">
+          <Link to={`/users/${member.userId}`} className="w-12 h-12 bg-taiga-primary flex items-center justify-center text-white rounded-full mr-4 hover:brightness-90">
             {member?.avatar ? (
               <img
                 src={member.avatar}
@@ -239,13 +239,15 @@ const MemberContent = ({ members, currentUser, loading, error, onLeaveProject, p
             ) : (
               <span className="text-sm font-medium">{getUserInitials(member.username || member.userFullName)}</span>
             )}
-          </div>
+          </Link>
 
           <div className="flex-1">
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="text-lg font-medium text-gray-900">
-                  {member.userFullName || member.username}
+                  <Link to={`/users/${member.userId}`} className="hover:underline">
+                    {member.userFullName || member.username}
+                  </Link>
                   {member.isAdmin && (
                     <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
                       Admin

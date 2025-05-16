@@ -10,6 +10,10 @@ export const renderAvatar = (userData) => {
         );
     }
 
+    const getUserInitials = (username) => {
+        return username?.split(' ').map(name => name[0]).join('').toUpperCase();
+    }
+
     return (
         <img
             src={avatarUrl}

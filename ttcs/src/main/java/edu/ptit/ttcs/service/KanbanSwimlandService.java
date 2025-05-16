@@ -111,8 +111,9 @@ public class KanbanSwimlandService {
                         return systemUser;
                     });
 
-            // Fix: Use findByUserAndIsDeleteFalse instead of findByUserId
-            List<ProjectMember> projectMembers = projectMemberRepository.findByUserAndIsDeleteFalse(currentUser);
+            // Fix: Use findByUserIdAndIsDeleteFalse instead of findByUserAndIsDeleteFalse
+            List<ProjectMember> projectMembers = projectMemberRepository
+                    .findByUserIdAndIsDeleteFalse(currentUser.getId());
             ProjectMember currentProjectMember = projectMembers.isEmpty() ? null : projectMembers.get(0);
 
             if (currentProjectMember == null) {
@@ -137,9 +138,9 @@ public class KanbanSwimlandService {
                         return systemUser;
                     });
 
-            // Fix: Use findByUserAndIsDeleteFalse instead of using swimland's project
-            // member directly
-            List<ProjectMember> projectMembers = projectMemberRepository.findByUserAndIsDeleteFalse(currentUser);
+            // Fix: Use findByUserIdAndIsDeleteFalse instead of findByUserAndIsDeleteFalse
+            List<ProjectMember> projectMembers = projectMemberRepository
+                    .findByUserIdAndIsDeleteFalse(currentUser.getId());
             ProjectMember currentProjectMember = projectMembers.isEmpty()
                     ? (swimland.getUpdatedBy() != null ? swimland.getUpdatedBy() : swimland.getCreatedBy())
                     : projectMembers.get(0);

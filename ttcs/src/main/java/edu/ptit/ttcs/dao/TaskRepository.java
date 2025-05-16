@@ -50,4 +50,7 @@ public interface TaskRepository extends JpaRepository<Task, Integer>, JpaSpecifi
      */
     @Query("SELECT t FROM Task t JOIN t.userStory us WHERE us.sprint.id = :sprintId AND (t.isDeleted = false OR t.isDeleted IS NULL)")
     List<Task> findTasksBySprintId(@Param("sprintId") Long sprintId);
+
+    @Query("SELECT t FROM Task t JOIN t.watchers w WHERE w.user.id = :userId AND (t.isDeleted = false OR t.isDeleted IS NULL)")
+    List<Task> findTasksWatchedByUser(@Param("userId") Long userId);
 }

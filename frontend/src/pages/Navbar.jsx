@@ -222,7 +222,7 @@ export default function Navbar() {
                                     onClick={() => setIsProfileOpen(!isProfileOpen)}
                                 >
                                     <Link
-                                        to={'#'}
+                                        to={`/users/${userData?.userId}`}
                                         className="w-8 h-8 rounded-full flex items-center justify-center border-4 border-blue-400 hover:border-gray-400"
                                     >
                                         {renderUserAvatar()}

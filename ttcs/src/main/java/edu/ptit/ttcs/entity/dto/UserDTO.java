@@ -6,6 +6,8 @@ public class UserDTO {
     private Long id;
     private String username;
     private String fullName;
+    private int closedUserStories;
+    private String bio;
 
     public Long getId() {
         return id;
@@ -29,6 +31,22 @@ public class UserDTO {
 
     public void setFullName(String fullName) {
         this.fullName = fullName;
+    }
+
+    public int getClosedUserStories() {
+        return closedUserStories;
+    }
+
+    public void setClosedUserStories(int closedUserStories) {
+        this.closedUserStories = closedUserStories;
+    }
+
+    public String getBio() {
+        return bio;
+    }
+
+    public void setBio(String bio) {
+        this.bio = bio;
     }
 
     public static UserDTO fromEntity(User user) {

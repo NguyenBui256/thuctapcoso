@@ -37,7 +37,7 @@ const ProjectDetails = ({ projectId }) => {
 
         if (response && response.ok) {
           const data = await response.json();
-          const projectData = data.data;
+          const projectData = data.data.data;
           setProject({
             id: projectData.id,
             name: projectData.name || '',

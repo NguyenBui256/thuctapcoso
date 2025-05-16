@@ -73,18 +73,18 @@ const WikiPagesTable = ({ pages, projectId, loading = false }) => {
                           <img
                             className="h-8 w-8 rounded-full"
                             src={page.createdBy.avatarUrl}
-                            alt={page.createdBy.fullName}
+                            alt={page.createdByUsername}
                           />
                         ) : (
                           <div className="h-8 w-8 rounded-full bg-taiga-primary/30 flex items-center justify-center text-taiga-secondary">
-                            {page.createdBy?.fullName?.charAt(0)?.toUpperCase() || '?'}
+                            {page.createdByUsername.charAt(0)?.toUpperCase() || '?'}
                           </div>
                         )}
                       </div>
                       <div className="ml-3">
                         <div className="text-sm font-medium text-taiga-primary">
                           <Link to={`/users/${getCurrentUserId()}`} className="hover:text-taiga-secondary">
-                            {page.createdBy?.fullName || 'Unknown'}
+                            {page.createdByUsername || 'Unknown'}
                           </Link>
                         </div>
                       </div>
