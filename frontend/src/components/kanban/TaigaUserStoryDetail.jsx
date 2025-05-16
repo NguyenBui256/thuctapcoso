@@ -1759,7 +1759,15 @@ export default function TaigaUserStoryDetail() {
                                     <div key={user.id} className="flex items-center justify-between">
                                         <div className="flex items-center">
                                             <div className="w-8 h-8 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2">
-                                                {user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'}
+                                                {user.photoUrl ? (
+                                                    <img
+                                                        src={user.photoUrl}
+                                                        alt={user.fullName || user.username}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                ) : (
+                                                    user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'
+                                                )}
                                             </div>
                                             <div>
                                                 <div className="font-medium">{user.fullName || user.username}</div>
@@ -1817,7 +1825,15 @@ export default function TaigaUserStoryDetail() {
                                 <div key={user.id} className="flex items-center justify-between">
                                     <div className="flex items-center">
                                         <div className="w-8 h-8 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2">
-                                            {user.fullName.split(' ').map(n => n[0]).join('')}
+                                            {user.photoUrl ? (
+                                                <img
+                                                    src={user.photoUrl}
+                                                    alt={user.fullName || user.username}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            ) : (
+                                                user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'
+                                            )}
                                         </div>
                                         <div>
                                             <div className="font-medium">{user.fullName}</div>

@@ -18,23 +18,25 @@ public class NotificationDTO {
     private String type;
     private Boolean isSeen;
     private LocalDateTime createdAt;
-    
+
     // Simplified user information for receiver
     private Long receiverId;
     private String receiverUsername;
     private String receiverFullName;
-    
+    private String receiverPhotoUrl;
+
     // Simplified user information for creator
     private Long createdById;
     private String createdByUsername;
     private String createdByFullName;
-    
+    private String createdByPhotoUrl;
+
     /**
      * Factory method to create a DTO from an entity
      */
     public static NotificationDTO fromEntity(Notification notification) {
         NotificationDTO dto = new NotificationDTO();
-        
+
         // Basic fields
         dto.setId(notification.getId());
         dto.setDescription(notification.getDescription());
@@ -42,7 +44,7 @@ public class NotificationDTO {
         dto.setType(notification.getType());
         dto.setIsSeen(notification.getIsSeen());
         dto.setCreatedAt(notification.getCreatedAt());
-        
+
         // Receiver fields
         User receiver = notification.getReceiver();
         if (receiver != null) {
@@ -50,7 +52,7 @@ public class NotificationDTO {
             dto.setReceiverUsername(receiver.getUsername());
             dto.setReceiverFullName(receiver.getFullName());
         }
-        
+
         // Creator fields
         User createdBy = notification.getCreatedBy();
         if (createdBy != null) {
@@ -58,7 +60,7 @@ public class NotificationDTO {
             dto.setCreatedByUsername(createdBy.getUsername());
             dto.setCreatedByFullName(createdBy.getFullName());
         }
-        
+
         return dto;
     }
-} 
+}

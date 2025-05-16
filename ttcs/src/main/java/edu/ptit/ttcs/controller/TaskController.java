@@ -3,6 +3,7 @@ package edu.ptit.ttcs.controller;
 import edu.ptit.ttcs.dao.ProjectSettingTagRepository;
 import edu.ptit.ttcs.dao.TaskRepository;
 import edu.ptit.ttcs.dao.UserRepository;
+import edu.ptit.ttcs.dao.UserSettingsRepository;
 import edu.ptit.ttcs.dao.UserStoryRepository;
 import edu.ptit.ttcs.dao.ProjectMemberRepository;
 import edu.ptit.ttcs.dao.CommentRepository;
@@ -17,6 +18,7 @@ import edu.ptit.ttcs.entity.dto.request.TaskRequestDTO;
 import edu.ptit.ttcs.entity.ProjectSettingTag;
 import edu.ptit.ttcs.entity.Task;
 import edu.ptit.ttcs.entity.User;
+import edu.ptit.ttcs.entity.UserSettings;
 import edu.ptit.ttcs.entity.UserStory;
 import edu.ptit.ttcs.entity.ProjectMember;
 import edu.ptit.ttcs.entity.ProjectSettingStatus;
@@ -66,6 +68,8 @@ public class TaskController {
     @Autowired
     private UserStoryRepository userStoryRepository;
 
+    @Autowired
+    private UserSettingsRepository userSettingsRepository;
     @Autowired
     private SecurityUtils securityUtils;
 
@@ -1270,6 +1274,8 @@ public class TaskController {
                 userDTO.setId(watcher.getId().intValue());
                 userDTO.setUsername(watcher.getUser().getUsername());
                 userDTO.setFullName(watcher.getUser().getFullName());
+                UserSettings userSettings = userSettingsRepository.findByUser(watcher.getUser()).orElse(null);
+                userDTO.setPhotoUrl(userSettings != null ? userSettings.getPhotoUrl() : null);
                 return userDTO;
             }).toList();
             dto.setWatchers(watcherDTOs);
@@ -1281,6 +1287,8 @@ public class TaskController {
                 userDTO.setId(assignee.getId().intValue());
                 userDTO.setUsername(assignee.getUser().getUsername());
                 userDTO.setFullName(assignee.getUser().getFullName());
+                UserSettings userSettings = userSettingsRepository.findByUser(assignee.getUser()).orElse(null);
+                userDTO.setPhotoUrl(userSettings != null ? userSettings.getPhotoUrl() : null);
                 return userDTO;
             }).toList();
             dto.setAssignees(assigneeDTOs);

@@ -97,7 +97,11 @@ const ManageProjects = () => {
                                     <div className="flex items-center p-4">
                                         <div className={`w-12 h-12 ${getIconColor(project.id)} rounded flex items-center justify-center mr-4`}>
                                             <span className="text-lg font-semibold">
-                                                {project.name ? project.name.substring(0, 2).toUpperCase() : 'P'}
+                                                {project.logoUrl ? (
+                                                    <img src={project.logoUrl} alt="Project Logo" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    project.name ? project.name.substring(0, 2).toUpperCase() : 'P'
+                                                )}
                                             </span>
                                         </div>
                                         <div className="flex-grow">

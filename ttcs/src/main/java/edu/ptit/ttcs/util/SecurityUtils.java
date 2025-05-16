@@ -1,6 +1,7 @@
 package edu.ptit.ttcs.util;
 
 import edu.ptit.ttcs.dao.UserRepository;
+import edu.ptit.ttcs.dao.UserSettingsRepository;
 import edu.ptit.ttcs.entity.User;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +18,13 @@ import org.springframework.security.oauth2.jwt.Jwt;
 public class SecurityUtils {
     @Autowired
     private UserRepository userRepository;
+    @Autowired
+    private UserSettingsRepository userSettingsRepository;
+
+    public String getCurrentUserPhotoUrl() {
+        User currentUser = getCurrentUser();
+        return userSettingsRepository.findByUser(currentUser).orElse(null).getPhotoUrl();
+    }
 
     public User getCurrentUser() {
         try {

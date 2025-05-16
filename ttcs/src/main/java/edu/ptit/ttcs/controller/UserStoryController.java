@@ -31,7 +31,9 @@ import edu.ptit.ttcs.entity.dto.TaskDTO;
 import edu.ptit.ttcs.entity.dto.CommentDTO;
 import edu.ptit.ttcs.service.KanbanUserStoryService;
 import edu.ptit.ttcs.entity.User;
+import edu.ptit.ttcs.entity.UserSettings;
 import edu.ptit.ttcs.dao.UserRepository;
+import edu.ptit.ttcs.dao.UserSettingsRepository;
 import edu.ptit.ttcs.entity.dto.KanbanTaskDTO;
 import edu.ptit.ttcs.service.KanbanTaskService;
 import edu.ptit.ttcs.entity.dto.UserStoryResponseDTO;
@@ -115,6 +117,8 @@ public class UserStoryController {
     @Autowired
     private UserStoryRepository userStoryRepository;
 
+    @Autowired
+    private UserSettingsRepository userSettingsRepository;
     @Autowired
     private KanbanUserStoryService kanbanUserStoryService;
 
@@ -967,6 +971,8 @@ public class UserStoryController {
                         dto.setId(user.getId().longValue());
                         dto.setUsername(user.getUsername());
                         dto.setFullName(user.getFullName());
+                        UserSettings userSettings = userSettingsRepository.findByUser(user).orElse(null);
+                        dto.setPhotoUrl(userSettings != null ? userSettings.getPhotoUrl() : null);
                         return dto;
                     })
                     .collect(Collectors.toList());
@@ -1316,6 +1322,8 @@ public class UserStoryController {
                         dto.setId(user.getId().longValue());
                         dto.setUsername(user.getUsername());
                         dto.setFullName(user.getFullName());
+                        UserSettings userSettings = userSettingsRepository.findByUser(user).orElse(null);
+                        dto.setPhotoUrl(userSettings != null ? userSettings.getPhotoUrl() : null);
                         return dto;
                     })
                     .collect(Collectors.toList());

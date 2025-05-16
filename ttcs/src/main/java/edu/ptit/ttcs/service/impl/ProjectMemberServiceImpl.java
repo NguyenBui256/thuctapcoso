@@ -5,11 +5,13 @@ import edu.ptit.ttcs.dao.ProjectMemberRepository;
 import edu.ptit.ttcs.dao.ProjectRepository;
 import edu.ptit.ttcs.dao.ProjectRoleRepository;
 import edu.ptit.ttcs.dao.UserRepository;
+import edu.ptit.ttcs.dao.UserSettingsRepository;
 import edu.ptit.ttcs.entity.Notification;
 import edu.ptit.ttcs.entity.Project;
 import edu.ptit.ttcs.entity.ProjectMember;
 import edu.ptit.ttcs.entity.ProjectRole;
 import edu.ptit.ttcs.entity.User;
+import edu.ptit.ttcs.entity.UserSettings;
 import edu.ptit.ttcs.entity.dto.ProjectMemberDTO;
 import edu.ptit.ttcs.entity.dto.ProjectInviteDTO;
 import edu.ptit.ttcs.entity.dto.ProjectMemberDTO;
@@ -37,6 +39,7 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
         private final ProjectService projectService;
         private final ActivityService activityService;
         private final NotificationRepository notificationRepository;
+        private final UserSettingsRepository userSettingsRepository;
 
         @Override
         @Transactional
@@ -588,7 +591,8 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
                 dto.setTotalPoint(member.getTotalPoint());
                 dto.setIsAdmin(member.getIsAdmin());
                 dto.setJoinedAt(member.getCreatedAt());
-                dto.setAvatar(member.getUser().getAvatar());
+                UserSettings userSettings = userSettingsRepository.findByUser(member.getUser()).orElse(null);
+                dto.setAvatar(userSettings != null ? userSettings.getPhotoUrl() : null);
 
                 // Add the project name to make it easier to display in the UI
                 dto.setProjectName(member.getProject() != null ? member.getProject().getName() : null);
