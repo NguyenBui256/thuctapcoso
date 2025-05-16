@@ -981,7 +981,7 @@ export default function IssueDetail() {
                         </div>
                     </div>
                     {/* Watchers */}
-                    <div style={{ background: '#fff', borderRadius: 8, padding: 16, marginBottom: 16 }}>
+                    {/* <div style={{ background: '#fff', borderRadius: 8, padding: 16, marginBottom: 16 }}>
                         <div style={{ fontWeight: 500, marginBottom: 8 }}>WATCHERS</div>
                         <div ref={watcherRef} style={{ position: 'relative' }}>
                             <Button
@@ -1051,7 +1051,7 @@ export default function IssueDetail() {
                                 <div className="text-gray-400">No watchers</div>
                             )}
                         </div>
-                    </div>
+                    </div> */}
                     {/* Các nút chức năng */}
                     <div
                         style={{ background: '#fff', borderRadius: 8, padding: 16, display: 'flex', gap: 12, justifyContent: 'center' }}

@@ -2,8 +2,11 @@ package edu.ptit.ttcs.service;
 
 import edu.ptit.ttcs.dao.RoleRepository;
 import edu.ptit.ttcs.dao.UserRepository;
+import edu.ptit.ttcs.dao.ProjectMemberRepository;
+import edu.ptit.ttcs.dao.UserStoryRepository;
 import edu.ptit.ttcs.entity.Role;
 import edu.ptit.ttcs.entity.User;
+import edu.ptit.ttcs.entity.UserStory;
 import edu.ptit.ttcs.entity.enums.RoleName;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,6 +19,8 @@ import java.util.Random;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final ProjectMemberRepository projectMemberRepository;
+    private final UserStoryRepository userStoryRepository;
 
     public User findById(Long id) {
         return userRepository.findById(id)
@@ -80,6 +85,18 @@ public class UserService {
 
     private static boolean isTooBright(int r, int g, int b) {
         return (r + g + b) / 3 > 200; // Nếu độ sáng trung bình trên 200, quá sáng
+    }
+
+    public List<User> getContactsByUserId(Long userId) {
+        return projectMemberRepository.findContactsByUserId(userId);
+    }
+
+    public int getClosedUserStoriesCountByUserId(Long userId) {
+        return userStoryRepository.countClosedUserStoriesByUserId(userId);
+    }
+
+    public List<UserStory> getAssignedUserStoriesByUserId(Long userId) {
+        return userStoryRepository.findAssignedUserStoriesByUserId(userId);
     }
 
 }

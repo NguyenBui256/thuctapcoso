@@ -25,7 +25,8 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, Lo
 
         List<ProjectMember> findByProjectAndIsDeleteFalse(Project project);
 
-        List<ProjectMember> findByUserAndIsDeleteFalse(User user);
+        @Query("SELECT pm FROM ProjectMember pm WHERE pm.user.id = :userId AND pm.isDelete = false")
+        List<ProjectMember> findByUserIdAndIsDeleteFalse(@Param("userId") Long userId);
 
         List<ProjectMember> findByProjectIdAndIsDeleteFalse(Long projectId);
 
@@ -68,4 +69,7 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, Lo
         @Query("SELECT pm FROM ProjectMember pm WHERE pm.project = :project AND pm.isAdmin = :isAdmin AND pm.isDelete = false")
         List<ProjectMember> findByProjectAndIsAdmin(@Param("project") Project project,
                         @Param("isAdmin") boolean isAdmin);
+
+        @Query("SELECT DISTINCT pm2.user FROM ProjectMember pm1 JOIN ProjectMember pm2 ON pm1.project = pm2.project WHERE pm1.user.id = :userId AND pm2.user.id <> :userId AND pm1.isDelete = false AND pm2.isDelete = false")
+        List<User> findContactsByUserId(@Param("userId") Long userId);
 }

@@ -40,4 +40,13 @@ public interface UserStoryRepository extends JpaRepository<UserStory, Integer>, 
     List<UserStory> findBySprintId(@Param("sprintId") Long sprintId);
 
     List<UserStory> findAllByProject(Project project);
+
+    @Query("SELECT us FROM UserStory us JOIN us.watchers w WHERE w.user.id = :userId AND (us.isDeleted = false OR us.isDeleted IS NULL)")
+    List<UserStory> findUserStoriesWatchedByUser(@Param("userId") Long userId);
+
+    @Query(value = "SELECT COUNT(us) FROM UserStory us JOIN us.assignedUsers pm WHERE pm.user.id = :userId AND us.status.closed = true AND (us.isDeleted = false OR us.isDeleted IS NULL)")
+    int countClosedUserStoriesByUserId(@Param("userId") Long userId);
+
+    @Query("SELECT us FROM UserStory us JOIN us.assignedUsers pm WHERE pm.user.id = :userId AND (us.isDeleted = false OR us.isDeleted IS NULL)")
+    List<UserStory> findAssignedUserStoriesByUserId(@Param("userId") Long userId);
 }

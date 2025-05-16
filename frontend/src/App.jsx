@@ -37,6 +37,7 @@ import AccountSettings from './components/account/AccountSettings.jsx';
 import KanbanBoardWrapper from './components/kanban/KanbanBoardWrapper.jsx';
 import TaigaUserStoryDetail from './components/kanban/TaigaUserStoryDetail';
 import TaigaTaskDetail from './components/kanban/TaigaTaskDetail';
+import UserProfile from './pages/UserProfile.jsx';
 
 function App() {
 
@@ -81,6 +82,7 @@ function App() {
             <Route path="search/results" element={<SearchResultsPage />} />
           </Route>
           <Route path="/account/settings" element={<AccountSettings />} />
+          <Route path="/users/:userId" element={<UserProfile />} />
         </Route>
         <Route path='*' element={<ErrorPage errorType={ERROR_TYPE.NOT_FOUND} />} />
       </Routes>

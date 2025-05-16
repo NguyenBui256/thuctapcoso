@@ -26,4 +26,6 @@ public interface WatcherRepository extends JpaRepository<Watcher, Long> {
      * @return Optional containing the watcher if found
      */
     Optional<Watcher> findByIssueIdAndUserId(Long issueId, Long userId);
+
+    List<Watcher> findByUserId(Long userId);
 }

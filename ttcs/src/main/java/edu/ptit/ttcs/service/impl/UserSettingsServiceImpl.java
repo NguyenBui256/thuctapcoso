@@ -144,6 +144,7 @@ public class UserSettingsServiceImpl implements UserSettingsService {
     private UserSettingsResponseDTO convertToDTO(UserSettings settings) {
         UserSettingsResponseDTO dto = new UserSettingsResponseDTO();
         dto.setId(settings.getId());
+        dto.setUserId(settings.getUser().getId());
         dto.setUsername(settings.getUser().getUsername());
         dto.setEmail(settings.getUser().getEmail());
         dto.setFullName(settings.getUser().getFullName());
