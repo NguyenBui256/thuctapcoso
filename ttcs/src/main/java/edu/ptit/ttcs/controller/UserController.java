@@ -47,6 +47,7 @@ public class UserController {
                     dto.setUsername(user.getUsername());
                     dto.setFullName(user.getFullName());
                     dto.setBio(bio);
+                    dto.setPhotoUrl(user.getAvatar());
                     dto.setClosedUserStories(userService.getClosedUserStoriesCountByUserId(id));
                     return ResponseEntity.ok(dto);
                 })
@@ -56,7 +57,15 @@ public class UserController {
     @GetMapping("/{id}/contacts")
     public ResponseEntity<List<UserDTO>> getUserContacts(@PathVariable Long id) {
         List<UserDTO> contacts = userService.getContactsByUserId(id)
-                .stream().map(UserDTO::fromEntity).collect(Collectors.toList());
+                .stream().map(user -> {
+                    UserDTO dto = new UserDTO();
+                    dto.setId(user.getId());
+                    dto.setUsername(user.getUsername());
+                    dto.setFullName(user.getFullName());
+                    UserSettings userSettings = userSettingsRepository.findByUser(user).orElse(null);
+                    dto.setPhotoUrl(userSettings.getPhotoUrl());
+                    return dto;
+                }).collect(Collectors.toList());
         return ResponseEntity.ok(contacts);
     }
 

@@ -164,10 +164,10 @@ export default function Navbar() {
                                                             className="flex items-center p-2 hover:bg-gray-100 rounded"
                                                         >
                                                             <div className="w-6 h-6 mr-2 bg-blue-100 rounded flex items-center justify-center text-blue-500">
-                                                                {project.iconUrl ? (
-                                                                    <img src={project.iconUrl} alt={project.name} className="w-4 h-4" />
+                                                                {project.logoUrl ? (
+                                                                    <img src={project.logoUrl} alt={project.name} className="w-full h-full object-cover" />
                                                                 ) : (
-                                                                    <span>{project.name.charAt(0)}</span>
+                                                                    project.name ? project.name.substring(0, 2).toUpperCase() : 'P'
                                                                 )}
                                                             </div>
                                                             <span className="text-gray-700">{project.name}</span>

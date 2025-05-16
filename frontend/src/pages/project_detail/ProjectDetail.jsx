@@ -264,10 +264,12 @@ function ProjectDetail() {
             <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
               <div className="flex items-center">
                 <div className="w-12 h-12 bg-gray-200 flex items-center justify-center rounded-sm mr-4">
-                  {currentProject.logo ? (
-                    <img src={currentProject.logo} alt="Project Logo" className="w-10 h-10" />
+                  {currentProject.logoUrl ? (
+                    <img src={currentProject.logoUrl} alt="Project Logo" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="text-lg text-gray-500">{currentProject.name?.substring(0, 2) || 'P'}</div>
+                    <div className="w-10 h-10 bg-gray-200 rounded-sm flex items-center justify-center text-gray-500">
+                      <span className="text-sm">{currentProject.name.charAt(0)}</span>
+                    </div>
                   )}
                 </div>
                 <div>
@@ -293,7 +295,15 @@ function ProjectDetail() {
                     <div className="flex">
                       <div className="mr-4 flex-shrink-0">
                         <div className="h-8 w-8 rounded-full bg-purple-300 flex items-center justify-center text-white text-xs">
-                          {getUserInitials(activity.username || activity.userFullName || '')}
+                          {activity.photoUrl ? (
+                            <img
+                              src={activity.photoUrl}
+                              alt={activity.username || activity.userFullName}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            getUserInitials(activity.username || activity.userFullName || '')
+                          )}
                         </div>
                       </div>
                       <div className="flex-1">

@@ -21,6 +21,7 @@ public class ActivityDTO {
     private String action;
     private String details;
     private LocalDateTime timestamp;
+    private String photoUrl;
 
     public void validate() {
         if (action == null || action.isBlank()) {

@@ -82,8 +82,16 @@ const UserProfile = () => {
                     <div key={index} className="py-6 border-b border-gray-200 last:border-b-0">
                         <div className="flex items-start gap-4">
                             <Link to={notification.createdBy?.id ? `/users/${notification.createdBy.id}` : '#'}>
-                                <div className="h-14 w-14 bg-purple-200 rounded-full flex items-center justify-center text-lg">
-                                    {getUserInitials(notification.createdBy?.fullName || notification.createdBy?.username || '')}
+                                <div className="h-14 w-14 bg-purple-200 rounded-full flex items-center justify-center text-lg overflow-hidden">
+                                    {notification.createdBy?.photoUrl ? (
+                                        <img
+                                            src={notification.createdBy.photoUrl}
+                                            alt={notification.createdBy?.fullName || notification.createdBy?.username}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    ) : (
+                                        getUserInitials(notification.createdBy?.fullName || notification.createdBy?.username || '')
+                                    )}
                                 </div>
                             </Link>
                             <div className="flex-1">
@@ -126,8 +134,16 @@ const UserProfile = () => {
                 {contacts.map(contact => (
                     <li key={contact.id} className="py-6">
                         <Link to={`/users/${contact.id}`} className="flex items-center gap-6">
-                            <div className="w-14 h-14 rounded-full bg-purple-200 flex items-center justify-center text-lg">
-                                {getUserInitials(contact.fullName || contact.username)}
+                            <div className="w-14 h-14 rounded-full bg-purple-200 flex items-center justify-center text-lg overflow-hidden">
+                                {contact.photoUrl ? (
+                                    <img
+                                        src={contact.photoUrl}
+                                        alt={contact.fullName || contact.username}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    getUserInitials(contact.fullName || contact.username)
+                                )}
                             </div>
                             <div>
                                 <div className="font-medium text-lg">{contact.fullName}</div>

@@ -1518,11 +1518,11 @@ const TaskDetail = () => {
                     </div>
 
                     {/* Created by info */}
-                    <div className="text-right text-sm text-gray-500 mb-8">
+                    {/* <div className="text-right text-sm text-gray-500 mb-8">
                         <span>Created by {taskDetails.createdByFullName || 'Unknown'}</span>
                         <br />
                         <span>{dayjs(taskDetails.createdAt).format('YYYY-MM-DD HH:mm')}</span>
-                    </div>
+                    </div> */}
 
                     {/* Attachments section */}
                     <div className="mb-6">
@@ -1696,7 +1696,15 @@ const TaskDetail = () => {
                                         <div key={userId} className="flex items-center justify-between">
                                             <div className="flex items-center">
                                                 <div className="w-8 h-8 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2">
-                                                    {user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'}
+                                                    {user.photoUrl ? (
+                                                        <img
+                                                            src={user.photoUrl}
+                                                            alt={user.fullName || user.username}
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'
+                                                    )}
                                                 </div>
                                                 <div>
                                                     <div className="font-medium">{user.fullName || user.username}</div>
@@ -1788,7 +1796,15 @@ const TaskDetail = () => {
                                 <div key={user.id} className="flex items-center justify-between">
                                     <div className="flex items-center">
                                         <div className="w-8 h-8 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2">
-                                            {user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'}
+                                            {user.photoUrl ? (
+                                                <img
+                                                    src={user.photoUrl}
+                                                    alt={user.fullName || user.username}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            ) : (
+                                                user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'
+                                            )}
                                         </div>
                                         <div>
                                             <div className="font-medium">{user.fullName || user.username}</div>

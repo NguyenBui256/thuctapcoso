@@ -95,7 +95,11 @@ const ProjectsDashboard = () => {
                                     >
                                         <div className={`w-10 h-10 ${getIconColor(project.id)} rounded-full flex items-center justify-center mr-3`}>
                                             <span className="text-sm font-semibold">
-                                                {project.name ? project.name.substring(0, 2).toUpperCase() : 'P'}
+                                                {project.logoUrl ? (
+                                                    <img src={project.logoUrl} alt="Project Logo" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    project.name ? project.name.substring(0, 2).toUpperCase() : 'P'
+                                                )}
                                             </span>
                                         </div>
                                         <div className="flex-grow">
@@ -134,7 +138,11 @@ const ProjectsDashboard = () => {
                                     >
                                         <div className={`w-10 h-10 ${getIconColor(project.id)} rounded-full flex items-center justify-center mr-3`}>
                                             <span className="text-sm font-semibold">
-                                                {project.name ? project.name.substring(0, 2).toUpperCase() : 'P'}
+                                                {project.logoUrl ? (
+                                                    <img src={project.logoUrl} alt="Project Logo" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    project.name ? project.name.substring(0, 2).toUpperCase() : 'P'
+                                                )}
                                             </span>
                                         </div>
                                         <div className="flex-grow">

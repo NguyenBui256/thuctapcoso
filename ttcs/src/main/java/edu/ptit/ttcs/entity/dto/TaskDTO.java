@@ -59,6 +59,15 @@ public class TaskDTO {
         private Integer id;
         private String username;
         private String fullName;
+        private String photoUrl;
+
+        public String getPhotoUrl() {
+            return photoUrl;
+        }
+
+        public void setPhotoUrl(String photoUrl) {
+            this.photoUrl = photoUrl;
+        }
 
         public Integer getId() {
             return id;

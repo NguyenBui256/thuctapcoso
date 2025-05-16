@@ -1,6 +1,7 @@
 package edu.ptit.ttcs.entity.dto;
 
 import edu.ptit.ttcs.entity.User;
+import edu.ptit.ttcs.util.SecurityUtils;
 
 public class UserDTO {
     private Long id;
@@ -8,6 +9,7 @@ public class UserDTO {
     private String fullName;
     private int closedUserStories;
     private String bio;
+    private String photoUrl;
 
     public Long getId() {
         return id;
@@ -47,6 +49,14 @@ public class UserDTO {
 
     public void setBio(String bio) {
         this.bio = bio;
+    }
+
+    public String getPhotoUrl() {
+        return photoUrl;
+    }
+
+    public void setPhotoUrl(String photoUrl) {
+        this.photoUrl = photoUrl;
     }
 
     public static UserDTO fromEntity(User user) {

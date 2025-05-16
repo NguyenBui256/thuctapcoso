@@ -7,6 +7,7 @@ import edu.ptit.ttcs.entity.Project;
 import edu.ptit.ttcs.entity.UserStory;
 import edu.ptit.ttcs.entity.Task;
 import edu.ptit.ttcs.entity.User;
+import edu.ptit.ttcs.entity.UserSettings;
 import edu.ptit.ttcs.entity.dto.ActivityDTO;
 import edu.ptit.ttcs.service.ActivityService;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ public class ActivityServiceImpl implements ActivityService {
         private final ProjectMemberRepository projectMemberRepository;
         private final UserStoryRepository userStoryRepository;
         private final TaskRepository taskRepository;
+        private final UserSettingsRepository userSettingsRepository;
 
         @Override
         @Transactional
@@ -161,6 +163,9 @@ public class ActivityServiceImpl implements ActivityService {
                                 dto.setUserId(activity.getUser().getId());
                                 dto.setUsername(activity.getUser().getUsername());
                                 dto.setUserFullName(activity.getUser().getFullName());
+                                UserSettings userSettings = userSettingsRepository.findByUser(activity.getUser())
+                                                .orElse(null);
+                                dto.setPhotoUrl(userSettings != null ? userSettings.getPhotoUrl() : null);
                         }
                         return dto;
                 });

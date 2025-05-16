@@ -10,8 +10,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import edu.ptit.ttcs.dao.NotificationRepository;
 import edu.ptit.ttcs.dao.UserRepository;
+import edu.ptit.ttcs.dao.UserSettingsRepository;
 import edu.ptit.ttcs.entity.Notification;
 import edu.ptit.ttcs.entity.User;
+import edu.ptit.ttcs.entity.UserSettings;
 import edu.ptit.ttcs.entity.dto.NotificationDTO;
 import edu.ptit.ttcs.service.NotificationService;
 
@@ -24,6 +26,9 @@ public class NotificationServiceImpl implements NotificationService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private UserSettingsRepository userSettingsRepository;
+
     @Override
     public List<NotificationDTO> getNotificationsByUserId(Long userId) {
         User user = userRepository.findById(userId)
@@ -33,7 +38,18 @@ public class NotificationServiceImpl implements NotificationService {
 
         // Convert entities to DTOs to prevent JSON infinite recursion
         return notifications.stream()
-                .map(NotificationDTO::fromEntity)
+                .map(
+                        notification -> {
+                            NotificationDTO dto = NotificationDTO.fromEntity(notification);
+                            UserSettings receiverSettings = userSettingsRepository
+                                    .findByUser(notification.getReceiver()).orElse(null);
+                            dto.setReceiverPhotoUrl(receiverSettings != null ? receiverSettings.getPhotoUrl() : null);
+                            UserSettings createdBySettings = userSettingsRepository
+                                    .findByUser(notification.getCreatedBy()).orElse(null);
+                            dto.setCreatedByPhotoUrl(createdBySettings != null ? createdBySettings.getPhotoUrl()
+                                    : null);
+                            return dto;
+                        })
                 .collect(Collectors.toList());
     }
 
