@@ -1,6 +1,6 @@
 // Define fallback URLs in case environment variables are not set
-const DEFAULT_API_URL = 'http://localhost:8080/api';
-const DEFAULT_BE_URL = 'http://localhost:8080';
+const DEFAULT_API_URL = import.meta.env.VITE_BASE_API_URL || 'http://localhost:8080/api';
+const DEFAULT_BE_URL = import.meta.env.VITE_BASE_BE_URL || 'http://localhost:8080';
 
 // Get API URLs from environment variables with fallbacks
 export const BASE_API_URL = import.meta.env.VITE_BASE_API_URL || DEFAULT_API_URL;

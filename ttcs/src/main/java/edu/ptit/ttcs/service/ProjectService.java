@@ -223,6 +223,15 @@ public class ProjectService {
             project = projectRepository.save(project);
             log.info("Updated project with creator ID: {}", currentUser.getId());
 
+            // set 4 modules for project tu id 1 -> 4
+            ProjectModule projectModule = new ProjectModule();
+            projectModule.setProject(project);
+            for (int i = 1; i <= 4; i++) {
+                projectModule.setModule(moduleRepository.findById(Long.valueOf(i))
+                        .orElseThrow(() -> new RuntimeException("Module not found")));
+                projectModule.setIsOn(false);
+                projectModuleRepository.save(projectModule);
+            }
             for (ProjectRoleName roleName : ProjectRoleName.values()) {
                 ProjectRole projectRole = new ProjectRole();
                 projectRole.setProject(project);
