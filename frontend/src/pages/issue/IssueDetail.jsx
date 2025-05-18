@@ -192,6 +192,46 @@ export default function IssueDetail() {
         }
     };
 
+    // Add function to delete attachment
+    const handleDeleteAttachment = async (attachment) => {
+        if (!window.confirm(`Are you sure you want to delete the attachment "${attachment.filename}"?`)) {
+            return;
+        }
+
+        try {
+            // Optimistically update UI by removing the attachment from state
+            setIssue(prevState => ({
+                ...prevState,
+                attachments: (prevState.attachments || []).filter(a => a.id !== attachment.id)
+            }));
+
+            // Send request to delete the attachment
+            const response = await fetchWithAuth(`${BASE_API_URL}/v1/issue/${issueId}/attachment/${attachment.id}`, null, true, {
+                method: 'DELETE'
+            });
+
+            const data = await response.json();
+
+            if (data.error) {
+                // Revert UI update if there was an error
+                message.error('Failed to delete attachment');
+                fetchIssue(); // Refresh issue data
+            } else {
+                // Show success message
+                message.success('Attachment deleted successfully');
+
+                // Refresh activities
+                fetchActivities();
+            }
+        } catch (error) {
+            console.error('Error deleting attachment:', error);
+            message.error('Failed to delete attachment');
+
+            // Revert UI change on error by refreshing issue data
+            fetchIssue();
+        }
+    };
+
     useEffect(() => {
         function handleClickOutside(event) {
             if (showStatusDropdown && statusRef.current && !statusRef.current.contains(event.target)) {
@@ -693,11 +733,19 @@ export default function IssueDetail() {
                                             <FileOutlined style={{ color: '#5178d3' }} />
                                             <span>{attachment.filename}</span>
                                         </div>
-                                        <Button
-                                            type="link"
-                                            icon={<DownloadOutlined />}
-                                            onClick={() => handleDownloadAttachment(attachment)}
-                                        />
+                                        <div>
+                                            <Button
+                                                type="link"
+                                                icon={<DownloadOutlined />}
+                                                onClick={() => handleDownloadAttachment(attachment)}
+                                            />
+                                            <Button
+                                                type="link"
+                                                danger
+                                                icon={<DeleteOutlined />}
+                                                onClick={() => handleDeleteAttachment(attachment)}
+                                            />
+                                        </div>
                                     </div>
                                 ))}
                             </div>

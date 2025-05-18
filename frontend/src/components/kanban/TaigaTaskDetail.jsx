@@ -234,7 +234,8 @@ const TaskDetail = () => {
                 // Ensure task data has all required fields with defaults
                 const processedTaskData = {
                     ...taskData,
-                    attachments: taskData.attachments || [],
+                    // Filter out attachments with is_delete=true
+                    attachments: (taskData.attachments || []).filter(attachment => !attachment.isDelete),
                     comments: taskData.comments || [],
                     assignees: taskData.assignees || [],
                     watchers: taskData.watchers || [],
@@ -350,8 +351,16 @@ const TaskDetail = () => {
     }, [taskId, fetchTaskDetails, fetchComments, fetchActivities, projectId]);
 
     useEffect(() => {
-        if (taskDetails && taskDetails.watchers && taskDetails.watchers.length > 0) {
-            setWatchers(taskDetails.watchers);
+        if (!taskDetails) return;
+
+        if (taskDetails.watchers && taskDetails.watchers.length > 0) {
+            // Ensure IDs are integers for consistent comparison
+            const processedWatchers = taskDetails.watchers.map(watcher => ({
+                ...watcher,
+                id: parseInt(watcher.id)
+            }));
+            console.log('Processed watchers with integer IDs:', processedWatchers);
+            setWatchers(processedWatchers);
         } else if (taskDetails && !taskDetails.watchers) {
             // Initialize with empty array if watchers is undefined
             setWatchers([]);
@@ -365,12 +374,19 @@ const TaskDetail = () => {
             console.log('Assigned users from API:', taskDetails.assignees);
             // Kiểm tra cấu trúc của dữ liệu
             console.log('Sample assignee object structure:', taskDetails.assignees[0]);
-            setAssignedUsers(taskDetails.assignees);
+
+            // Ensure IDs are integers for consistent comparison
+            const processedAssignees = taskDetails.assignees.map(assignee => ({
+                ...assignee,
+                id: parseInt(assignee.id)
+            }));
+            console.log('Processed assignees with integer IDs:', processedAssignees);
+            setAssignedUsers(processedAssignees);
         } else if (taskDetails.assignedTo && taskDetails.assignedToName) {
             // Handle legacy single assignee
             console.log('Legacy single assignee:', taskDetails.assignedTo, taskDetails.assignedToName);
             setAssignedUsers([{
-                id: taskDetails.assignedTo,
+                id: parseInt(taskDetails.assignedTo),
                 fullName: taskDetails.assignedToName,
                 username: taskDetails.assignedToName.toLowerCase().replace(/\s+/g, '.')
             }]);
@@ -435,22 +451,53 @@ const TaskDetail = () => {
         };
     }, [taskId, activeTab, activitiesRefreshTrigger, fetchComments, fetchActivities]);
 
+    // Near beginning of component, add this debug effect to check data
+    useEffect(() => {
+        // Debug log to check filtered users
+        if (availableAssignees.length > 0) {
+            console.log("All available assignees:", availableAssignees);
+            console.log("Current assignedUsers:", assignedUsers);
+
+            // Check how many users would be displayed in dropdown
+            const filteredForDropdown = availableAssignees
+                .filter(user => !assignedUsers.some(assigned => assigned.id === user.id));
+            console.log("Filtered assignees for dropdown:", filteredForDropdown);
+        }
+    }, [availableAssignees, assignedUsers]);
+
+    // Update the fetchAvailableAssignees function to correctly map userId to id
     const fetchAvailableAssignees = async (projectId) => {
         try {
             console.log("Fetching available assignees for task:", taskId, "with projectId:", projectId);
 
-            // Thay đổi: Sử dụng API members project trực tiếp để đảm bảo luôn có dữ liệu
+            if (!projectId) {
+                console.error("Missing projectId, cannot fetch members");
+                return;
+            }
+
+            // Using the direct project members API to get all members
             console.log("Using direct project members API");
             const response = await axios.get(`/api/projects/v1/user/${getCurrentUserId()}/project/${projectId}/members/list`);
             console.log("Project members API response:", response.data);
 
             if (response.data && response.data.data && Array.isArray(response.data.data)) {
-                const mappedUsers = response.data.data.map(member => ({
-                    id: member.userId,
-                    fullName: member.userFullName,
-                    username: member.username
-                }));
+                // CRITICAL FIX: Use userId from API as the id property, not member.userId
+                const mappedUsers = response.data.data.map(member => {
+                    console.log(`Member from API: userId=${member.userId}, name=${member.userFullName}`);
+                    return {
+                        id: parseInt(member.userId), // This is the key fix - use userId from the API
+                        fullName: member.userFullName,
+                        username: member.username,
+                        photoUrl: member.avatar
+                    };
+                });
+
                 console.log("Mapped project members:", mappedUsers);
+                mappedUsers.forEach(user => {
+                    console.log(`Mapped user: id=${user.id}, name=${user.fullName}`);
+                });
+
+                // Important: Save all project members, don't filter here
                 setAvailableAssignees(mappedUsers);
             } else {
                 console.log("Project members response not in expected format");
@@ -585,8 +632,10 @@ const TaskDetail = () => {
     const handleAddWatcher = async (userId) => {
         try {
             console.log(`Attempting to add watcher ${userId} to task ${taskId}`);
+            // Ensure userId is a number before sending to API
+            const numericUserId = parseInt(userId);
             // Gọi API để thêm người dùng vào watchers
-            await axios.post(`/api/tasks/${taskId}/watchers/${userId}`);
+            await axios.post(`/api/tasks/${taskId}/watchers/${numericUserId}`);
 
             // Refresh task data
             console.log("Add watcher successful, refreshing task data");
@@ -605,8 +654,20 @@ const TaskDetail = () => {
     const handleRemoveWatcher = async (userId) => {
         try {
             console.log(`Attempting to remove watcher ${userId} from task ${taskId}`);
+
+            // Ensure userId is a number
+            const numericUserId = parseInt(userId);
+            if (isNaN(numericUserId)) {
+                console.error('Invalid user ID:', userId);
+                message.error('User ID không hợp lệ');
+                return;
+            }
+
             // Gọi API để xóa người dùng khỏi watchers
-            await axios.delete(`/api/tasks/${taskId}/watchers/${userId}`);
+            await axios.delete(`/api/tasks/${taskId}/watchers/${numericUserId}`);
+
+            // Update UI immediately for better responsiveness
+            setWatchers(prev => prev.filter(watcher => parseInt(watcher.id) !== numericUserId));
 
             // Refresh task data
             console.log("Remove watcher successful, refreshing task data");
@@ -618,6 +679,9 @@ const TaskDetail = () => {
         } catch (error) {
             console.error('Error removing watcher:', error.response?.data || error.message);
             toast.error('Không thể xóa người theo dõi');
+
+            // Refresh on error to ensure UI is in sync with server
+            await fetchTaskDetails();
         }
     };
 
@@ -1090,7 +1154,7 @@ const TaskDetail = () => {
                     const newAttachment = attachResponse.data;
                     setTaskDetails(prev => ({
                         ...prev,
-                        attachments: [...(prev.attachments || []), newAttachment]
+                        attachments: [...(prev.attachments || []).filter(a => !a.isDelete), newAttachment]
                     }));
 
                     // Cập nhật hoạt động
@@ -1161,6 +1225,42 @@ const TaskDetail = () => {
             toast.error('Failed to download file');
             // Fallback to direct open
             window.open(attachment.url, '_blank');
+        }
+    };
+
+    // Add function to delete attachment
+    const handleDeleteAttachment = async (attachment) => {
+        if (!window.confirm(`Are you sure you want to delete the attachment "${attachment.filename}"?`)) {
+            return;
+        }
+
+        try {
+            // Optimistically update UI by removing the attachment from state
+            setTaskDetails(prevState => ({
+                ...prevState,
+                attachments: prevState.attachments.filter(a => a.id !== attachment.id)
+            }));
+
+            // Send request to delete the attachment
+            await axios.delete(`/api/kanban/board/${taskId}/attachment/${attachment.id}`);
+
+            // Show success message
+            toast.success('Attachment deleted successfully');
+
+            // Record activity
+            await recordActivity('attachment_deleted', `Deleted attachment: ${attachment.filename}`);
+
+            // Trigger activity refresh
+            triggerActivitiesRefresh();
+
+            // Fetch updated task details to ensure UI is in sync with server
+            await fetchTaskDetails();
+        } catch (error) {
+            console.error('Error deleting attachment:', error);
+            toast.error('Failed to delete attachment');
+
+            // Revert UI change on error by refreshing task data
+            await fetchTaskDetails();
         }
     };
 
@@ -1243,60 +1343,63 @@ const TaskDetail = () => {
     // Xử lý assignee
     const handleAssignUser = async (userId) => {
         try {
-            console.log(`Attempting to assign user ${userId} to task ${taskId}`);
-            // Gọi API để thêm người dùng vào assignees
-            await axios.post(`/api/tasks/${taskId}/assignees/${userId}`);
+            // Ensure userId is a number
+            const numericUserId = parseInt(userId);
+            console.log(`Attempting to assign user ID ${numericUserId} to task ${taskId}`);
+
+            // Call API to add user as assignee
+            await axios.post(`/api/tasks/${taskId}/assignees/${numericUserId}`);
 
             // Refresh task data
             console.log("Assignment successful, refreshing task data");
             await fetchTaskDetails();
-            toast.success('Gán nhiệm vụ thành công');
+            toast.success('Task assigned successfully');
             setShowAssigneeDropdown(false);
 
-            // Tự động làm mới activities
+            // Trigger activities refresh
             triggerActivitiesRefresh();
         } catch (error) {
             console.error('Error assigning task:', error.response?.data || error.message);
-            toast.error('Không thể gán nhiệm vụ');
+            toast.error('Unable to assign task');
         }
     };
 
     const handleRemoveAssignee = async (userId) => {
         try {
-            console.log(`Attempting to remove assignee ${userId} from task ${taskId}`);
-
-            // Đảm bảo userId là số nguyên
+            // Ensure userId is a number
             const numericUserId = parseInt(userId);
+            console.log(`Attempting to remove assignee ID ${numericUserId} from task ${taskId}`);
+
             if (isNaN(numericUserId)) {
                 console.error('Invalid user ID:', userId);
-                message.error('User ID không hợp lệ');
+                toast.error('Invalid user ID');
                 return;
             }
 
-            // Lấy danh sách assignees hiện tại (loại bỏ người cần xóa)
+            // Get current assignees list (excluding the one to remove)
             const updatedAssignees = assignedUsers
-                .filter(user => user.id !== numericUserId)
-                .map(user => user.id);
+                .filter(user => parseInt(user.id) !== numericUserId)
+                .map(user => parseInt(user.id));
 
             console.log('Current assignees:', assignedUsers);
             console.log('Updated assignees list:', updatedAssignees);
 
-            // Gọi API để cập nhật toàn bộ danh sách assignees thay vì xóa một người
+            // Call API to update assignees list
             const response = await axios.post(`/api/tasks/${taskId}/assignees`, {
                 userIds: updatedAssignees
             });
 
             console.log('Update assignees API response:', response);
 
-            // Cập nhật UI ngay lập tức
-            setAssignedUsers(prevUsers => prevUsers.filter(user => user.id !== numericUserId));
+            // Update UI immediately
+            setAssignedUsers(prevUsers => prevUsers.filter(user => parseInt(user.id) !== numericUserId));
 
-            // Refresh task data từ server để đảm bảo đồng bộ
+            // Refresh task data to ensure UI is in sync with server
             console.log("Remove assignee successful, refreshing task data");
             await fetchTaskDetails();
-            toast.success('Đã xóa người được gán');
+            toast.success('Assignee removed successfully');
 
-            // Tự động làm mới activities
+            // Trigger activities refresh
             triggerActivitiesRefresh();
         } catch (error) {
             console.error('Error removing assignee:', error);
@@ -1305,11 +1408,71 @@ const TaskDetail = () => {
                 console.error('Response status:', error.response.status);
                 console.error('Response headers:', error.response.headers);
             }
-            toast.error('Không thể xóa người được gán');
+            toast.error('Unable to remove assignee');
 
-            // Refresh data để hiển thị trạng thái hiện tại từ server
+            // Refresh data to display current state from server
             await fetchTaskDetails();
         }
+    };
+
+    // Add this useEffect to automatically fetch available assignees when projectId is available
+    useEffect(() => {
+        if (taskDetails && taskDetails.projectId) {
+            console.log("Project ID available or changed, fetching available assignees:", taskDetails.projectId);
+            fetchAvailableAssignees(taskDetails.projectId);
+        }
+    }, [taskDetails?.projectId]); // Only trigger when projectId changes
+
+    // Update the getUnassignedMembers helper function with more detailed logging
+    const getUnassignedMembers = () => {
+        console.log("Assigned users:", assignedUsers);
+        console.log("Assigned IDs:", assignedUsers.map(user => parseInt(user.id)));
+        console.log("Available assignees before filtering:", availableAssignees);
+
+        // Fix: Check both ID AND username match for accurate comparison
+        const unassignedMembers = availableAssignees.filter(user => {
+            const userId = parseInt(user.id);
+            const username = user.username;
+
+            // Only consider assigned if BOTH the ID AND username match an assigned user
+            // OR if username matches (to handle same user with different IDs)
+            const isAssigned = assignedUsers.some(assigned =>
+                (parseInt(assigned.id) === userId && assigned.username === username) ||
+                assigned.username === username
+            );
+
+            console.log(`Checking user ${user.fullName} (ID: ${userId}, username: ${username}): isAssigned=${isAssigned}`);
+            return !isAssigned;
+        });
+
+        console.log("Unassigned members after filtering:", unassignedMembers);
+        return unassignedMembers;
+    };
+
+    // Update the getUnwatchedMembers helper function with similar logic
+    const getUnwatchedMembers = () => {
+        console.log("Watchers:", watchers);
+        console.log("Watcher IDs:", watchers.map(user => parseInt(user.id)));
+        console.log("Available assignees before filtering:", availableAssignees);
+
+        // Fix: Check both ID AND username together, not separately
+        const unwatchedMembers = availableAssignees.filter(user => {
+            const userId = parseInt(user.id);
+            const username = user.username;
+
+            // Only consider watching if BOTH the ID AND username match a watcher
+            // OR if username matches (to handle same user with different IDs)
+            const isWatching = watchers.some(watcher =>
+                (parseInt(watcher.id) === userId && watcher.username === username) ||
+                watcher.username === username
+            );
+
+            console.log(`Checking user ${user.fullName} (ID: ${userId}, username: ${username}): isWatching=${isWatching}`);
+            return !isWatching;
+        });
+
+        console.log("Unwatched members after filtering:", unwatchedMembers);
+        return unwatchedMembers;
     };
 
     if (isLoading) {
@@ -1558,12 +1721,20 @@ const TaskDetail = () => {
                                             <FileText className="mr-2 text-blue-500" />
                                             <span className="text-gray-700">{attachment.filename}</span>
                                         </div>
-                                        <button
-                                            className="text-blue-500 hover:text-blue-700"
-                                            onClick={() => handleDownloadAttachment(attachment)}
-                                        >
-                                            <Download size={16} />
-                                        </button>
+                                        <div className="flex items-center">
+                                            <button
+                                                className="text-blue-500 hover:text-blue-700 mr-2"
+                                                onClick={() => handleDownloadAttachment(attachment)}
+                                            >
+                                                <Download size={16} />
+                                            </button>
+                                            <button
+                                                className="text-red-500 hover:text-red-700"
+                                                onClick={() => handleDeleteAttachment(attachment)}
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -1688,101 +1859,73 @@ const TaskDetail = () => {
                         <div className="text-gray-500 text-sm mb-2">ASSIGNED</div>
                         <div className="space-y-2">
                             {assignedUsers && assignedUsers.length > 0 ? (
-                                assignedUsers.map(user => {
-                                    console.log('Rendering assignee:', user);
-                                    // Đảm bảo truyền đúng ID cho việc xóa
-                                    const userId = user.id;
-                                    return (
-                                        <div key={userId} className="flex items-center justify-between">
-                                            <div className="flex items-center">
-                                                <div className="w-8 h-8 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2">
-                                                    {user.photoUrl ? (
-                                                        <img
-                                                            src={user.photoUrl}
-                                                            alt={user.fullName || user.username}
-                                                            className="w-full h-full object-cover"
-                                                        />
-                                                    ) : (
-                                                        user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'
-                                                    )}
-                                                </div>
-                                                <div>
-                                                    <div className="font-medium">{user.fullName || user.username}</div>
-                                                    <div className="text-xs text-gray-500">@{user.username}</div>
-                                                </div>
+                                assignedUsers.map(user => (
+                                    <div key={user.id} className="flex items-center justify-between">
+                                        <div className="flex items-center">
+                                            <div className="w-8 h-8 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2">
+                                                {user.photoUrl ? (
+                                                    <img
+                                                        src={user.photoUrl}
+                                                        alt={user.fullName || user.username}
+                                                        className="w-full h-full object-cover rounded-md"
+                                                    />
+                                                ) : (
+                                                    user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'
+                                                )}
                                             </div>
-                                            <button
-                                                onClick={() => {
-                                                    console.log('Removing assignee with ID:', userId);
-                                                    handleRemoveAssignee(userId);
-                                                }}
-                                                className="text-gray-400 hover:text-gray-600"
-                                            >
-                                                <X size={16} />
-                                            </button>
+                                            <div>
+                                                <div className="font-medium">{user.fullName || user.username}</div>
+                                                <div className="text-xs text-gray-500">@{user.username}</div>
+                                            </div>
                                         </div>
-                                    );
-                                })
+                                        <button
+                                            onClick={() => handleRemoveAssignee(user.id)}
+                                            className="text-gray-400 hover:text-gray-600"
+                                        >
+                                            <X size={16} />
+                                        </button>
+                                    </div>
+                                ))
                             ) : (
                                 <div className="text-sm text-gray-500">No users assigned</div>
                             )}
 
                             <div className="relative">
                                 <button
-                                    onClick={() => {
-                                        console.log("Current availableAssignees:", availableAssignees);
-                                        setShowAssigneeDropdown(!showAssigneeDropdown);
-                                    }}
+                                    onClick={() => setShowAssigneeDropdown(!showAssigneeDropdown)}
                                     className="text-gray-500 flex items-center text-sm"
                                 >
                                     <Plus size={14} className="mr-1" /> Add assigned
                                 </button>
                                 {showAssigneeDropdown && (
                                     <div className="dropdown-menu dropdown-arrow-down absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded shadow-lg">
-                                        <div className="px-4 py-2 text-right">
-                                            <button
-                                                onClick={() => {
-                                                    console.log("Reloading available assignees...");
-                                                    if (taskDetails.projectId) {
-                                                        fetchAvailableAssignees(taskDetails.projectId);
-                                                    } else if (taskDetails.userStoryId) {
-                                                        console.log("No projectId, trying to get from userStory");
-                                                        axios.get(`/api/kanban/board/userstory/${taskDetails.userStoryId}`)
-                                                            .then(res => {
-                                                                console.log("UserStory data:", res.data);
-                                                                if (res.data && res.data.projectId) {
-                                                                    console.log("Found projectId in userStory:", res.data.projectId);
-                                                                    fetchAvailableAssignees(res.data.projectId);
-                                                                } else {
-                                                                    console.log("No projectId in userStory data");
-                                                                }
-                                                            })
-                                                            .catch(err => console.error("Error fetching userStory:", err));
-                                                    }
-                                                }}
-                                                className="text-sm text-blue-500 hover:text-blue-700"
-                                            >
-                                                Refresh list
-                                            </button>
-                                        </div>
-
-                                        {availableAssignees
-                                            .filter(user => !assignedUsers.some(assigned => assigned.id === user.id))
-                                            .map(user => (
+                                        {getUnassignedMembers().length > 0 ? (
+                                            getUnassignedMembers().map(user => (
                                                 <div
                                                     key={user.id}
                                                     onClick={() => handleAssignUser(user.id)}
                                                     className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center"
                                                 >
                                                     <div className="w-6 h-6 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2 text-xs">
-                                                        {user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'}
+                                                        {user.photoUrl ? (
+                                                            <img
+                                                                src={user.photoUrl}
+                                                                alt={user.fullName || user.username}
+                                                                className="w-full h-full object-cover rounded-md"
+                                                            />
+                                                        ) : (
+                                                            user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'
+                                                        )}
                                                     </div>
                                                     <div>
                                                         <div className="font-medium">{user.fullName || user.username}</div>
                                                         <div className="text-xs text-gray-500">@{user.username}</div>
                                                     </div>
                                                 </div>
-                                            ))}
+                                            ))
+                                        ) : (
+                                            <div className="px-4 py-2 text-gray-500 text-center">All members are already assigned</div>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -1792,34 +1935,37 @@ const TaskDetail = () => {
                     <div className="mb-6">
                         <div className="text-gray-500 text-sm mb-2">WATCHERS</div>
                         <div className="space-y-2">
-                            {watchers && watchers.map(user => (
-                                <div key={user.id} className="flex items-center justify-between">
-                                    <div className="flex items-center">
-                                        <div className="w-8 h-8 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2">
-                                            {user.photoUrl ? (
-                                                <img
-                                                    src={user.photoUrl}
-                                                    alt={user.fullName || user.username}
-                                                    className="w-full h-full object-cover"
-                                                />
-                                            ) : (
-                                                user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'
-                                            )}
+                            {watchers && watchers.length > 0 ? (
+                                watchers.map(user => (
+                                    <div key={user.id} className="flex items-center justify-between">
+                                        <div className="flex items-center">
+                                            <div className="w-8 h-8 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2">
+                                                {user.photoUrl ? (
+                                                    <img
+                                                        src={user.photoUrl}
+                                                        alt={user.fullName || user.username}
+                                                        className="w-full h-full object-cover rounded-md"
+                                                    />
+                                                ) : (
+                                                    user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'
+                                                )}
+                                            </div>
+                                            <div>
+                                                <div className="font-medium">{user.fullName || user.username}</div>
+                                                <div className="text-xs text-gray-500">@{user.username}</div>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <div className="font-medium">{user.fullName || user.username}</div>
-                                            <div className="text-xs text-gray-500">@{user.username}</div>
-                                        </div>
+                                        <button
+                                            onClick={() => handleRemoveWatcher(user.id)}
+                                            className="text-gray-400 hover:text-gray-600"
+                                        >
+                                            <X size={16} />
+                                        </button>
                                     </div>
-                                    <button
-                                        onClick={() => handleRemoveWatcher(user.id)}
-                                        className="text-gray-400 hover:text-gray-600"
-                                    >
-                                        <X size={16} />
-                                    </button>
-                                </div>
-                            ))}
-
+                                ))
+                            ) : (
+                                <div className="text-sm text-gray-500">No watchers</div>
+                            )}
                             <div className="relative">
                                 <button
                                     onClick={() => setShowWatcherDropdown(!showWatcherDropdown)}
@@ -1829,25 +1975,51 @@ const TaskDetail = () => {
                                 </button>
                                 {showWatcherDropdown && (
                                     <div className="dropdown-menu dropdown-arrow-down absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded shadow-lg">
-                                        {availableAssignees
-                                            .filter(user => !watchers.some(watcher => watcher.id === user.id))
-                                            .map(user => (
+                                        {getUnwatchedMembers().length > 0 ? (
+                                            getUnwatchedMembers().map(user => (
                                                 <div
                                                     key={user.id}
                                                     onClick={() => handleAddWatcher(user.id)}
                                                     className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center"
                                                 >
                                                     <div className="w-6 h-6 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2 text-xs">
-                                                        {user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'}
+                                                        {user.photoUrl ? (
+                                                            <img
+                                                                src={user.photoUrl}
+                                                                alt={user.fullName || user.username}
+                                                                className="w-full h-full object-cover rounded-md"
+                                                            />
+                                                        ) : (
+                                                            user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'
+                                                        )}
                                                     </div>
                                                     <div>
                                                         <div className="font-medium">{user.fullName || user.username}</div>
                                                         <div className="text-xs text-gray-500">@{user.username}</div>
                                                     </div>
                                                 </div>
-                                            ))}
+                                            ))
+                                        ) : (
+                                            <div className="px-4 py-2 text-gray-500 text-center">All members are already watching</div>
+                                        )}
                                     </div>
                                 )}
+                            </div>
+                            <div className="flex items-center justify-end text-sm mt-2">
+                                <button
+                                    className="text-gray-500 flex items-center hover:text-blue-500"
+                                    onClick={handleToggleWatch}
+                                >
+                                    {isCurrentUserWatching() ? (
+                                        <>
+                                            <EyeOff size={14} className="mr-1" /> Unwatch
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Eye size={14} className="mr-1" /> Watch
+                                        </>
+                                    )}
+                                </button>
                             </div>
                         </div>
                     </div>

@@ -175,6 +175,61 @@ public class ProjectWikiService {
                 return ProjectWikiPageDTO.fromEntity(savedWikiPage);
         }
 
+        /**
+         * Delete an attachment from a wiki page
+         *
+         * @param projectId    The project ID
+         * @param wikiPageId   The wiki page ID
+         * @param userId       The user ID performing the deletion
+         * @param attachmentId The ID of the attachment to delete
+         * @return The updated wiki page DTO
+         */
+        @Transactional
+        public ProjectWikiPageDTO deleteAttachmentFromWikiPage(
+                        Long projectId, Long wikiPageId, Long userId, Long attachmentId) {
+
+                validateUserAccess(projectId, userId);
+
+                // Find the wiki page
+                ProjectWikiPage wikiPage = wikiPageRepository
+                                .findByIdAndProjectIdAndIsDeleteFalse(wikiPageId, projectId)
+                                .orElseThrow(() -> new IllegalArgumentException("Wiki page not found"));
+
+                // Find the attachment
+                Attachment attachment = attachmentRepository.findById(attachmentId)
+                                .orElseThrow(() -> new IllegalArgumentException("Attachment not found"));
+
+                // Check if the attachment is associated with the wiki page
+                boolean attachmentBelongsToWikiPage = wikiPage.getAttachments().stream()
+                                .anyMatch(a -> a.getId().equals(attachmentId));
+
+                if (!attachmentBelongsToWikiPage) {
+                        throw new IllegalArgumentException("Attachment does not belong to this wiki page");
+                }
+
+                // Remove the attachment from the wiki page
+                wikiPage.getAttachments().removeIf(a -> a.getId().equals(attachmentId));
+
+                // Mark the attachment as deleted
+                attachment.setIsDelete(true);
+                attachmentRepository.save(attachment);
+
+                // Update wiki page metadata
+                wikiPage.setUpdatedAt(LocalDateTime.now());
+
+                // Find ProjectMember for this user and project
+                ProjectMember projectMember = projectMemberRepository.findByProjectIdAndUserIdAndIsDeleteFalse(
+                                projectId, userId);
+                if (projectMember != null) {
+                        wikiPage.setUpdatedBy(projectMember);
+                }
+
+                // Save the updated wiki page
+                ProjectWikiPage savedWikiPage = wikiPageRepository.save(wikiPage);
+
+                return ProjectWikiPageDTO.fromEntity(savedWikiPage);
+        }
+
         private void validateUserAccess(Long projectId, Long userId) {
                 // Check if the user has access to the project
                 boolean hasAccess = isUserProjectMember(projectId, userId);

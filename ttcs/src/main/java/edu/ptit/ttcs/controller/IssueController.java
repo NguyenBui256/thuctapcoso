@@ -95,14 +95,14 @@ public class IssueController {
 
     @PostMapping("/attach/{issueId}")
     public ResponseEntity<Void> attach(@PathVariable long issueId,
-                                       @RequestParam long sprintId) {
+            @RequestParam long sprintId) {
         issueService.attach(issueId, sprintId);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/detach/{issueId}")
     public ResponseEntity<Void> detach(@PathVariable long issueId,
-                                       @RequestParam long sprintId) {
+            @RequestParam long sprintId) {
         issueService.detach(issueId, sprintId);
         return ResponseEntity.ok().build();
     }
@@ -167,6 +167,53 @@ public class IssueController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Failed to add attachment: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/{issueId}/attachment/{attachmentId}")
+    public ResponseEntity<?> deleteAttachment(
+            @PathVariable("issueId") Long issueId,
+            @PathVariable("attachmentId") Long attachmentId) {
+        try {
+            User currentUser = securityUtils.getCurrentUser();
+
+            // Find the issue
+            Issue issue = issueRepository.findById(issueId)
+                    .orElseThrow(() -> new IllegalArgumentException("Issue not found with ID: " + issueId));
+
+            // Find the attachment
+            Attachment attachment = attachmentRepository.findById(attachmentId)
+                    .orElseThrow(() -> new IllegalArgumentException("Attachment not found with ID: " + attachmentId));
+
+            // Check if the attachment belongs to the issue
+            boolean attachmentBelongsToIssue = issue.getAttachments() != null &&
+                    issue.getAttachments().stream().anyMatch(a -> a.getId().equals(attachmentId));
+
+            if (!attachmentBelongsToIssue) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body("Attachment does not belong to this issue");
+            }
+
+            // Remove the attachment from the issue's attachments list
+            issue.getAttachments().removeIf(a -> a.getId().equals(attachmentId));
+
+            // Save the updated issue
+            issueRepository.save(issue);
+
+            // Mark the attachment as deleted but don't actually delete it from the database
+            attachment.setIsDelete(true);
+            attachmentRepository.save(attachment);
+
+            // Simply log deletion and return the updated issue without trying to record
+            // activity
+            // Note: If activity recording is needed, the issueService should be enhanced
+            // with an appropriate method
+            System.out.println("Attachment deleted: " + attachment.getFilename() + " from issue: " + issueId);
+
+            return ResponseEntity.ok(issueService.get(issue.getProject().getId(), issueId));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to delete attachment: " + e.getMessage());
         }
     }
 }
