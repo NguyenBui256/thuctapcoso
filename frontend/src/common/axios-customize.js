@@ -3,7 +3,7 @@ import axiosClient from "axios";
 import { notification } from "antd";
 
 const instance = axiosClient.create({
-    baseURL: import.meta.env.VITE_BASE_BE_URL,
+    baseURL: 'http://localhost:8080',
     withCredentials: true,
 });
 
