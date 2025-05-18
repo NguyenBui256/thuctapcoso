@@ -629,6 +629,8 @@ public class TaskController {
                         dto.setId(member.getUser().getId().intValue());
                         dto.setUsername(member.getUser().getUsername());
                         dto.setFullName(member.getUser().getFullName());
+                        UserSettings userSettings = userSettingsRepository.findByUser(member.getUser()).orElse(null);
+                        dto.setPhotoUrl(userSettings != null ? userSettings.getPhotoUrl() : null);
                         return dto;
                     })
                     .collect(Collectors.toList());
@@ -1297,6 +1299,9 @@ public class TaskController {
         // Convert task attachments
         if (task.getTaskAttachments() != null && !task.getTaskAttachments().isEmpty()) {
             List<AttachmentDTO> attachmentDTOs = task.getTaskAttachments().stream()
+                    .filter(taskAttachment -> taskAttachment.getAttachment() != null &&
+                            (taskAttachment.getAttachment().getIsDelete() == null ||
+                                    !taskAttachment.getAttachment().getIsDelete()))
                     .map(taskAttachment -> AttachmentDTO.fromEntity(taskAttachment.getAttachment()))
                     .toList();
             dto.setAttachments(attachmentDTOs);

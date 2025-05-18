@@ -13,6 +13,7 @@ public class AttachmentDTO {
     private String url;
     private LocalDateTime createdAt;
     private UserDTO createdBy;
+    private Boolean isDelete;
 
     public static AttachmentDTO fromEntity(Attachment entity) {
         if (entity == null) {
@@ -27,6 +28,7 @@ public class AttachmentDTO {
         dto.setUrl(entity.getUrl());
         dto.setCreatedAt(entity.getCreatedAt());
         dto.setCreatedBy(entity.getCreatedBy() != null ? UserDTO.fromEntity(entity.getCreatedBy()) : null);
+        dto.setIsDelete(entity.getIsDelete());
 
         return dto;
     }

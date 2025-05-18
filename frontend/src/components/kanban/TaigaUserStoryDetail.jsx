@@ -1032,6 +1032,39 @@ export default function TaigaUserStoryDetail() {
         }
     };
 
+    // Add function to delete attachment
+    const handleDeleteAttachment = async (attachment) => {
+        if (!window.confirm(`Are you sure you want to delete the attachment "${attachment.filename}"?`)) {
+            return;
+        }
+
+        try {
+            // Optimistically update UI by removing the attachment from state
+            setUserStory(prevState => ({
+                ...prevState,
+                attachments: prevState.attachments.filter(a => a.id !== attachment.id)
+            }));
+
+            // Send request to delete the attachment
+            await axios.delete(`/api/kanban/board/userstory/${userStoryId}/attachment/${attachment.id}`);
+
+            // Show success message
+            message.success('Attachment deleted successfully');
+
+            // Record activity
+            await recordActivity('attachment_deleted', `Deleted attachment: ${attachment.filename}`);
+
+            // Trigger activity refresh
+            triggerActivitiesRefresh();
+        } catch (error) {
+            console.error('Error deleting attachment:', error);
+            message.error('Failed to delete attachment');
+
+            // Revert UI change on error by refreshing user story data
+            await fetchUserStory();
+        }
+    };
+
     // Add function to fetch statuses
     const fetchUserStoryStatuses = async (projectId) => {
         try {
@@ -1469,12 +1502,20 @@ export default function TaigaUserStoryDetail() {
                                             <FileText className="mr-2 text-blue-500" />
                                             <span className="text-gray-700">{attachment.filename}</span>
                                         </div>
-                                        <button
-                                            className="text-blue-500 hover:text-blue-700"
-                                            onClick={() => handleDownloadAttachment(attachment)}
-                                        >
-                                            <Download size={16} />
-                                        </button>
+                                        <div className="flex items-center">
+                                            <button
+                                                className="text-blue-500 hover:text-blue-700 mr-2"
+                                                onClick={() => handleDownloadAttachment(attachment)}
+                                            >
+                                                <Download size={16} />
+                                            </button>
+                                            <button
+                                                className="text-red-500 hover:text-red-700"
+                                                onClick={() => handleDeleteAttachment(attachment)}
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -1586,7 +1627,15 @@ export default function TaigaUserStoryDetail() {
                                                 >
                                                     <div className="flex items-center">
                                                         <div className="w-6 h-6 bg-purple-300 rounded-md flex items-center justify-center mr-2 text-xs text-white">
-                                                            {assignee.fullName.split(' ').map(n => n[0]).join('')}
+                                                            {assignee.photoUrl ? (
+                                                                <img
+                                                                    src={assignee.photoUrl}
+                                                                    alt={assignee.fullName}
+                                                                    className="w-full h-full object-cover"
+                                                                />
+                                                            ) : (
+                                                                assignee.fullName.split(' ').map(n => n[0]).join('')
+                                                            )}
                                                         </div>
                                                         {assignee.fullName}
                                                     </div>
@@ -1804,7 +1853,15 @@ export default function TaigaUserStoryDetail() {
                                                     className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center"
                                                 >
                                                     <div className="w-6 h-6 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2 text-xs">
-                                                        {user.fullName.split(' ').map(n => n[0]).join('')}
+                                                        {user.photoUrl ? (
+                                                            <img
+                                                                src={user.photoUrl}
+                                                                alt={user.fullName || user.username}
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                        ) : (
+                                                            user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'
+                                                        )}
                                                     </div>
                                                     <div>
                                                         <div className="font-medium">{user.fullName}</div>

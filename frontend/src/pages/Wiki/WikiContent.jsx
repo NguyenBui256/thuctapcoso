@@ -34,7 +34,7 @@ const WikiContent = ({ page, onUpdatePage, onDeletePage, loading, error }) => {
     const start = e.target.selectionStart;
     const end = e.target.selectionEnd;
     const selectedText = editContent.substring(start, end);
-    
+
     let newText = editContent;
     let newCursorPos = end;
 
@@ -96,7 +96,7 @@ const WikiContent = ({ page, onUpdatePage, onDeletePage, loading, error }) => {
     }
 
     setEditContent(newText);
-    
+
     // Set cursor position after state update
     setTimeout(() => {
       if (textareaRef.current) {
@@ -116,7 +116,7 @@ const WikiContent = ({ page, onUpdatePage, onDeletePage, loading, error }) => {
         // Add current timestamp to force UI update
         lastEditTime: new Date().getTime()
       };
-      
+
       onUpdatePage(updatedPageData);
       setIsEditing(false);
     }
@@ -154,13 +154,20 @@ const WikiContent = ({ page, onUpdatePage, onDeletePage, loading, error }) => {
       return page.project.id;
     }
 
-    // Finally try page.projectId
+    // Then try page.projectId
     if (page && page.projectId) {
       return page.projectId;
     }
 
-    console.error('Cannot determine project ID for attachment upload');
-    return null;
+    // If we get here, log the error with detailed debugging info
+    console.error('Cannot determine project ID for attachment operation', {
+      urlProjectId: projectId,
+      pageProjectInfo: page ? (page.project || 'no project property') : 'no page',
+      pageProjectId: page ? page.projectId : 'no page'
+    });
+
+    toast.error('Error: Cannot determine project ID. Please refresh the page and try again.');
+    return null; // Return null instead of undefined
   };
 
   const handleFileChange = async (e) => {
@@ -354,6 +361,70 @@ const WikiContent = ({ page, onUpdatePage, onDeletePage, loading, error }) => {
     }
   };
 
+  // Add function to delete attachment
+  const handleDeleteAttachment = async (attachment) => {
+    if (!window.confirm(`Are you sure you want to delete the attachment "${attachment.filename}"?`)) {
+      return;
+    }
+
+    try {
+      // Get project ID
+      const effectiveProjectId = getProjectId();
+      if (!effectiveProjectId) {
+        toast.error('Cannot delete attachment: Project ID is missing');
+        return;
+      }
+
+      // Optimistically update UI by removing the attachment from state
+      const updatedAttachments = (page.attachments || []).filter(a => a.id !== attachment.id);
+
+      // Update the page with the new attachments list
+      onUpdatePage({
+        ...page,
+        attachments: updatedAttachments
+      });
+
+      // Send request to delete the attachment
+      const response = await fetchWithAuth(
+        `${BASE_API_URL}/v1/user/${getCurrentUserId()}/project/${effectiveProjectId}/wiki/${page.id}/attachment/${attachment.id}`,
+        null,
+        true,
+        {
+          method: 'DELETE'
+        }
+      );
+
+      if (response.ok) {
+        toast.success('Attachment deleted successfully');
+      } else {
+        // Log error for debugging
+        const errorText = await response.text();
+        console.error('Error deleting attachment:', errorText);
+
+        toast.error('Failed to delete attachment');
+        // Revert UI changes by reloading the page data
+        try {
+          const pageResponse = await fetchWithAuth(
+            `${BASE_API_URL}/v1/user/${getCurrentUserId()}/project/${effectiveProjectId}/wiki/${page.id}`,
+            null,
+            true
+          );
+          if (pageResponse.ok) {
+            const pageData = await pageResponse.json();
+            if (pageData && pageData.data) {
+              onUpdatePage(pageData.data);
+            }
+          }
+        } catch (error) {
+          console.error('Error loading page after failed deletion:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting attachment:', error);
+      toast.error('Failed to delete attachment');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex-1 p-6 flex items-center justify-center">
@@ -512,12 +583,20 @@ const WikiContent = ({ page, onUpdatePage, onDeletePage, loading, error }) => {
                     <FiFile className="mr-2 text-taiga-primary" />
                     <span className="text-gray-700">{attachment.filename}</span>
                   </div>
-                  <button
-                    className="text-taiga-primary hover:text-taiga-secondary"
-                    onClick={() => handleDownloadAttachment(attachment)}
-                  >
-                    <FiDownload size={16} />
-                  </button>
+                  <div className="flex items-center">
+                    <button
+                      className="text-taiga-primary hover:text-taiga-secondary mr-2"
+                      onClick={() => handleDownloadAttachment(attachment)}
+                    >
+                      <FiDownload size={16} />
+                    </button>
+                    <button
+                      className="text-red-500 hover:text-red-700"
+                      onClick={() => handleDeleteAttachment(attachment)}
+                    >
+                      <FiTrash2 size={16} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

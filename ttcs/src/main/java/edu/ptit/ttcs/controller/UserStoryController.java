@@ -1001,6 +1001,8 @@ public class UserStoryController {
                         dto.setId(member.getUser().getId().longValue());
                         dto.setUsername(member.getUser().getUsername());
                         dto.setFullName(member.getUser().getFullName());
+                        UserSettings userSettings = userSettingsRepository.findByUser(member.getUser()).orElse(null);
+                        dto.setPhotoUrl(userSettings != null ? userSettings.getPhotoUrl() : null);
                         return dto;
                     })
                     .collect(Collectors.toList());
@@ -1678,17 +1680,13 @@ public class UserStoryController {
     public ResponseEntity<?> addAttachment(
             @PathVariable("userStoryId") Integer userStoryId,
             @RequestBody AttachmentDTO attachmentDTO) {
-
         try {
-            // Determine current user: prefer header, fallback to security context
+            // Get the current authenticated user
             User currentUser = securityUtils.getCurrentUser();
-            Long userId = currentUser.getId();
-            if (userId != null) {
-                currentUser = userRepository.findById(userId)
-                        .orElseThrow(() -> new IllegalArgumentException("User not found"));
-            } else {
-                currentUser = securityUtils.getCurrentUser();
-            }
+
+            // Find the user story
+            UserStory userStory = userStoryRepository.findById(userStoryId)
+                    .orElseThrow(() -> new IllegalArgumentException("User story not found with ID: " + userStoryId));
 
             // Create a new attachment
             Attachment attachment = new Attachment();
@@ -1702,10 +1700,6 @@ public class UserStoryController {
 
             // Save the attachment
             Attachment savedAttachment = attachmentRepository.save(attachment);
-
-            // Find the user story
-            UserStory userStory = userStoryRepository.findById(userStoryId)
-                    .orElseThrow(() -> new IllegalArgumentException("User Story not found with ID: " + userStoryId));
 
             // Add attachment to the user story
             if (userStory.getAttachments() == null) {
@@ -1723,10 +1717,125 @@ public class UserStoryController {
                     "attachment_added",
                     activityDetail);
 
-            return ResponseEntity.ok().build();
+            // Convert saved attachment to DTO for response
+            AttachmentDTO savedAttachmentDTO = new AttachmentDTO();
+            savedAttachmentDTO.setId(savedAttachment.getId());
+            savedAttachmentDTO.setFilename(savedAttachment.getFilename());
+            savedAttachmentDTO.setContentType(savedAttachment.getContentType());
+            savedAttachmentDTO.setFileSize(savedAttachment.getFileSize());
+            savedAttachmentDTO.setUrl(savedAttachment.getUrl());
+            savedAttachmentDTO.setCreatedAt(savedAttachment.getCreatedAt());
+
+            // Return the saved attachment in the response
+            return ResponseEntity.ok(savedAttachmentDTO);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Failed to add attachment: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/userstory/{userStoryId}/attachment/{attachmentId}")
+    public ResponseEntity<?> deleteAttachment(
+            @PathVariable("userStoryId") Integer userStoryId,
+            @PathVariable("attachmentId") Long attachmentId) {
+        try {
+            // Get the current authenticated user
+            User currentUser = securityUtils.getCurrentUser();
+
+            // Find the user story
+            UserStory userStory = userStoryRepository.findById(userStoryId)
+                    .orElseThrow(() -> new IllegalArgumentException("User Story not found with ID: " + userStoryId));
+
+            // Find the attachment
+            Attachment attachment = attachmentRepository.findById(attachmentId)
+                    .orElseThrow(() -> new IllegalArgumentException("Attachment not found with ID: " + attachmentId));
+
+            // Check if the attachment belongs to the user story
+            boolean attachmentBelongsToUserStory = userStory.getAttachments() != null &&
+                    userStory.getAttachments().stream().anyMatch(a -> a.getId().equals(attachmentId));
+
+            if (!attachmentBelongsToUserStory) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body("Attachment does not belong to this user story");
+            }
+
+            // Remove the attachment from the user story's attachments list
+            userStory.getAttachments().removeIf(a -> a.getId().equals(attachmentId));
+
+            // Save the updated user story
+            userStoryRepository.save(userStory);
+
+            // Mark the attachment as deleted but don't actually delete it from the database
+            attachment.setIsDelete(true);
+            attachmentRepository.save(attachment);
+
+            // Record activity
+            String activityDetail = String.format("Attachment '%s' deleted", attachment.getFilename());
+            activityService.recordUserStoryActivity(
+                    userStory.getProject().getId(),
+                    userStory.getId(),
+                    currentUser.getId(),
+                    "attachment_deleted",
+                    activityDetail);
+
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to delete attachment: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/{taskId}/attachment/{attachmentId}")
+    public ResponseEntity<?> deleteTaskAttachment(
+            @PathVariable("taskId") Integer taskId,
+            @PathVariable("attachmentId") Long attachmentId) {
+        try {
+            // Get the current authenticated user
+            User currentUser = securityUtils.getCurrentUser();
+
+            // Find the task
+            Task task = taskRepository.findById(taskId)
+                    .orElseThrow(() -> new IllegalArgumentException("Task not found with ID: " + taskId));
+
+            // Find the attachment
+            Attachment attachment = attachmentRepository.findById(attachmentId)
+                    .orElseThrow(() -> new IllegalArgumentException("Attachment not found with ID: " + attachmentId));
+
+            // Check if the attachment belongs to the task via TaskAttachment relation
+            boolean attachmentFound = false;
+            if (task.getTaskAttachments() != null) {
+                for (TaskAttachment ta : task.getTaskAttachments()) {
+                    if (ta.getAttachment().getId().equals(attachmentId)) {
+                        // Remove the task attachment relationship
+                        taskAttachmentRepository.delete(ta);
+                        attachmentFound = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!attachmentFound) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body("Attachment does not belong to this task");
+            }
+
+            // Mark the attachment as deleted
+            attachment.setIsDelete(true);
+            attachmentRepository.save(attachment);
+
+            // Record activity
+            String activityDetail = String.format("Attachment '%s' deleted", attachment.getFilename());
+            activityService.recordUserStoryActivity(
+                    task.getProject().getId(),
+                    task.getId(),
+                    currentUser.getId(),
+                    "attachment_deleted",
+                    activityDetail);
+
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to delete attachment: " + e.getMessage());
         }
     }
 
