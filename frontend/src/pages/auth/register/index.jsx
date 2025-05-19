@@ -59,7 +59,7 @@ const RegisterPage = () => {
     })
       .then(res => res.json())
       .then(res => {
-        if (res.message) {
+        if (res.message && res.message !== "CALL API SUCCESS") {
           setError(res.message)
           toast.error(res.message);
         }

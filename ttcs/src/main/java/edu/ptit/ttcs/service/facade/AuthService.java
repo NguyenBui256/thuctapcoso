@@ -2,10 +2,12 @@ package edu.ptit.ttcs.service.facade;
 
 import edu.ptit.ttcs.common.Constant;
 import edu.ptit.ttcs.dao.ForgotPasswordTokenDAO;
+import edu.ptit.ttcs.dao.UserSettingsRepository;
 import edu.ptit.ttcs.entity.ForgotPasswordToken;
 import edu.ptit.ttcs.entity.oauth2.Oauth2UserInfo;
 import edu.ptit.ttcs.entity.Role;
 import edu.ptit.ttcs.entity.User;
+import edu.ptit.ttcs.entity.UserSettings;
 import edu.ptit.ttcs.entity.dto.request.LoginDTO;
 import edu.ptit.ttcs.entity.dto.request.RegistrationDTO;
 import edu.ptit.ttcs.entity.dto.request.ResetPasswordDTO;
@@ -51,6 +53,8 @@ public class AuthService {
 
     private final Constant constant;
 
+    private final UserSettingsRepository userSettingsRepository;
+
     public AuthResponse register(RegistrationDTO dto, boolean oauth) {
         if (!oauth) {
             // Check for existing username or email
@@ -94,6 +98,21 @@ public class AuthService {
 
         try {
             user = userService.saveUser(user);
+            UserSettings userSettings = new UserSettings();
+            userSettings.setUser(user);
+            userSettings.setPhotoUrl(user.getAvatar());
+            userSettings.setBio("");
+            userSettings.setTheme("light");
+            userSettings.setLanguage("en");
+            userSettings.setProjectUpdates(true);
+            userSettings.setTaskUpdates(true);
+            userSettings.setCommentUpdates(true);
+            userSettings.setMentionUpdates(true);
+            userSettings.setDeadlineReminders(true);
+            userSettings.setWeeklyDigest(true);
+            userSettings.setCreatedAt(LocalDateTime.now());
+            userSettings.setUpdatedAt(LocalDateTime.now());
+            userSettingsRepository.save(userSettings);
         } catch (Exception e) {
             if (e.getMessage() != null && e.getMessage().contains("Duplicate entry")) {
                 throw new RequestException("Username hoặc email đã tồn tại");
