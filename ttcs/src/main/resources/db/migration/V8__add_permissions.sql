@@ -12,7 +12,7 @@ INSERT INTO permissions (api_path, method, module, name, created_at, updated_at)
 ('/api/v1/projects/{projectId}/sprints', 'POST', 'Sprints', 'Add sprints', NOW(), NOW()),
 ('/api/v1/projects/{projectId}/sprints/{sprintId}', 'PUT', 'Sprints', 'Modify sprints', NOW(), NOW()),
 ('/api/v1/projects/{projectId}/sprints/{sprintId}', 'DELETE', 'Sprints', 'Delete sprints', NOW(), NOW());
-
+  
 -- User Stories permissions
 INSERT INTO permissions (api_path, method, module, name, created_at, updated_at) VALUES 
 ('/api/v1/projects/{projectId}/user-stories', 'GET', 'User Stories', 'View user stories', NOW(), NOW()),

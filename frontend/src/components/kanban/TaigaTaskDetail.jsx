@@ -653,33 +653,24 @@ const TaskDetail = () => {
 
     const handleRemoveWatcher = async (userId) => {
         try {
-            console.log(`Attempting to remove watcher ${userId} from task ${taskId}`);
-
             // Ensure userId is a number
             const numericUserId = parseInt(userId);
             if (isNaN(numericUserId)) {
                 console.error('Invalid user ID:', userId);
-                message.error('User ID không hợp lệ');
+                toast.error('User ID không hợp lệ');
                 return;
             }
-
-            // Gọi API để xóa người dùng khỏi watchers
             await axios.delete(`/api/tasks/${taskId}/watchers/${numericUserId}`);
-
             // Update UI immediately for better responsiveness
             setWatchers(prev => prev.filter(watcher => parseInt(watcher.id) !== numericUserId));
-
+            toast.success('Watcher removed successfully');
             // Refresh task data
-            console.log("Remove watcher successful, refreshing task data");
             await fetchTaskDetails();
-            toast.success('Đã xóa người theo dõi');
-
             // Tự động làm mới activities
             triggerActivitiesRefresh();
         } catch (error) {
-            console.error('Error removing watcher:', error.response?.data || error.message);
+            console.error('Error removing watcher:', error);
             toast.error('Không thể xóa người theo dõi');
-
             // Refresh on error to ensure UI is in sync with server
             await fetchTaskDetails();
         }

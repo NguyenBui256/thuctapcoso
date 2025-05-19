@@ -766,21 +766,14 @@ public class TaskController {
                 return ResponseEntity.notFound().build();
             }
 
-            // Find user
-            Optional<User> userOptional = userRepository.findById(userId.longValue());
-            if (!userOptional.isPresent()) {
+            Task task = taskOptional.get();
+            Optional<ProjectMember> projectMember = projectMemberRepository.findById(userId.longValue());
+            if (!projectMember.isPresent()) {
                 return ResponseEntity.notFound().build();
             }
 
-            Task task = taskOptional.get();
-            ProjectMember projectMember = projectMemberRepository.findByProjectIdAndUserIdAndIsDeleteFalse(
-                    task.getProject().getId(), userId.longValue());
-
-            // Remove user if in list
-            if (task.getWatchers() != null) {
-                task.getWatchers().remove(projectMember);
-                task = taskRepository.save(task);
-            }
+            task.getWatchers().remove(projectMember.get());
+            task = taskRepository.save(task);
 
             return ResponseEntity.ok(convertToDTO(task));
         } catch (Exception e) {

@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { OpenOauthLoginPage } from '../../../utils/Oauth2Utils'
 import { checkAuthenticated, setUserData } from '../../../utils/AuthUtils';
 import { BASE_API_URL } from '../../../common/constants';
+import { toast } from 'react-toastify';
 
 const LoginPage = () => {
 
@@ -41,34 +42,32 @@ const LoginPage = () => {
 
       const data = await res.json();
 
-
       if (!res.ok) {
-        setError(res.data.message || 'Đăng nhập thất bại')
+        setError(res.data?.message || 'Đăng nhập thất bại')
+        toast.error(res.data?.message || 'Đăng nhập thất bại');
         return
       }
 
-      console.log(data.data.token);
-
-      // Check if token exists in response
       if (!data.data.token) {
         setError('Không nhận được token từ server')
+        toast.error('Không nhận được token từ server');
         return
       }
-
-      console.log(data)
 
       localStorage.setItem('access_token', data.data.token)
       setUserData(data.data.token)
 
-      // Check if we're properly authenticated before redirecting
       const isAuthenticated = await checkAuthenticated()
       if (isAuthenticated) {
+        toast.success('Đăng nhập thành công!');
         window.location.assign('/')
       } else {
         setError('Không thể xác thực người dùng')
+        toast.error('Không thể xác thực người dùng');
       }
     } catch {
       setError('Đã xảy ra lỗi khi đăng nhập. Vui lòng thử lại sau.')
+      toast.error('Đã xảy ra lỗi khi đăng nhập. Vui lòng thử lại sau.');
     }
   };
 

@@ -47,6 +47,10 @@ public class ProjectService {
     private final PermissionRepository permissionRepository;
     private final PermissionService permissionService;
     private final ProjectRolePermissionRepository projectRolePermissionRepository;
+    private final PjSettingPriorityRepository pjSettingPriorityRepository;
+    private final PjSettingSeverityRepository pjSettingSeverityRepository;
+    private final PjSettingTypeRepository pjSettingTypeRepository;
+    private final ProjectSettingTagRepository projectSettingTagRepository;
 
     @Transactional
     public Project save(Project project) {
@@ -258,6 +262,10 @@ public class ProjectService {
             creatorMember.setUpdatedBy(creatorMember);
             projectMemberRepository.save(creatorMember);
             log.info("Successfully set roles and updated project member");
+
+            // === Khởi tạo các attributes mặc định cho project ===
+            initializeDefaultAttributesForProject(project);
+            // === END ===
 
             return project;
         } catch (Exception e) {
@@ -586,5 +594,129 @@ public class ProjectService {
         } catch (Exception e) {
             log.error("Error handling null owner for project {}: {}", project.getId(), e.getMessage(), e);
         }
+    }
+
+    private void initializeDefaultAttributesForProject(Project project) {
+        LocalDateTime now = LocalDateTime.now();
+        // User Story Statuses
+        List<ProjectSettingStatus> userStoryStatuses = List.of(
+                createStatus(project, "userstory", "#666699", "New", "new", false, false, 1, now),
+                createStatus(project, "userstory", "#e74c3c", "Ready", "ready", false, false, 2, now),
+                createStatus(project, "userstory", "#e67e22", "In progress", "in-progress", false, false, 3, now),
+                createStatus(project, "userstory", "#f1c40f", "Ready for test", "ready-for-test", false, false, 4, now),
+                createStatus(project, "userstory", "#7bed8d", "Done", "done", true, false, 5, now),
+                createStatus(project, "userstory", "#666699", "Archived", "archived", true, true, 6, now));
+        pjSettingStatusRepository.saveAll(userStoryStatuses);
+
+        // Task Statuses
+        List<ProjectSettingStatus> taskStatuses = List.of(
+                createStatus(project, "task", "#666699", "New", "new", false, false, 1, now),
+                createStatus(project, "task", "#e67e22", "In progress", "in-progress", false, false, 2, now),
+                createStatus(project, "task", "#f1c40f", "Ready for test", "ready-for-test", false, false, 3, now),
+                createStatus(project, "task", "#7bed8d", "Closed", "closed", true, false, 4, now),
+                createStatus(project, "task", "#2980b9", "Needs Info", "needs-info", false, false, 5, now));
+        pjSettingStatusRepository.saveAll(taskStatuses);
+
+        // Issue Statuses
+        List<ProjectSettingStatus> issueStatuses = List.of(
+                createStatus(project, "issue", "#666699", "New", "new", false, false, 1, now),
+                createStatus(project, "issue", "#3498db", "In progress", "in-progress", false, false, 2, now),
+                createStatus(project, "issue", "#e67e22", "Ready for test", "ready-for-test", false, false, 3, now),
+                createStatus(project, "issue", "#7bed8d", "Closed", "closed", true, false, 4, now),
+                createStatus(project, "issue", "#e74c3c", "Needs Info", "needs-info", false, false, 5, now),
+                createStatus(project, "issue", "#666699", "Rejected", "rejected", true, false, 6, now),
+                createStatus(project, "issue", "#2980b9", "Postponed", "postponed", false, false, 7, now));
+        pjSettingStatusRepository.saveAll(issueStatuses);
+
+        // Priorities
+        List<ProjectSettingPriority> priorities = List.of(
+                createPriority(project, "Low", "#666699", 1, now),
+                createPriority(project, "Normal", "#7bed8d", 2, now),
+                createPriority(project, "High", "#e74c3c", 3, now));
+        pjSettingPriorityRepository.saveAll(priorities);
+
+        // Severities
+        List<ProjectSettingSeverity> severities = List.of(
+                createSeverity(project, "Wishlist", "#666699", 1, now),
+                createSeverity(project, "Minor", "#7bed8d", 2, now),
+                createSeverity(project, "Normal", "#b2ff59", 3, now),
+                createSeverity(project, "Important", "#f1c40f", 4, now),
+                createSeverity(project, "Critical", "#e67e22", 5, now));
+        pjSettingSeverityRepository.saveAll(severities);
+
+        // Types
+        List<ProjectSettingType> types = List.of(
+                createType(project, "Bug", "#e74c3c", 1, now),
+                createType(project, "Question", "#2980b9", 2, now),
+                createType(project, "Enhancement", "#1abc9c", 3, now));
+        pjSettingTypeRepository.saveAll(types);
+
+        // Tags
+        List<ProjectSettingTag> tags = List.of(
+                createTag(project, "bug", "#e74c3c"),
+                createTag(project, "feature", "#3498db"),
+                createTag(project, "enhancement", "#2ecc71"),
+                createTag(project, "urgent", "#e67e22"),
+                createTag(project, "help wanted", "#9b59b6"));
+        projectSettingTagRepository.saveAll(tags);
+    }
+
+    private ProjectSettingStatus createStatus(Project project, String type, String color, String name, String slug,
+            boolean closed, boolean archived, int order, LocalDateTime now) {
+        ProjectSettingStatus status = new ProjectSettingStatus();
+        status.setProject(project);
+        status.setType(type);
+        status.setColor(color);
+        status.setName(name);
+        status.setSlug(slug);
+        status.setClosed(closed);
+        status.setArchived(archived);
+        status.setOrder(order);
+        status.setCreatedAt(now);
+        status.setUpdatedAt(now);
+        return status;
+    }
+
+    private ProjectSettingPriority createPriority(Project project, String name, String color, int order,
+            LocalDateTime now) {
+        ProjectSettingPriority priority = new ProjectSettingPriority();
+        priority.setProject(project);
+        priority.setName(name);
+        priority.setColor(color);
+        priority.setOrder(order);
+        priority.setCreatedAt(now);
+        priority.setUpdatedAt(now);
+        return priority;
+    }
+
+    private ProjectSettingSeverity createSeverity(Project project, String name, String color, int order,
+            LocalDateTime now) {
+        ProjectSettingSeverity severity = new ProjectSettingSeverity();
+        severity.setProject(project);
+        severity.setName(name);
+        severity.setColor(color);
+        severity.setOrder(order);
+        severity.setCreatedAt(now);
+        severity.setUpdatedAt(now);
+        return severity;
+    }
+
+    private ProjectSettingType createType(Project project, String name, String color, int order, LocalDateTime now) {
+        ProjectSettingType type = new ProjectSettingType();
+        type.setProject(project);
+        type.setName(name);
+        type.setColor(color);
+        type.setOrder(order);
+        type.setCreatedAt(now);
+        type.setUpdatedAt(now);
+        return type;
+    }
+
+    private ProjectSettingTag createTag(Project project, String name, String color) {
+        ProjectSettingTag tag = new ProjectSettingTag();
+        tag.setProject(project);
+        tag.setName(name);
+        tag.setColor(color);
+        return tag;
     }
 }
