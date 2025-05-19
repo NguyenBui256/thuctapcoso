@@ -1,27 +1,130 @@
 import { checkAuthenticated, logout } from "../utils/AuthUtils"
 import { Link } from "react-router-dom"
 import logo from '/icons/logo-nav.svg'
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { FiFolder, FiHelpCircle, FiChevronDown } from 'react-icons/fi';
-import { IoNotificationsOutline } from "react-icons/io5";
 import { AiOutlineCompass } from "react-icons/ai";
 import { renderAvatar } from '../utils/UserUtils'
+import NotificationDropdown from '../components/notification/NotificationDropdown';
+import axios from '../common/axios-customize';
+import userSettingsService from '../services/userSettingsService';
 
 export default function Navbar() {
-
-    const [authenticated, setAuthenticated] = useState(false)
-    const userData = JSON.parse(localStorage.getItem('userData'))
+    const [authenticated, setAuthenticated] = useState(false);
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const [isProjectsOpen, setIsProjectsOpen] = useState(false);
+    const [userData, setUserData] = useState(null);
+    const [userProjects, setUserProjects] = useState([]);
+    const projectDropdownRef = useRef(null);
 
     const setAuth = async () => {
-        const auth = await checkAuthenticated()
-        setAuthenticated(auth)
+        const auth = await checkAuthenticated();
+        setAuthenticated(auth);
+        if (auth) {
+            // Get userData from localStorage
+            const storedUserData = JSON.parse(localStorage.getItem('userData'));
+            setUserData(storedUserData);
+
+            // Fetch latest user settings to ensure avatar is updated
+            try {
+                // Get user settings from the correct endpoint
+                const userSettingsResponse = await userSettingsService.getUserSettings();
+                console.log("User settings response:", userSettingsResponse);
+
+                if (userSettingsResponse && userSettingsResponse.data) {
+                    // Get avatar from user_settings
+                    const settingsData = userSettingsResponse.data;
+                    const avatarUrl = settingsData.photoUrl || settingsData.avatar;
+
+                    console.log("Found avatar URL in settings:", avatarUrl);
+
+                    if (storedUserData && avatarUrl && avatarUrl !== storedUserData.avatarUrl) {
+                        console.log("Updating avatar in localStorage from user settings");
+                        const updatedUserData = { ...storedUserData, avatarUrl: avatarUrl };
+                        localStorage.setItem('userData', JSON.stringify(updatedUserData));
+                        setUserData(updatedUserData);
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching user settings:', error);
+            }
+
+            // Fetch user projects
+            try {
+                // Use correct API endpoint with proper path
+                const response = await axios.get('/api/v1/projects/joined');
+                console.log("Projects API response:", response);
+
+                if (response && response.data) {
+                    // Handle both array and object responses
+                    const projectsData = Array.isArray(response.data) ? response.data :
+                        (response.data.content ? response.data.content :
+                            (response.data.data ? response.data.data : []));
+
+                    // Log for debugging
+                    console.log("Formatted projects data:", projectsData);
+
+                    // Set at most 4 projects
+                    setUserProjects(projectsData.slice(0, 4));
+                }
+            } catch (error) {
+                console.error('Error fetching user projects:', error);
+            }
+        }
     }
 
     useEffect(() => {
-        setAuth()
-    }, [])
+        setAuth();
+    }, []);
 
-    const [isProfileOpen, setIsProfileOpen] = useState(false);
+    // Effect to update userData whenever localStorage changes
+    useEffect(() => {
+        const handleStorageChange = () => {
+            const storedUserData = JSON.parse(localStorage.getItem('userData'));
+            setUserData(storedUserData);
+        };
+
+        // Listen for storage changes (for when other components update localStorage)
+        window.addEventListener('storage', handleStorageChange);
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+        };
+    }, []);
+
+    // Close project dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (projectDropdownRef.current && !projectDropdownRef.current.contains(event.target)) {
+                setIsProjectsOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
+
+    // Custom avatar rendering for navbar
+    const renderUserAvatar = () => {
+        if (!userData) return null;
+
+        if (!userData.avatarUrl) {
+            return (
+                <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-white">
+                    {userData.username?.charAt(0)?.toUpperCase() || userData.fullName?.charAt(0)?.toUpperCase() || 'U'}
+                </div>
+            );
+        }
+
+        return (
+            <img
+                src={userData.avatarUrl}
+                alt="User avatar"
+                className="w-8 h-8 rounded-full"
+            />
+        );
+    };
 
     return (
         <div className="h-12 bg-gray-200 flex items-center fixed top-0 left-0 right-0 z-50">
@@ -39,11 +142,61 @@ export default function Navbar() {
                                     />
                                 </Link>
                             </div>
-                            <div className="flex items-center text-blue-500 hover:text-blue-700 cursor-pointer ml-2">
-                                <FiFolder className="text-lg mr-1" />
-                                <span className="font-medium">
-                                    <Link to='/projects'>Dự án</Link>
-                                </span>
+                            <div className="relative" ref={projectDropdownRef}>
+                                <div
+                                    className="flex items-center text-blue-500 hover:text-blue-700 cursor-pointer ml-2"
+                                    onClick={() => setIsProjectsOpen(!isProjectsOpen)}
+                                >
+                                    <FiFolder className="text-lg mr-1" />
+                                    <span className="font-medium">Dự án</span>
+                                    <FiChevronDown className="ml-1" />
+                                </div>
+
+                                {isProjectsOpen && (
+                                    <div className="absolute left-0 mt-2 w-64 bg-white rounded-md shadow-lg z-50 border border-gray-200">
+                                        <div className="p-2">
+                                            {userProjects.length > 0 ? (
+                                                <>
+                                                    {userProjects.map(project => (
+                                                        <Link
+                                                            key={project.id}
+                                                            to={`/projects/${project.id}`}
+                                                            className="flex items-center p-2 hover:bg-gray-100 rounded"
+                                                        >
+                                                            <div className="w-6 h-6 mr-2 bg-blue-100 rounded flex items-center justify-center text-blue-500">
+                                                                {project.logoUrl ? (
+                                                                    <img src={project.logoUrl} alt={project.name} className="w-full h-full object-cover" />
+                                                                ) : (
+                                                                    project.name ? project.name.substring(0, 2).toUpperCase() : 'P'
+                                                                )}
+                                                            </div>
+                                                            <span className="text-gray-700">{project.name}</span>
+                                                        </Link>
+                                                    ))}
+                                                    <div className="border-t my-2"></div>
+                                                </>
+                                            ) : (
+                                                <div className="p-2 text-gray-500 text-sm">No projects found</div>
+                                            )}
+
+                                            <Link
+                                                to="/projects/manage"
+                                                className="block p-2 text-teal-500 hover:text-teal-700 hover:underline"
+                                            >
+                                                View all projects
+                                            </Link>
+
+                                            <Link
+                                                to="/projects/new"
+                                                className="block p-2 mt-2 bg-teal-200 hover:bg-teal-300 text-center rounded-md"
+                                            >
+                                                <span className="font-medium flex items-center justify-center">
+                                                    <span className="mr-1">+</span> NEW PROJECT
+                                                </span>
+                                            </Link>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -53,15 +206,15 @@ export default function Navbar() {
                                     <AiOutlineCompass className="text-2xl" />
                                 </button>
 
-                                <button className="cursor-pointer text-2xl  p-2 text-blue-600 hover:text-gray-700 rounded-full">
+                                <button className="cursor-pointer text-2xl p-2 text-blue-600 hover:text-gray-700 rounded-full">
                                     <FiHelpCircle />
                                 </button>
 
-                                <button className="cursor-pointer text-2xl  p-2 text-blue-600 hover:text-gray-700 rounded-full">
-                                    <IoNotificationsOutline />
-                                </button>
+                                {/* NotificationDropdown Component */}
+                                {userData && userData.userId && (
+                                    <NotificationDropdown userId={userData.userId} />
+                                )}
                             </div>
-
 
                             <div className="relative mr-3 group">
                                 <button
@@ -69,10 +222,10 @@ export default function Navbar() {
                                     onClick={() => setIsProfileOpen(!isProfileOpen)}
                                 >
                                     <Link
-                                        to={'#'}
+                                        to={`/users/${userData?.userId}`}
                                         className="w-8 h-8 rounded-full flex items-center justify-center border-4 border-blue-400 hover:border-gray-400"
                                     >
-                                        {renderAvatar(userData.avatarUrl, true)}
+                                        {renderUserAvatar()}
                                     </Link>
                                     <FiChevronDown className="transition-transform duration-200 group-hover:transform group-hover:rotate-180" />
                                 </button>
@@ -87,14 +240,24 @@ export default function Navbar() {
                                     <div className="navbar-dropdown bg-white rounded-md shadow-lg border border-gray-200" style={{ zIndex: 9999, position: 'relative' }}>
                                         <div className="p-4 ">
                                             <div className="flex items-center">
-                                                <div className="w-12 h-12 rounded-full flex items-center justify-center">
-                                                    {renderAvatar(userData.avatarUrl, true)}
+                                                <div className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden">
+                                                    {userData?.avatarUrl ? (
+                                                        <img
+                                                            src={userData.avatarUrl}
+                                                            alt="User avatar"
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <div className="w-full h-full bg-purple-500 flex items-center justify-center text-white">
+                                                            {userData?.username?.charAt(0)?.toUpperCase() || userData?.fullName?.charAt(0)?.toUpperCase() || 'U'}
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div className="ml-3">
-                                                    <div className="font-semibold">{userData.fullName}</div>
-                                                    <div className="text-sm text-gray-500">{userData.email}</div>
+                                                    <div className="font-semibold">{userData?.fullName}</div>
+                                                    <div className="text-sm text-gray-500">{userData?.email}</div>
                                                     <a
-                                                        href="/"
+                                                        href="/account/settings"
                                                         className=" text-blue-500 text-sm hover:underline mt-1"
                                                     >
                                                         Sửa hồ sơ

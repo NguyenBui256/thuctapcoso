@@ -21,6 +21,7 @@ public class TaskDTO {
     private Boolean isBlocked;
     private String statusName;
     private Integer points;
+    private List<AttachmentDTO> attachments;
 
     // Nested DTO for tags
     public static class TagDTO {
@@ -58,6 +59,15 @@ public class TaskDTO {
         private Integer id;
         private String username;
         private String fullName;
+        private String photoUrl;
+
+        public String getPhotoUrl() {
+            return photoUrl;
+        }
+
+        public void setPhotoUrl(String photoUrl) {
+            this.photoUrl = photoUrl;
+        }
 
         public Integer getId() {
             return id;
@@ -218,5 +228,13 @@ public class TaskDTO {
 
     public void setPoints(Integer points) {
         this.points = points;
+    }
+
+    public List<AttachmentDTO> getAttachments() {
+        return attachments;
+    }
+
+    public void setAttachments(List<AttachmentDTO> attachments) {
+        this.attachments = attachments;
     }
 }

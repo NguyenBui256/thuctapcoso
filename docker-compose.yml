@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ttcs-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    environment:
+      - VITE_BACKEND_URL=http://localhost:8080
+      - VITE_BASE_API_URL=http://localhost:8080/api
+      - VITE_BASE_BE_URL=http://localhost:8080
+    networks:
+      - ttcs-network
+
+  backend:
+    build:
+      context: ./ttcs
+      dockerfile: Dockerfile
+    container_name: ttcs-backend
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql
+      - redis
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/ttcs?useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=root
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - UPLOAD_DIR=/app/upload
+    volumes:
+      - ./upload:/app/upload
+    networks:
+      - ttcs-network
+
+  mysql:
+    image: mysql:8.0
+    container_name: ttcs-mysql
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=ttcs
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - ttcs-network
+
+  redis:
+    image: redis:alpine
+    container_name: ttcs-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - ttcs-network
+
+networks:
+  ttcs-network:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  redis-data:

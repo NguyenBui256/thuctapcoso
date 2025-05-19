@@ -5,28 +5,25 @@ import edu.ptit.ttcs.entity.Project;
 import edu.ptit.ttcs.entity.ProjectSettingStatus;
 import edu.ptit.ttcs.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import javax.swing.text.html.Option;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
-public interface IssueRepository extends JpaRepository<Issue, Long> {
+public interface IssueRepository extends JpaRepository<Issue, Long>, JpaSpecificationExecutor<Issue> {
     @Query("SELECT i FROM Issue i WHERE i.sprint.project = :project")
     List<Issue> findByProject(@Param("project") Project project);
 
     @Query("SELECT i FROM Issue i WHERE i.sprint.project = :project AND i.status = :status")
     List<Issue> findByProjectAndStatus(@Param("project") Project project, @Param("status") ProjectSettingStatus status);
 
-    List<Issue> findByAssignee(User user);
-
-    List<Issue> findByWatchersContaining(User user);
-
     List<Issue> findByProjectId(Long projectId);
-
-    long countByStatusId(Long statusId);
 
     List<Issue> findBySubjectContaining(String keyword);
 
@@ -36,4 +33,10 @@ public interface IssueRepository extends JpaRepository<Issue, Long> {
     @Modifying
     @Query("UPDATE Issue i SET i.position = i.position + 1 WHERE i.status.id = :statusId")
     void incrementPositionsByStatusId(@Param("statusId") Long statusId);
+
+    @Query(nativeQuery = true,
+            value = "SELECT * from issues where project_id = ?1 ORDER BY id DESC LIMIT 1")
+    Optional<Issue> findLastByProject(long projectId);
+
+    Optional<Issue> findByProjectAndPosition(Project project, Integer position);
 }

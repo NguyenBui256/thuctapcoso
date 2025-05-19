@@ -3,6 +3,7 @@ package edu.ptit.ttcs.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,23 +22,27 @@ public class Issue {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    private LocalDate dueDate;
+
     @ManyToOne
     @JoinColumn(name = "status_id")
-    private IssueStatus status;
+    private ProjectSettingStatus status;
+
+    @ManyToOne
+    @JoinColumn(name = "type_id")
+    private ProjectSettingType type;
+
+    @ManyToOne
+    @JoinColumn(name = "severity_id")
+    private ProjectSettingSeverity severity;
+
+    @ManyToOne
+    @JoinColumn(name = "priority_id")
+    private ProjectSettingPriority priority;
 
     @ManyToOne
     @JoinColumn(name = "project_id")
     private Project project;
-
-    @Enumerated(EnumType.STRING)
-    private IssueType type;
-
-    @ManyToOne
-    @JoinColumn(name = "parent_id")
-    private Issue parent;
-
-    @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL)
-    private List<Issue> tasks = new ArrayList<>();
 
     @ManyToOne
     @JoinColumn(name = "epic_id")
@@ -49,36 +54,38 @@ public class Issue {
 
     @ManyToOne
     @JoinColumn(name = "assignee_id")
-    private User assignee;
+    private ProjectMember assignee;
 
     @ManyToOne
     @JoinColumn(name = "created_by_id")
-    private User createdBy;
+    private ProjectMember createdBy;
 
     @Column(nullable = false)
     private LocalDateTime createdDate;
 
     @ManyToOne
     @JoinColumn(name = "updated_by_id")
-    private User updatedBy;
+    private ProjectMember updatedBy;
 
     private LocalDateTime updatedDate;
 
     private Integer position;
 
-    private Integer storyPoints;
-
-    private Integer uxPoints;
-
-    private Integer designPoints;
-
-    private Integer frontPoints;
-
-    private Integer backPoints;
-
     @ManyToMany
     @JoinTable(name = "issue_tags", joinColumns = @JoinColumn(name = "issue_id"), inverseJoinColumns = @JoinColumn(name = "tag_id"))
     private List<ProjectSettingTag> tags = new ArrayList<>();
+//
+//    @OneToMany(cascade = CascadeType.ALL)
+//    private List<Attachment> attachments = new ArrayList<>();
+//
+//    @OneToMany(mappedBy = "issue", cascade = CascadeType.ALL)
+//    private List<Comment> comments = new ArrayList<>();
+//
+//    @OneToMany(mappedBy = "issue", cascade = CascadeType.ALL)
+//    private List<Activity> activities = new ArrayList<>();
+//
+//    @OneToMany(mappedBy = "issue", cascade = CascadeType.ALL)
+//    private List<Watcher> watchers = new ArrayList<>();
 
     @OneToMany(cascade = CascadeType.ALL)
     @JoinTable(name = "issues_attachments", joinColumns = @JoinColumn(name = "issue_id", referencedColumnName = "id", columnDefinition = "BIGINT"), inverseJoinColumns = @JoinColumn(name = "attachment_id", referencedColumnName = "id", columnDefinition = "BIGINT"))

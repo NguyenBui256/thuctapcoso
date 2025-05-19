@@ -184,7 +184,38 @@ const WikiPage = () => {
   };
 
   const handleUpdatePage = async (updatedPage) => {
-    if (!updatedPage || !updatedPage.id) {
+    // Xóa lỗi ngay lập tức khi có cập nhật mới
+    setError(null);
+
+    // Create a new object with all the updated data to avoid reference issues
+    const updatedPageCopy = {
+      ...selectedPage, // Start with existing data
+      ...updatedPage,   // Override with new data
+      updatedAt: new Date().toISOString() // Add current timestamp
+    };
+    
+    // Update UI immediately for better UX
+    console.log('Updating UI with new content:', updatedPageCopy.title);
+    setSelectedPage(updatedPageCopy);
+    
+    // Update wikiPages list to reflect changes
+    setWikiPages(prev => 
+      prev.map(p => p.id === updatedPageCopy.id ? updatedPageCopy : p)
+    );
+
+    // Kiểm tra xem đây có phải là cập nhật tệp đính kèm không
+    const isAttachmentUpdate = updatedPage.attachments &&
+      selectedPage && selectedPage.attachments &&
+      updatedPage.attachments.length > selectedPage.attachments.length;
+
+    // Nếu là cập nhật tệp đính kèm, chỉ cập nhật state mà không gọi API
+    if (isAttachmentUpdate) {
+      console.log('Attachment update detected, state already updated');
+      return;
+    }
+
+    // Nếu không có ID trang, đây có thể là lỗi
+    if (!updatedPage.id) {
       setError('Cannot update page: Invalid page ID');
       return;
     }
@@ -194,6 +225,8 @@ const WikiPage = () => {
         title: updatedPage.title,
         content: updatedPage.content || ''
       };
+
+      console.log('Sending update to server:', pageRequest);
 
       const response = await fetchWithAuth(
         `${BASE_API_URL}/v1/user/${userId}/project/${projectId}/wiki/${updatedPage.id}`,
@@ -208,16 +241,15 @@ const WikiPage = () => {
 
       if (response && response.ok) {
         const jsonResponse = await response.json();
-        const updatedData = jsonResponse.data || jsonResponse;
-        setSelectedPage(updatedData);
-        setWikiPages(wikiPages.map(p => (p.id === updatedData.id ? updatedData : p)));
-        setError(null); // Clear error on success
+        console.log('Server update success:', jsonResponse);
+        // We don't need to update UI again as we've already done it
       } else {
-        setError('Failed to update wiki page');
+        console.error('Server update failed:', response.status);
+        setError('Failed to update wiki page on server');
       }
     } catch (err) {
+      console.error('Error updating wiki page:', err);
       setError('Failed to update wiki page');
-      console.error(err);
     }
   };
 
@@ -303,6 +335,7 @@ const WikiPage = () => {
               <div className="text-center text-gray-500">Loading page...</div>
             ) : selectedPage ? (
               <WikiContent
+                key={Math.random()}
                 page={selectedPage}
                 onUpdatePage={handleUpdatePage}
                 onDeletePage={handleDeletePage}

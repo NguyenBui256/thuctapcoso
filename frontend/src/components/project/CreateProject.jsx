@@ -34,15 +34,6 @@ const projectTypeInfo = {
             </svg>
         )
     },
-    import: {
-        name: 'Import Project',
-        description: 'Import your project from multiple platforms into Taiga',
-        icon: (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-            </svg>
-        )
-    }
 };
 
 const CreateProject = () => {
@@ -73,10 +64,46 @@ const CreateProject = () => {
         setError(null);
 
         try {
-            await projectService.createProject(formData);
-            navigate('/projects');
+            const response = await projectService.createProject(formData);
+            console.log('Project created:', response);
+
+            // Lấy projectId từ phản hồi API
+            // API có thể trả về đối tượng Project trực tiếp hoặc bọc trong data
+            let projectId = null;
+
+            // Handle different response formats
+            if (response && response.id) {
+                projectId = response.id;
+            } else if (response && response.data && response.data.id) {
+                projectId = response.data.id;
+            }
+
+            if (projectId) {
+                // Enable corresponding module based on project type
+                if (projectType === 'scrum' || projectType === 'kanban') {
+                    try {
+                        console.log(`Enabling ${projectType} module for project ${projectId}`);
+                        // Enable the appropriate module
+                        await projectService.enableProjectModules(
+                            projectId,
+                            [projectType] // Enable only the selected project type module
+                        );
+                        console.log(`${projectType} module enabled successfully`);
+                    } catch (moduleErr) {
+                        console.error(`Error enabling ${projectType} module:`, moduleErr);
+                        // Continue with navigation even if module enabling fails
+                        // The user can enable modules manually later
+                    }
+                }
+
+                // Luôn chuyển đến trang chi tiết dự án sau khi tạo thành công
+                navigate(`/projects/${projectId}`);
+            } else {
+                // Nếu không có projectId, chuyển về trang projects
+                navigate('/projects');
+            }
         } catch (err) {
-            setError('Failed to create project');
+            setError('Failed to create project: ' + (err.response?.data?.message || err.message || 'Unknown error'));
             console.error('Error creating project:', err);
         } finally {
             setLoading(false);

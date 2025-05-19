@@ -40,18 +40,6 @@ const SelectProjectType = () => {
                 </svg>
             )
         },
-        {
-            id: 'import',
-            name: 'IMPORT PROJECT',
-            description: 'Import your project from multiple platforms into Taiga',
-            icon: (
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M28 22V24C28 25.1046 27.1046 26 26 26H6C4.89543 26 4 25.1046 4 24V22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M8 14L16 22L24 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M16 22V6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-            )
-        }
     ];
 
     const handleTypeSelect = (typeId) => {

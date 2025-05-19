@@ -2,13 +2,16 @@ import { BASE_API_URL } from "../common/constants"
 
 export async function checkAuthenticated() {
     try {
-        const accessToken = localStorage.getItem("access_token")
+        const accessToken = localStorage.getItem("userData")
         if (!accessToken) {
             // Try to refresh token
             const ref = await fetch(`${BASE_API_URL}/v1/auth/refresh`, {
                 credentials: "include"
             })
-            if (ref.status !== 200) return false
+            if (ref.status !== 200) {
+                await localStorage.removeItem('userData')
+                return false
+            }
 
             const data = await ref.json()
             localStorage.setItem("access_token", data.data.token)
@@ -26,6 +29,7 @@ export async function checkAuthenticated() {
 
 export async function fetchWithAuth(url, from, isCompulsory, options = {}) {
     try {
+        console.log("fetchWithAuth called with URL:", url, "method:", options.method || "GET");
         const accessToken = localStorage.getItem("access_token")
         if (!accessToken) {
             if (isCompulsory) {
@@ -44,6 +48,8 @@ export async function fetchWithAuth(url, from, isCompulsory, options = {}) {
             credentials: 'include'
         })
 
+        console.log("fetchWithAuth response:", url, "status:", res.status, "ok:", res.ok);
+
         if (!res.ok) {
             if (res.status === 401) {
                 const ref = await fetch(`${BASE_API_URL}/v1/auth/refresh`, {
@@ -51,6 +57,8 @@ export async function fetchWithAuth(url, from, isCompulsory, options = {}) {
                 })
 
                 if (ref.status !== 200) {
+                    await localStorage.removeItem('userData')
+                    await localStorage.removeItem('access_token')
                     if (isCompulsory) {
                         window.location.assign('/login' + `${from ? '?from=' + from : ''}`)
                     }
@@ -75,7 +83,7 @@ export async function fetchWithAuth(url, from, isCompulsory, options = {}) {
         }
         return res
     } catch (error) {
-        console.error('Error in fetchWithAuth:', error)
+        console.error('Error in fetchWithAuth:', error, "URL:", url)
         if (isCompulsory) {
             window.location.assign('/login' + `${from ? '?from=' + from : ''}`)
         }

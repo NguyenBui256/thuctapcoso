@@ -17,12 +17,15 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import edu.ptit.ttcs.dao.ProjectMemberRepository;
+
 @Component
 @RequiredArgsConstructor
 public class ProjectMapper {
 
     private final ModuleRepository moduleRepository;
     private final UserRepository userRepository;
+    private final ProjectMemberRepository projectMemberRepository;
 
     public Project toEntity(CreateProjectDTO dto) {
         Project project = new Project();
@@ -55,25 +58,18 @@ public class ProjectMapper {
     }
 
     public Project updateEntity(Project project, CreateProjectDTO dto) {
-        project.setName(dto.getName());
-        project.setDescription(dto.getDescription());
-        project.setIsPublic(dto.getIsPublic());
-        project.setLogoUrl(dto.getLogoUrl());
-
-        // Map project type to module
-        Long moduleId = switch (dto.getProjectType()) {
-            case "SCRUM" -> 1L;
-            case "KANBAN" -> 2L;
-            default -> throw new IllegalArgumentException("Invalid project type: " + dto.getProjectType());
-        };
-
-        Module module = moduleRepository.findById(moduleId)
-                .orElseThrow(() -> new RuntimeException("Module not found for ID: " + moduleId));
-
-        Set<Module> modules = new HashSet<>();
-        modules.add(module);
-        project.setModules(modules);
-
+        if (dto.getName() != null && !dto.getName().isEmpty()) {
+            project.setName(dto.getName());
+        }
+        if (dto.getDescription() != null) {
+            project.setDescription(dto.getDescription());
+        }
+        if (dto.getIsPublic() != null) {
+            project.setIsPublic(dto.getIsPublic());
+        }
+        if (dto.getLogoUrl() != null) {
+            project.setLogoUrl(dto.getLogoUrl());
+        }
         return project;
     }
 
@@ -86,7 +82,10 @@ public class ProjectMapper {
         dto.setLogoUrl(project.getLogoUrl());
         dto.setCreatedAt(project.getCreatedAt());
         dto.setUpdatedAt(project.getUpdatedAt());
-        dto.setOwnerUsername(project.getCreatedBy() != null ? project.getCreatedBy().getUsername() : "Unknown");
+        dto.setOwnerId(project.getOwner().getId());
+        dto.setOwnerUsername(
+                project.getCreatedBy() != null ? project.getCreatedBy().getUsername() : "Unknown");
+        dto.setIsDelete(project.getIsDeleted());
 
         // Set module ID from the first module (assuming one module per project)
         if (!project.getModules().isEmpty()) {

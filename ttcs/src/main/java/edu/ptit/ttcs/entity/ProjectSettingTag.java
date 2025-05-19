@@ -1,5 +1,6 @@
 package edu.ptit.ttcs.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -22,8 +23,7 @@ public class ProjectSettingTag {
 
     @ManyToOne
     @JoinColumn(name = "project_id")
+    @JsonIgnore
     private Project project;
 
-    @ManyToMany(mappedBy = "tags")
-    private List<Issue> issues = new ArrayList<>();
 }

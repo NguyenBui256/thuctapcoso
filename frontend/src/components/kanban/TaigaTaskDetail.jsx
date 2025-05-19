@@ -1,38 +1,34 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-    ClockIcon,
-    UserIcon,
-    DocumentTextIcon,
-    PaperClipIcon,
-    LockClosedIcon,
-    ArrowLeftIcon,
-    PlusIcon,
-    EyeIcon,
-    XMarkIcon,
-    CheckIcon,
-    ChevronDownIcon
-} from '@heroicons/react/24/outline';
-import { EyeOff, Save, Plus, ChevronDown, X, Clock, Users, Lock, List, Trash2, Eye } from 'lucide-react';
+import { CheckIcon } from '@heroicons/react/24/outline';
+import { EyeOff, Save, Plus, ChevronDown, X, Clock, Users, Lock, List, Trash2, Eye, FileText, Download, Paperclip } from 'lucide-react';
 import axios from '../../common/axios-customize';
 import { Modal, message, Checkbox, DatePicker, TimePicker } from 'antd';
 import dayjs from 'dayjs';
+import { LoadingOutlined } from '@ant-design/icons';
+import { toast } from 'react-toastify';
+import eventBus from '../../common/eventBus';
 
 const TaskDetail = () => {
-    const { taskId } = useParams();
+    const { taskId, projectId } = useParams();
     const navigate = useNavigate();
 
     const [taskDetails, setTaskDetails] = useState({
-        id: 1,
-        project: 'ZG nnn',
+        id: null,
+        project: '',
         projectId: null,
         createdBy: 'Unknown',
-        createdAt: '20 Apr 2025 14:56',
+        createdAt: '',
         attachments: [],
         comments: [],
         assignees: [],
         watchers: [],
-        statusId: 1
+        tags: [],
+        statusId: null,
+        subject: '',
+        description: '',
+        isBlocked: false,
+        points: 0
     });
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -58,34 +54,111 @@ const TaskDetail = () => {
     const [showDueDatePicker, setShowDueDatePicker] = useState(false);
     const [showQuickDateSelect, setShowQuickDateSelect] = useState(false);
 
+    // Add tag related states
+    const [projectTags, setProjectTags] = useState([]);
+    const [showTagsDropdown, setShowTagsDropdown] = useState(false);
+
     // Add points state variables
     const [editedPoints, setEditedPoints] = useState(0);
+    const [isSaving, setIsSaving] = useState(false);
 
     // Add activities state
     const [activitiesRefreshTrigger, setActivitiesRefreshTrigger] = useState(0);
+    const commentSectionRef = useRef(null);
 
-    const statuses = [
-        { id: 1, name: 'NEW', color: 'bg-blue-400' },
-        { id: 2, name: 'IN_PROGRESS', color: 'bg-orange-400' },
-        { id: 3, name: 'READY_FOR_TEST', color: 'bg-yellow-400' },
-        { id: 4, name: 'TESTING', color: 'bg-purple-400' },
-        { id: 5, name: 'DONE', color: 'bg-green-500' },
-        { id: 6, name: 'CLOSED', color: 'bg-gray-400' }
-    ];
+    // Attachments handling
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef(null);
 
+    // Add a new state variable for statuses
+    const [statuses, setStatuses] = useState([]);
+
+    // Add function to fetch available tags for the project
+    const fetchAvailableTags = useCallback(async (projectId) => {
+        try {
+            if (!projectId) {
+                console.warn('Cannot fetch tags: No project ID provided');
+                return;
+            }
+
+            console.log('Fetching available tags for project ID:', projectId);
+            const response = await axios.get(`/api/v1/projects/${projectId}/tags`);
+            console.log('Available tags response:', response.data);
+
+            // Handle different response formats
+            if (response.data && Array.isArray(response.data)) {
+                setProjectTags(response.data);
+            } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
+                setProjectTags(response.data.data);
+            } else {
+                console.warn('Unexpected tags response format:', response.data);
+                setProjectTags([]);
+            }
+        } catch (error) {
+            console.error('Error fetching available tags:', error);
+            toast.error('Failed to load available tags');
+            setProjectTags([]);
+        }
+    }, []);
+
+    // Replace getStatusColor function
     const getStatusColor = (statusId) => {
+        if (!statusId) return '#cccccc'; // Default color for null or undefined statusId
         const status = statuses.find(s => s.id === statusId);
-        return status ? status.color : 'bg-gray-400';
+        return status && status.color ? status.color : '#cccccc';
     };
 
+    // Replace getStatusName function
     const getStatusName = (statusId) => {
+        if (!statusId) return 'UNKNOWN'; // Default name for null or undefined statusId
         const status = statuses.find(s => s.id === statusId);
         return status ? status.name : 'UNKNOWN';
     };
 
-    const fetchComments = useCallback(async () => {
+    // Update fetchStatuses function to call the API directly
+    const fetchStatuses = async (projId) => {
         try {
-            const response = await axios.get(`/api/tasks/${taskId}/comments`);
+            // Use provided projId or fallback to 4 for debugging
+            const projectIdToUse = projId || 4;
+
+            console.log("Fetching task statuses with project ID:", projectIdToUse);
+
+            // Always log the exact URL we're calling
+            const apiUrl = `/api/tasks/project/${projectIdToUse}/statuses`;
+            console.log("Calling status API with URL:", apiUrl);
+
+            // Make the API call
+            const response = await axios.get(apiUrl);
+            console.log("Status API response:", response);
+
+            if (response.data && Array.isArray(response.data)) {
+                console.log("Fetched task statuses:", response.data);
+                setStatuses(response.data);
+            } else {
+                console.error("Invalid response format for statuses:", response.data);
+                message.error('Status data format is invalid');
+            }
+        } catch (error) {
+            console.error('Error fetching task statuses:', error);
+            if (error.response) {
+                console.error('Error status:', error.response.status);
+                console.error('Error data:', error.response.data);
+            }
+            message.error('Failed to load task statuses');
+        }
+    };
+
+    const fetchComments = useCallback(async () => {
+        let isMounted = true;
+        const controller = new AbortController();
+
+        try {
+            const response = await axios.get(`/api/tasks/${taskId}/comments`, {
+                signal: controller.signal
+            });
+
+            if (!isMounted) return;
+
             if (response.data) {
                 // Update both the comments array and taskDetails
                 const commentsData = response.data;
@@ -95,93 +168,225 @@ const TaskDetail = () => {
                 }));
             }
         } catch (error) {
+            if (error.name === 'AbortError' || !isMounted) {
+                return;
+            }
             console.error('Error fetching comments:', error);
             message.error('Failed to load comments');
         }
+
+        return () => {
+            isMounted = false;
+            controller.abort();
+        };
     }, [taskId]);
 
     const fetchActivities = useCallback(async () => {
+        let isMounted = true;
+        const controller = new AbortController();
+
         try {
             setIsLoading(true);
-            const response = await axios.get(`/api/kanban/board/${taskId}/activities`);
+            const response = await axios.get(`/api/kanban/board/${taskId}/activities`, {
+                signal: controller.signal
+            });
+
+            if (!isMounted) return;
+
             setActivities(response.data);
         } catch (error) {
+            if (error.name === 'AbortError' || !isMounted) {
+                return;
+            }
             console.error('Error fetching activities:', error);
             message.error('Failed to load activities');
-            setActivities([]); // Set empty array on error
+            if (isMounted) {
+                setActivities([]); // Set empty array on error
+            }
         } finally {
-            setIsLoading(false);
+            if (isMounted) {
+                setIsLoading(false);
+            }
         }
+
+        return () => {
+            isMounted = false;
+            controller.abort();
+        };
     }, [taskId]);
 
     const fetchTaskDetails = useCallback(async () => {
-        try {
-            setIsLoading(true);
-            const response = await axios.get(`/api/tasks/${taskId}`);
-            const taskData = response.data;
+        let isMounted = true;
+        const controller = new AbortController();
 
-            // Preserve existing comments when updating task details
-            setTaskDetails(prev => ({
-                ...taskData,
-                comments: prev.comments || taskData.comments || []
-            }));
+        const fetchInitialData = async () => {
+            try {
+                setIsLoading(true);
+                const response = await axios.get(`/api/tasks/${taskId}`, {
+                    signal: controller.signal
+                });
 
-            // Initialize editable fields
-            setEditedSubject(taskData.subject || '');
-            setEditedDescription(taskData.description || '');
-            setEditedDueDate(taskData.dueDate ? new Date(taskData.dueDate) : null);
-            setIsBlocked(taskData.isBlocked || false);
-            setEditedPoints(taskData.points || 0);
+                if (!isMounted) return;
 
-            // Fetch available assignees if project ID is available
-            if (taskData.userStoryId) {
-                const userStoryResponse = await axios.get(`/api/userstories/${taskData.userStoryId}`);
-                if (userStoryResponse.data && userStoryResponse.data.projectId) {
-                    fetchAvailableAssignees(userStoryResponse.data.projectId);
+                const taskData = response.data;
+                console.log('Received task data:', taskData);
+
+                // Ensure task data has all required fields with defaults
+                const processedTaskData = {
+                    ...taskData,
+                    // Filter out attachments with is_delete=true
+                    attachments: (taskData.attachments || []).filter(attachment => !attachment.isDelete),
+                    comments: taskData.comments || [],
+                    assignees: taskData.assignees || [],
+                    watchers: taskData.watchers || [],
+                    tags: taskData.tags || [],
+                    statusId: taskData.statusId || null
+                };
+
+                // Preserve existing comments when updating task details
+                setTaskDetails(prev => ({
+                    ...processedTaskData,
+                    comments: prev?.comments || processedTaskData.comments || []
+                }));
+
+                // Initialize editable fields
+                setEditedSubject(processedTaskData.subject || '');
+                setEditedDescription(processedTaskData.description || '');
+                setEditedDueDate(processedTaskData.dueDate ? new Date(processedTaskData.dueDate) : null);
+                setIsBlocked(processedTaskData.isBlocked || false);
+                setEditedPoints(processedTaskData.points || 0);
+
+                // Directly fetch tags if projectId is available
+                if (processedTaskData.projectId) {
+                    console.log("Task has projectId, directly fetching tags:", processedTaskData.projectId);
+                    fetchAvailableTags(processedTaskData.projectId);
+                }
+
+                // Fetch available assignees if project ID is available
+                if (processedTaskData.userStoryId && isMounted) {
+                    try {
+                        const userStoryResponse = await axios.get(`/api/kanban/board/userstory/${processedTaskData.userStoryId}`, {
+                            signal: controller.signal
+                        });
+
+                        if (!isMounted) return;
+
+                        if (userStoryResponse.data && userStoryResponse.data.projectId) {
+                            // Lưu lại projectId từ user story nếu task không có
+                            if (!processedTaskData.projectId) {
+                                setTaskDetails(prev => ({
+                                    ...prev,
+                                    projectId: userStoryResponse.data.projectId
+                                }));
+                                console.log('Updated projectId from userStory:', userStoryResponse.data.projectId);
+                            }
+
+                            fetchAvailableAssignees(userStoryResponse.data.projectId);
+
+                            // Also fetch tags whenever we get the projectId
+                            fetchAvailableTags(userStoryResponse.data.projectId);
+                        }
+                    } catch (innerErr) {
+                        console.error('Error fetching user story:', innerErr);
+                        // Continue execution, don't break on this error
+                    }
+                }
+
+                if (isMounted) {
+                    setError(null);
+                }
+            } catch (err) {
+                if (err.name === 'AbortError' || !isMounted) {
+                    // Ignore abort errors
+                    return;
+                }
+                console.error('Error fetching task:', err);
+                setError('Không thể tải dữ liệu nhiệm vụ. Vui lòng thử lại sau.');
+            } finally {
+                if (isMounted) {
+                    setIsLoading(false);
                 }
             }
+        };
 
-            setError(null);
-        } catch (err) {
-            console.error('Error fetching task:', err);
-            setError('Không thể tải dữ liệu nhiệm vụ. Vui lòng thử lại sau.');
-        } finally {
-            setIsLoading(false);
-        }
+        fetchInitialData();
+
+        // Cleanup function to prevent state updates after unmount
+        return () => {
+            isMounted = false;
+            controller.abort();
+        };
     }, [taskId]);
 
     // Initial data fetch
     useEffect(() => {
+        let isMounted = true;
+        const controller = new AbortController();
+
         const fetchInitialData = async () => {
             try {
                 await fetchTaskDetails();
-                await fetchComments();
-                await fetchActivities();
+                if (isMounted) {
+                    await fetchComments();
+                    await fetchActivities();
+
+                    // Force fetch statuses with project ID 4 (from the URL)
+                    if (projectId) {
+                        console.log("Force fetching statuses with project ID from URL:", projectId);
+                        fetchStatuses(projectId);
+                    }
+                }
             } catch (error) {
                 console.error('Error fetching initial data:', error);
             }
         };
 
         fetchInitialData();
-    }, [taskId, fetchTaskDetails, fetchComments, fetchActivities]);
+
+        // Cleanup function to prevent state updates after unmount
+        return () => {
+            isMounted = false;
+            controller.abort();
+        };
+    }, [taskId, fetchTaskDetails, fetchComments, fetchActivities, projectId]);
 
     useEffect(() => {
+        if (!taskDetails) return;
+
         if (taskDetails.watchers && taskDetails.watchers.length > 0) {
-            setWatchers(taskDetails.watchers);
+            // Ensure IDs are integers for consistent comparison
+            const processedWatchers = taskDetails.watchers.map(watcher => ({
+                ...watcher,
+                id: parseInt(watcher.id)
+            }));
+            console.log('Processed watchers with integer IDs:', processedWatchers);
+            setWatchers(processedWatchers);
+        } else if (taskDetails && !taskDetails.watchers) {
+            // Initialize with empty array if watchers is undefined
+            setWatchers([]);
         }
-    }, [taskDetails.watchers]);
+    }, [taskDetails, taskDetails?.watchers]);
 
     useEffect(() => {
+        if (!taskDetails) return;
+
         if (taskDetails.assignees && taskDetails.assignees.length > 0) {
             console.log('Assigned users from API:', taskDetails.assignees);
             // Kiểm tra cấu trúc của dữ liệu
             console.log('Sample assignee object structure:', taskDetails.assignees[0]);
-            setAssignedUsers(taskDetails.assignees);
+
+            // Ensure IDs are integers for consistent comparison
+            const processedAssignees = taskDetails.assignees.map(assignee => ({
+                ...assignee,
+                id: parseInt(assignee.id)
+            }));
+            console.log('Processed assignees with integer IDs:', processedAssignees);
+            setAssignedUsers(processedAssignees);
         } else if (taskDetails.assignedTo && taskDetails.assignedToName) {
             // Handle legacy single assignee
             console.log('Legacy single assignee:', taskDetails.assignedTo, taskDetails.assignedToName);
             setAssignedUsers([{
-                id: taskDetails.assignedTo,
+                id: parseInt(taskDetails.assignedTo),
                 fullName: taskDetails.assignedToName,
                 username: taskDetails.assignedToName.toLowerCase().replace(/\s+/g, '.')
             }]);
@@ -193,52 +398,106 @@ const TaskDetail = () => {
     }, [taskDetails]);
 
     useEffect(() => {
-        if (taskDetails) {
-            setEditedSubject(taskDetails.subject || '');
-            setEditedDescription(taskDetails.description || '');
-            setEditedDueDate(taskDetails.dueDate ? new Date(taskDetails.dueDate) : null);
-            setIsBlocked(taskDetails.isBlocked || false);
-            setEditedPoints(taskDetails.points || 0);
-        }
+        if (!taskDetails) return;
+
+        setEditedSubject(taskDetails.subject || '');
+        setEditedDescription(taskDetails.description || '');
+        setEditedDueDate(taskDetails.dueDate ? new Date(taskDetails.dueDate) : null);
+        setIsBlocked(taskDetails.isBlocked || false);
+        setEditedPoints(taskDetails.points || 0);
     }, [taskDetails]);
 
-    // Add new useEffect to update comments count
+    // Sửa useEffect để có cleanup và tránh vòng lặp vô hạn
     useEffect(() => {
-        if (taskDetails.comments) {
+        if (!taskDetails || !taskDetails.comments) return;
+
+        // Chỉ cập nhật khi comments thực sự thay đổi để tránh vòng lặp
+        const currentCommentsCount = taskDetails.comments.length;
+        const prevCommentsCount = taskDetails.comments ? taskDetails.comments.length : 0;
+
+        if (currentCommentsCount !== prevCommentsCount) {
             setTaskDetails(prev => ({
                 ...prev,
                 comments: taskDetails.comments
             }));
         }
-    }, [taskDetails.comments]);
+    }, [taskDetails?.comments]);
 
-    // Add useEffect for activities
+    // Sửa useEffect để activities luôn được cập nhật khi có trigger và có cleanup
     useEffect(() => {
+        let isMounted = true;
+        const controller = new AbortController();
+
         if (taskId) {
-            if (activeTab === 'activities') {
-                fetchActivities();
-            } else if (activeTab === 'comments') {
-                fetchComments();
-            }
+            const loadData = async () => {
+                try {
+                    await fetchActivities();
+                    if (isMounted && activeTab === 'comments') {
+                        await fetchComments();
+                    }
+                } catch (error) {
+                    if (isMounted) {
+                        console.error('Error loading data:', error);
+                    }
+                }
+            };
+
+            loadData();
         }
+
+        return () => {
+            isMounted = false;
+            controller.abort();
+        };
     }, [taskId, activeTab, activitiesRefreshTrigger, fetchComments, fetchActivities]);
 
+    // Near beginning of component, add this debug effect to check data
+    useEffect(() => {
+        // Debug log to check filtered users
+        if (availableAssignees.length > 0) {
+            console.log("All available assignees:", availableAssignees);
+            console.log("Current assignedUsers:", assignedUsers);
+
+            // Check how many users would be displayed in dropdown
+            const filteredForDropdown = availableAssignees
+                .filter(user => !assignedUsers.some(assigned => assigned.id === user.id));
+            console.log("Filtered assignees for dropdown:", filteredForDropdown);
+        }
+    }, [availableAssignees, assignedUsers]);
+
+    // Update the fetchAvailableAssignees function to correctly map userId to id
     const fetchAvailableAssignees = async (projectId) => {
         try {
             console.log("Fetching available assignees for task:", taskId, "with projectId:", projectId);
 
-            // Thay đổi: Sử dụng API members project trực tiếp để đảm bảo luôn có dữ liệu
+            if (!projectId) {
+                console.error("Missing projectId, cannot fetch members");
+                return;
+            }
+
+            // Using the direct project members API to get all members
             console.log("Using direct project members API");
             const response = await axios.get(`/api/projects/v1/user/${getCurrentUserId()}/project/${projectId}/members/list`);
             console.log("Project members API response:", response.data);
 
             if (response.data && response.data.data && Array.isArray(response.data.data)) {
-                const mappedUsers = response.data.data.map(member => ({
-                    id: member.userId,
-                    fullName: member.userFullName,
-                    username: member.username
-                }));
+                // CRITICAL FIX: Use userId from API as the id property, not member.userId
+                const mappedUsers = response.data.data.map(member => {
+                    console.log(`Member from API: userId=${member.userId}, name=${member.userFullName}`);
+                    return {
+                        id: parseInt(member.userId), // This is the key fix - use userId from the API
+                        fullName: member.userFullName,
+                        username: member.username,
+                        photoUrl: member.avatar
+                    };
+                });
+
                 console.log("Mapped project members:", mappedUsers);
+                mappedUsers.forEach(user => {
+                    console.log(`Mapped user: id=${user.id}, name=${user.fullName}`);
+                });
+
+                // Important: Save all project members, don't filter here
                 setAvailableAssignees(mappedUsers);
             } else {
                 console.log("Project members response not in expected format");
@@ -251,75 +510,85 @@ const TaskDetail = () => {
     };
 
     const handleGoBack = () => {
-        navigate(-1);
-    };
-
-    const handleAddTag = () => {
-        console.log('Add tag clicked');
-    };
-
-    // Xử lý assignee
-    const handleAssignUser = async (userId) => {
-        try {
-            console.log(`Attempting to assign user ${userId} to task ${taskId}`);
-            // Gọi API để thêm người dùng vào assignees
-            await axios.post(`/api/tasks/${taskId}/assignees/${userId}`);
-
-            // Refresh task data
-            console.log("Assignment successful, refreshing task data");
-            await fetchTaskDetails();
-            message.success('Gán nhiệm vụ thành công');
-            setShowAssigneeDropdown(false);
-        } catch (error) {
-            console.error('Error assigning task:', error.response?.data || error.message);
-            message.error('Không thể gán nhiệm vụ');
+        // Sử dụng state để đánh dấu đã navigate để tránh navigate nhiều lần
+        // Quay lại kanban board của project hoặc trang trước đó
+        if (projectId) {
+            navigate(`/projects/${projectId}/kanban`, { replace: true });
+        } else {
+            navigate(-1);
         }
     };
 
-    const handleRemoveAssignee = async (userId) => {
+    const handleAddTag = async (tagId) => {
         try {
-            console.log(`Attempting to remove assignee ${userId} from task ${taskId}`);
+            console.log(`Adding tag ${tagId} to task ${taskId}`);
 
-            // Đảm bảo userId là số nguyên
-            const numericUserId = parseInt(userId);
-            if (isNaN(numericUserId)) {
-                console.error('Invalid user ID:', userId);
-                message.error('User ID không hợp lệ');
-                return;
+            // Find the tag in projectTags to get its details for optimistic UI update
+            const tagToAdd = projectTags.find(tag => tag.id === tagId);
+
+            // Optimistically update UI before API call completes
+            if (tagToAdd && taskDetails) {
+                // Create a new tags array with the new tag added
+                const updatedTags = [...(taskDetails.tags || []), tagToAdd];
+                // Update task details with the new tags
+                setTaskDetails({
+                    ...taskDetails,
+                    tags: updatedTags
+                });
+                // Hide the dropdown
+                setShowTagsDropdown(false);
             }
 
-            // Lấy danh sách assignees hiện tại (loại bỏ người cần xóa)
-            const updatedAssignees = assignedUsers
-                .filter(user => user.id !== numericUserId)
-                .map(user => user.id);
+            // Send the API request
+            const response = await axios.post(`/api/tasks/${taskId}/tags/${tagId}`);
 
-            console.log('Current assignees:', assignedUsers);
-            console.log('Updated assignees list:', updatedAssignees);
+            if (response.status === 200 || response.status === 201) {
+                // Success notification
+                toast.success('Tag added successfully');
 
-            // Gọi API để cập nhật toàn bộ danh sách assignees thay vì xóa một người
-            const response = await axios.post(`/api/tasks/${taskId}/assignees`, {
-                userIds: updatedAssignees
-            });
+                // Record activity
+                await recordActivity('tag_added', `Added tag to task`);
 
-            console.log('Update assignees API response:', response);
+                // Trigger activities refresh
+                triggerActivitiesRefresh();
 
-            // Cập nhật UI ngay lập tức
-            setAssignedUsers(prevUsers => prevUsers.filter(user => user.id !== numericUserId));
-
-            // Refresh task data từ server để đảm bảo đồng bộ
-            console.log("Remove assignee successful, refreshing task data");
-            await fetchTaskDetails();
-            message.success('Đã xóa người được gán');
+                // No need to call fetchTaskDetails here since we've already updated the UI
+            }
         } catch (error) {
-            console.error('Error removing assignee:', error);
-            if (error.response) {
-                console.error('Response data:', error.response.data);
-                console.error('Response status:', error.response.status);
-                console.error('Response headers:', error.response.headers);
-            }
-            message.error('Không thể xóa người được gán');
+            console.error('Error adding tag to task:', error);
+            toast.error('Failed to add tag to task');
 
-            // Refresh data để hiển thị trạng thái hiện tại từ server
+            // Refresh task data to restore correct state in case of error
+            await fetchTaskDetails();
+        }
+    };
+
+    const handleRemoveTag = async (tagId) => {
+        try {
+            console.log(`Removing tag ${tagId} from task ${taskId}`);
+
+            // Optimistic update - remove the tag locally immediately
+            if (taskDetails && taskDetails.tags) {
+                const updatedTags = taskDetails.tags.filter(tag => tag.id !== tagId);
+                setTaskDetails({ ...taskDetails, tags: updatedTags });
+            }
+
+            // Then send the API request
+            const response = await axios.delete(`/api/tasks/${taskId}/tags/${tagId}`);
+
+            if (response.status === 200) {
+                toast.success('Tag removed successfully');
+
+                // Record activity
+                await recordActivity('tag_removed', `Removed tag from task`);
+
+                // Trigger activities refresh
+                triggerActivitiesRefresh();
+            }
+        } catch (error) {
+            console.error('Error removing tag from task:', error);
+            toast.error('Failed to remove tag from task');
+            // Refresh task data to restore correct state
             await fetchTaskDetails();
         }
     };
@@ -352,6 +621,8 @@ const TaskDetail = () => {
             const currentUserId = getCurrentUserId();
             console.log(`Assigning task to current user (ID: ${currentUserId})`);
             await handleAssignUser(currentUserId);
+
+            // Không cần gọi trigger ở đây vì đã gọi trong handleAssignUser
         } catch (error) {
             console.error('Error self-assigning task:', error.response?.data || error.message);
         }
@@ -361,33 +632,47 @@ const TaskDetail = () => {
     const handleAddWatcher = async (userId) => {
         try {
             console.log(`Attempting to add watcher ${userId} to task ${taskId}`);
+            // Ensure userId is a number before sending to API
+            const numericUserId = parseInt(userId);
             // Gọi API để thêm người dùng vào watchers
-            await axios.post(`/api/tasks/${taskId}/watchers/${userId}`);
+            await axios.post(`/api/tasks/${taskId}/watchers/${numericUserId}`);
 
             // Refresh task data
             console.log("Add watcher successful, refreshing task data");
             await fetchTaskDetails();
-            message.success('Đã thêm người theo dõi');
+            toast.success('Đã thêm người theo dõi');
             setShowWatcherDropdown(false);
+
+            // Tự động làm mới activities
+            triggerActivitiesRefresh();
         } catch (error) {
             console.error('Error adding watcher:', error.response?.data || error.message);
-            message.error('Không thể thêm người theo dõi');
+            toast.error('Không thể thêm người theo dõi');
         }
     };
 
     const handleRemoveWatcher = async (userId) => {
         try {
-            console.log(`Attempting to remove watcher ${userId} from task ${taskId}`);
-            // Gọi API để xóa người dùng khỏi watchers
-            await axios.delete(`/api/tasks/${taskId}/watchers/${userId}`);
-
+            // Ensure userId is a number
+            const numericUserId = parseInt(userId);
+            if (isNaN(numericUserId)) {
+                console.error('Invalid user ID:', userId);
+                toast.error('User ID không hợp lệ');
+                return;
+            }
+            await axios.delete(`/api/tasks/${taskId}/watchers/${numericUserId}`);
+            // Update UI immediately for better responsiveness
+            setWatchers(prev => prev.filter(watcher => parseInt(watcher.id) !== numericUserId));
+            toast.success('Watcher removed successfully');
             // Refresh task data
-            console.log("Remove watcher successful, refreshing task data");
             await fetchTaskDetails();
-            message.success('Đã xóa người theo dõi');
+            // Tự động làm mới activities
+            triggerActivitiesRefresh();
         } catch (error) {
-            console.error('Error removing watcher:', error.response?.data || error.message);
-            message.error('Không thể xóa người theo dõi');
+            console.error('Error removing watcher:', error);
+            toast.error('Không thể xóa người theo dõi');
+            // Refresh on error to ensure UI is in sync with server
+            await fetchTaskDetails();
         }
     };
 
@@ -407,17 +692,67 @@ const TaskDetail = () => {
         } else {
             await handleAddWatcher(currentUserId);
         }
+
+        // Không cần gọi trigger ở đây vì đã gọi trong handleRemoveWatcher/handleAddWatcher
+    };
+
+    const handleEditToggle = () => {
+        if (editMode) {
+            // Reset values when canceling edit
+            setEditedSubject(taskDetails.subject || '');
+            setEditedDescription(taskDetails.description || '');
+            setEditedDueDate(taskDetails.dueDate ? new Date(taskDetails.dueDate) : null);
+
+            // Khi hủy chỉnh sửa, ghi lại activity
+            recordActivity('edit_canceled', 'Edit mode canceled');
+        } else {
+            // Khi bắt đầu chỉnh sửa, ghi lại activity
+            recordActivity('edit_started', 'Started editing task');
+        }
+        setEditMode(!editMode);
+
+        // Trigger làm mới hoạt động
+        triggerActivitiesRefresh();
     };
 
     const handleDeleteTask = async () => {
-        if (window.confirm('Bạn có chắc chắn muốn xóa nhiệm vụ này không?')) {
+        if (!window.confirm('Are you sure you want to delete this task?')) {
+            return;
+        }
+
+        try {
+            // Show a loading toast
+            const loadingToastId = toast.loading('Deleting task...');
+
             try {
+                // Sử dụng hard delete để xóa hoàn toàn khỏi database
                 await axios.delete(`/api/tasks/${taskId}`);
-                navigate(-1);
+
+                toast.update(loadingToastId, {
+                    render: 'Task deleted successfully',
+                    type: 'success',
+                    isLoading: false,
+                    autoClose: 2000
+                });
+
+                // Navigate back
+                setTimeout(() => {
+                    navigate(-1);
+                }, 500);
+
             } catch (error) {
                 console.error('Error deleting task:', error);
-                alert('Không thể xóa nhiệm vụ. Vui lòng thử lại sau.');
+                toast.update(loadingToastId, {
+                    render: 'Failed to delete task: ' + (error.response?.data?.message || error.message || 'Unknown error'),
+                    type: 'error',
+                    isLoading: false,
+                    autoClose: 5000
+                });
             }
+        } catch (outerError) {
+            // This catches errors in the toast or other outer code
+            console.error('Outer error in delete task handler:', outerError);
+            toast.error('An unexpected error occurred. Please try again.');
         }
     };
 
@@ -425,6 +760,10 @@ const TaskDetail = () => {
         if (newComment.trim() === '') return;
 
         try {
+            // Store current scroll position
+            const commentSection = commentSectionRef.current;
+            const scrollPosition = window.scrollY;
+
             // Gọi API để thêm comment mới
             await axios.post(`/api/tasks/${taskId}/comments`, {
                 content: newComment,
@@ -439,7 +778,7 @@ const TaskDetail = () => {
             }));
 
             setNewComment('');
-            message.success('Comment added successfully');
+            toast.success('Comment added successfully');
 
             // Ghi lại hoạt động
             await recordActivity(
@@ -449,131 +788,217 @@ const TaskDetail = () => {
 
             // Trigger làm mới hoạt động
             triggerActivitiesRefresh();
+
+            // Restore scroll position after state updates
+            setTimeout(() => {
+                window.scrollTo({
+                    top: scrollPosition,
+                    behavior: 'auto'
+                });
+
+                // If new comment is added, scroll the comment section into view
+                if (commentSection) {
+                    commentSection.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                }
+            }, 100);
         } catch (error) {
             console.error('Error posting comment:', error);
-            message.error('Failed to add comment. Please try again.');
+            toast.error('Failed to add comment. Please try again.');
         }
     };
 
-    const handleEditToggle = () => {
-        if (editMode) {
-            // Reset values when canceling edit
-            setEditedSubject(taskDetails.subject || '');
-            setEditedDescription(taskDetails.description || '');
-            setEditedDueDate(taskDetails.dueDate ? new Date(taskDetails.dueDate) : null);
+    // Add handleDeleteComment function after handleSubmitComment
+    const handleDeleteComment = async (commentId, userId) => {
+        // Check if the user is trying to delete their own comment
+        const currentUserId = getCurrentUserId();
+
+        if (currentUserId !== userId) {
+            toast.error('You can only delete your own comments');
+            return;
         }
-        setEditMode(!editMode);
+
+        if (!window.confirm('Are you sure you want to delete this comment?')) {
+            return;
+        }
+
+        try {
+            // Update local state immediately for better UI responsiveness
+            const updatedComments = taskDetails.comments.filter(comment => comment.id !== commentId);
+            setTaskDetails(prev => ({
+                ...prev,
+                comments: updatedComments
+            }));
+
+            // Show pending status
+            toast.info('Deleting comment...');
+
+            // Call the API to delete the comment with timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+            const response = await axios.delete(`/api/tasks/${taskId}/comments/${commentId}`, {
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+
+            // Only show success message after the API completes
+            if (response.status === 200) {
+                toast.success('Comment deleted successfully');
+
+                // Record the activity
+                await recordActivity('comment_deleted', 'Deleted a comment');
+
+                // Trigger refresh
+                triggerActivitiesRefresh();
+            }
+        } catch (error) {
+            console.error('Error deleting comment:', error);
+            if (error.name === 'AbortError') {
+                // The request was aborted due to timeout
+                toast.error('Request timeout. The comment may have been deleted, but the server took too long to respond');
+
+                // Still trigger refresh to ensure UI is updated
+                triggerActivitiesRefresh();
+            } else if (error.response && error.response.status === 403) {
+                toast.error('You can only delete your own comments');
+
+                // Revert the optimistic update
+                await fetchComments();
+            } else {
+                toast.error('Failed to delete comment. Please try again.');
+
+                // Revert the optimistic update
+                await fetchComments();
+            }
+        }
     };
 
     const handleSaveChanges = async () => {
+        setIsSaving(true);
+        setError(null);
+
         try {
-            // Store original values for activity details
-            const originalDescription = taskDetails.description;
-            const originalPoints = taskDetails.points || 0;
+            // Create a complete update object with all fields
+            const updateData = {
+                name: editedSubject,         // Changed from subject to name to match backend
+                description: editedDescription || '',
+                statusId: taskDetails.statusId,
+                isBlocked: isBlocked,
+                points: editedPoints,
+                dueDate: editedDueDate,
+                userStoryId: taskDetails.userStoryId // Ensure userStoryId is included
+            };
 
-            // Check what changed for activity logging
-            const descriptionChanged = originalDescription !== editedDescription;
-            const pointsChanged = originalPoints !== editedPoints;
+            console.log('Updating task with data:', updateData);
 
-            // Update description
-            const descriptionResponse = await axios.put(`/api/tasks/${taskId}/description`, {
-                description: editedDescription
-            });
+            // Single API call with all data
+            const response = await axios.put(`/api/tasks/${taskDetails.id}`, updateData);
+            console.log('Update response:', response);
 
-            if (descriptionResponse.data) {
-                setTaskDetails(descriptionResponse.data);
-            }
-
-            // Update points if changed
-            if (pointsChanged) {
-                const pointsResponse = await axios.put(`/api/tasks/${taskId}/points`, {
-                    points: editedPoints
-                });
-
-                if (pointsResponse.data) {
-                    setTaskDetails(prevDetails => ({
-                        ...prevDetails,
-                        points: editedPoints
-                    }));
-                }
-            }
-
-            // Update due date if changed
-            if (editedDueDate !== taskDetails.dueDate) {
-                const dueDateResponse = await axios.put(`/api/tasks/${taskId}/due-date`, {
-                    dueDate: editedDueDate ? editedDueDate.toISOString().split('T')[0] : null
-                });
-
-                if (dueDateResponse.data) {
-                    setTaskDetails(dueDateResponse.data);
-                }
-            }
+            // Update local state with response data
+            setTaskDetails(prev => ({
+                ...prev,
+                ...response.data
+            }));
 
             setEditMode(false);
-            message.success('Task updated successfully');
+            toast.success('Task updated successfully');
 
-            // Record activity for updates
-            if (descriptionChanged) {
-                await recordActivity(
-                    'description_updated',
-                    'Task description was updated'
-                );
-            }
+            // Record activity
+            await recordActivity('task_updated', 'Task details updated');
 
-            if (pointsChanged) {
-                await recordActivity(
-                    'points_updated',
-                    `Points updated from ${originalPoints} to ${editedPoints}`
-                );
-            }
-
-            // Trigger làm mới hoạt động
+            // Refresh data
             triggerActivitiesRefresh();
+            await fetchTaskDetails();
+
         } catch (error) {
-            console.error('Error updating task:', error);
-            message.error('Failed to update task: ' + (error.response?.data?.message || error.message));
+            console.error('Update failed:', error);
+            if (error.response) {
+                console.error('Error status:', error.response.status);
+                console.error('Error data:', error.response.data);
+                toast.error(`Failed to update task: ${error.response.data?.message || 'Unknown error'}`);
+            } else {
+                toast.error('Network error. Please check your connection and try again.');
+            }
+        } finally {
+            setIsSaving(false);
         }
     };
 
-    const handleStatusChange = async (statusId) => {
+    const handleStatusChange = async (newStatusId) => {
         try {
-            // Store original status for activity
-            const originalStatusId = taskDetails.statusId;
-            const statusNames = {
-                1: 'NEW',
-                2: 'IN_PROGRESS',
-                3: 'READY_FOR_TEST',
-                4: 'TESTING',
-                5: 'DONE',
-                6: 'CLOSED'
-            };
+            // Ensure status IDs are numbers
+            const previousStatusId = parseInt(taskDetails.statusId);
+            const newStatusIdNumber = parseInt(newStatusId);
 
-            // Call the status update API
-            const response = await axios.put(`/api/tasks/${taskId}/status/${statusNames[statusId]}`);
+            const originalStatus = statuses.find(s => s.id === previousStatusId);
+            const newStatus = statuses.find(s => s.id === newStatusIdNumber);
 
-            // Preserve existing comments
-            const currentComments = taskDetails.comments || [];
-            setTaskDetails({
-                ...response.data,
-                comments: currentComments
+            console.log(`Changing status from ${previousStatusId} to ${newStatusIdNumber}`);
+            console.log(`Original status: ${originalStatus?.name}, New status: ${newStatus?.name}`);
+
+            // Update UI optimistically
+            setTaskDetails(prev => ({
+                ...prev,
+                statusId: newStatusIdNumber
+            }));
+
+            // Close dropdown
+            setShowStatusDropdown(false);
+
+            // Use the same approach as TaigaUserStoryDetail.jsx
+            // Send the statusId in the request body
+            const response = await axios.put(`/api/tasks/${taskDetails.id}/status`, {
+                statusId: newStatusIdNumber
             });
 
-            setShowStatusDropdown(false);
+            console.log("Status update response:", response);
 
             // Record activity for status change
             await recordActivity(
                 'status_updated',
-                `Status changed from ${statusNames[originalStatusId] || originalStatusId} to ${statusNames[statusId] || statusId}`
+                `Status changed from ${originalStatus?.name || previousStatusId} to ${newStatus?.name || newStatusIdNumber}`
             );
 
-            // Trigger làm mới hoạt động
+            // Add explicit call to refresh activities after status update
             triggerActivitiesRefresh();
-        } catch (err) {
-            console.error('Error updating status:', err);
-            message.error('Failed to update status. Please try again.');
+
+            // Make sure to fetch activities regardless of active tab
+            fetchActivities();
+
+            // Show success message
+            toast.success(`Task status updated to ${newStatus?.name || 'new status'}`);
+
+            // Emit event to notify other components (like SprintProgressBar) about the status change
+            // Check if task moved to/from Done status (status 5)
+            if (previousStatusId === 5 || newStatusIdNumber === 5) {
+                const sprintId = taskDetails.sprintId;
+                console.log('Emitting task-status-changed event with sprintId:', sprintId);
+                eventBus.emit('task-status-changed', {
+                    taskId: taskDetails.id,
+                    previousStatusId,
+                    newStatusId: newStatusIdNumber,
+                    sprintId
+                });
+            }
+        } catch (error) {
+            console.error('Error updating task status:', error);
+            if (error.response) {
+                console.error('Error status:', error.response.status);
+                console.error('Error data:', error.response.data);
+            }
+            toast.error('Failed to update task status');
+
+            // Revert on error
+            setTaskDetails(prev => ({
+                ...prev,
+                statusId: previousStatusId
+            }));
         }
     };
 
+    // Sửa recordActivity để tránh cập nhật sau khi component unmount
     const recordActivity = async (action, details) => {
         if (!taskDetails || !taskDetails.id) return;
 
@@ -588,13 +1013,12 @@ const TaskDetail = () => {
             await axios.post(
                 `/api/tasks/${taskDetails.id}/activities`,
                 activityData,
-                { headers: { 'User-Id': userId } }
             );
 
-            // Refresh activities if activities tab is active
-            if (activeTab === 'activities') {
-                fetchActivities();
-            }
+            // Luôn fetch activities sau khi ghi lại hoạt động, bất kể activeTab là gì
+            // Sử dụng triggerActivitiesRefresh thay vì gọi trực tiếp fetchActivities 
+            // để tránh cập nhật state khi component unmounted
+            triggerActivitiesRefresh();
         } catch (err) {
             console.error('Error recording activity:', err);
         }
@@ -611,7 +1035,7 @@ const TaskDetail = () => {
             });
             setTaskDetails(response.data);
             setShowDueDatePicker(false);
-            message.success('Due date updated successfully');
+            toast.success('Due date updated successfully');
 
             // Record activity for due date change
             await recordActivity(
@@ -623,7 +1047,7 @@ const TaskDetail = () => {
             triggerActivitiesRefresh();
         } catch (err) {
             console.error('Error updating due date:', err);
-            message.error('Failed to update due date. Please try again.');
+            toast.error('Failed to update due date. Please try again.');
         }
     };
 
@@ -652,7 +1076,7 @@ const TaskDetail = () => {
                 isBlocked: newBlockStatus
             });
 
-            message.success(`Task ${newBlockStatus ? 'blocked' : 'unblocked'} successfully`);
+            toast.success(`Task ${newBlockStatus ? 'blocked' : 'unblocked'} successfully`);
 
             // Record activity for block status change
             await recordActivity(
@@ -671,41 +1095,375 @@ const TaskDetail = () => {
             }));
 
             console.error('Error updating block status:', err);
-            message.error('Failed to update block status. Please try again.');
+            toast.error('Failed to update block status. Please try again.');
         }
     };
 
-    // Debug helper function
-    const debugInfo = () => {
-        console.log({
-            taskId,
-            taskDetails,
-            projectId: taskDetails.projectId,
-            userStoryId: taskDetails.userStoryId,
-            assignedUsers,
-            watchers,
-            availableAssignees
-        });
+    // Attachments handling
+    const handleUploadClick = () => {
+        fileInputRef.current.click();
+    };
 
-        if (taskDetails.projectId) {
-            console.log("Using project ID:", taskDetails.projectId);
-            fetchAvailableAssignees(taskDetails.projectId);
-        } else if (taskDetails.userStoryId) {
-            console.log("No projectId, fetching from userStory:", taskDetails.userStoryId);
+    const handleFileChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('folder', `task/${taskId}`);
+
+            // Determine the correct upload endpoint based on file type
+            let uploadEndpoint = '/api/v1/files/upload/raw'; // Default for documents
+
+            if (file.type.startsWith('image/')) {
+                uploadEndpoint = '/api/v1/files/upload/image';
+            } else if (file.type.startsWith('video/')) {
+                uploadEndpoint = '/api/v1/files/upload/video';
+            }
+
+            // Upload file to cloudinary
+            const uploadResponse = await axios.post(uploadEndpoint, formData);
+
+            if (uploadResponse.data) {
+                // Now save the attachment to the task
+                const attachmentData = {
+                    filename: file.name,
+                    contentType: file.type,
+                    fileSize: file.size,
+                    url: uploadResponse.data.secure_url || uploadResponse.data.url
+                };
+
+                const attachResponse = await axios.post(`/api/kanban/board/${taskId}/attachment`, attachmentData);
+
+                if (attachResponse.data) {
+                    toast.success('File attached successfully!');
+
+                    // Cập nhật UI ngay lập tức mà không cần tải lại trang
+                    // Thêm tệp đính kèm mới vào danh sách hiện tại
+                    const newAttachment = attachResponse.data;
+                    setTaskDetails(prev => ({
+                        ...prev,
+                        attachments: [...(prev.attachments || []).filter(a => !a.isDelete), newAttachment]
+                    }));
+
+                    // Cập nhật hoạt động
+                    triggerActivitiesRefresh();
+                } else {
+                    toast.error('Failed to attach file to task');
+                }
+            } else {
+                toast.error('Failed to upload file to cloud storage');
+            }
+        } catch (err) {
+            console.error('Error uploading file:', err);
+            toast.error('Error uploading file: ' + (err.message || 'Unknown error'));
+        } finally {
+            setIsUploading(false);
+            // Clear the file input
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        }
+    };
+
+    const handleDownloadAttachment = (attachment) => {
+        try {
+            // Xác định nếu là loại file đặc biệt cần xử lý đặc biệt (pdf, doc, docx, xls, xlsx)
+            const fileExt = attachment.filename.split('.').pop().toLowerCase();
+            const specialTypes = ['pdf', 'doc', 'docx', 'xls', 'xlsx'];
+
+            if (attachment.contentType && attachment.contentType.startsWith('image/')) {
+                // Đối với hình ảnh, mở trong tab mới
+                window.open(attachment.url, '_blank');
+            } else if (specialTypes.includes(fileExt)) {
+                // Với các loại file đặc biệt, chúng ta sử dụng fetch để lấy blob
+                fetch(attachment.url)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        // Tạo một URL tạm thời từ blob và tên file gốc
+                        const blobUrl = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = blobUrl;
+                        link.setAttribute('download', attachment.filename);
+                        document.body.appendChild(link);
+                        link.click();
+                        // Giải phóng URL sau khi tải xuống
+                        setTimeout(() => {
+                            document.body.removeChild(link);
+                            window.URL.revokeObjectURL(blobUrl);
+                        }, 100);
+                    })
+                    .catch(err => {
+                        console.error('Error downloading file:', err);
+                        toast.error('Failed to download file. Try again or contact admin.');
+                        // Fallback to direct open
+                        window.open(attachment.url, '_blank');
+                    });
+            } else {
+                // Với các loại file khác, sử dụng phương pháp tải xuống thông thường
+                const link = document.createElement('a');
+                link.href = attachment.url;
+                link.setAttribute('download', attachment.filename);
+                link.setAttribute('target', '_blank');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        } catch (error) {
+            console.error('Error in download handler:', error);
+            toast.error('Failed to download file');
+            // Fallback to direct open
+            window.open(attachment.url, '_blank');
+        }
+    };
+
+    // Add function to delete attachment
+    const handleDeleteAttachment = async (attachment) => {
+        if (!window.confirm(`Are you sure you want to delete the attachment "${attachment.filename}"?`)) {
+            return;
+        }
+
+        try {
+            // Optimistically update UI by removing the attachment from state
+            setTaskDetails(prevState => ({
+                ...prevState,
+                attachments: prevState.attachments.filter(a => a.id !== attachment.id)
+            }));
+
+            // Send request to delete the attachment
+            await axios.delete(`/api/kanban/board/${taskId}/attachment/${attachment.id}`);
+
+            // Show success message
+            toast.success('Attachment deleted successfully');
+
+            // Record activity
+            await recordActivity('attachment_deleted', `Deleted attachment: ${attachment.filename}`);
+
+            // Trigger activity refresh
+            triggerActivitiesRefresh();
+
+            // Fetch updated task details to ensure UI is in sync with server
+            await fetchTaskDetails();
+        } catch (error) {
+            console.error('Error deleting attachment:', error);
+            toast.error('Failed to delete attachment');
+
+            // Revert UI change on error by refreshing task data
+            await fetchTaskDetails();
+        }
+    };
+
+    // Hàm để tìm nạp thông tin user story khi cần
+    const fetchUserStoryIfNeeded = useCallback(async () => {
+        if (taskDetails && taskDetails.userStoryId && !taskDetails.projectId) {
+            try {
+                console.log("Attempting to fetch user story data for navigation:", taskDetails.userStoryId);
+                const response = await axios.get(`/api/kanban/board/userstory/${taskDetails.userStoryId}`);
+
+                if (response.data && response.data.projectId) {
+                    // Cập nhật projectId vào task details
+                    setTaskDetails(prev => ({
+                        ...prev,
+                        projectId: response.data.projectId,
+                        userStoryName: response.data.name || prev.userStoryName
+                    }));
+                    console.log("Updated projectId for navigation:", response.data.projectId);
+                    return response.data.projectId;
+                }
+            } catch (error) {
+                console.error("Error fetching user story data for navigation:", error);
+                return null;
+            }
+        }
+        return taskDetails.projectId;
+    }, [taskDetails]);
+
+    // Log when statusId changes
+    useEffect(() => {
+        if (taskDetails && taskDetails.statusId) {
+            console.log(`Task status ID changed to: ${taskDetails.statusId}`);
+            console.log(`Current status name: ${getStatusName(taskDetails.statusId)}`);
+            console.log(`Current status color: ${getStatusColor(taskDetails.statusId)}`);
+        }
+    }, [taskDetails.statusId, statuses]);
+
+    // Log when projectId is set or changes and fetch statuses
+    useEffect(() => {
+        if (taskDetails && taskDetails.projectId) {
+            console.log(`Project ID set or changed to: ${taskDetails.projectId}`);
+
+            // Fetch the task statuses when we have a projectId
+            console.log("Fetching task statuses for project:", taskDetails.projectId);
+            fetchStatuses(taskDetails.projectId);
+
+            // Fetch available tags for the project
+            fetchAvailableTags(taskDetails.projectId);
+        } else if (taskDetails && taskDetails.userStoryId && !taskDetails.projectId) {
+            // If we don't have projectId but we have userStoryId, try to get projectId from user story
+            console.log("No projectId but userStoryId available, fetching from user story:", taskDetails.userStoryId);
             axios.get(`/api/kanban/board/userstory/${taskDetails.userStoryId}`)
-                .then(res => {
-                    console.log("UserStory data:", res.data);
-                    if (res.data && res.data.projectId) {
-                        console.log("Found projectId in userStory:", res.data.projectId);
-                        fetchAvailableAssignees(res.data.projectId);
-                    } else {
-                        console.log("No projectId in userStory data");
+                .then(response => {
+                    if (response.data && response.data.projectId) {
+                        console.log("Found projectId in user story:", response.data.projectId);
+                        fetchStatuses(response.data.projectId);
+                        fetchAvailableTags(response.data.projectId);
+                        // Update task details with projectId
+                        setTaskDetails(prev => ({
+                            ...prev,
+                            projectId: response.data.projectId
+                        }));
                     }
                 })
-                .catch(err => console.error("Error fetching userStory:", err));
-        } else {
-            console.log("No projectId or userStoryId available");
+                .catch(error => {
+                    console.error("Error fetching user story to get projectId for statuses:", error);
+                });
         }
+    }, [taskDetails.projectId, taskDetails.userStoryId]);
+
+    // Force fetch statuses on component mount
+    useEffect(() => {
+        // Immediate fetch of statuses with project ID 4
+        console.log("Component mounted - Initial fetch of statuses with project ID 4");
+        fetchStatuses(4);
+
+        // No dependencies means this runs once after component mount
+    }, []);
+
+    // Xử lý assignee
+    const handleAssignUser = async (userId) => {
+        try {
+            // Ensure userId is a number
+            const numericUserId = parseInt(userId);
+            console.log(`Attempting to assign user ID ${numericUserId} to task ${taskId}`);
+
+            // Call API to add user as assignee
+            await axios.post(`/api/tasks/${taskId}/assignees/${numericUserId}`);
+
+            // Refresh task data
+            console.log("Assignment successful, refreshing task data");
+            await fetchTaskDetails();
+            toast.success('Task assigned successfully');
+            setShowAssigneeDropdown(false);
+
+            // Trigger activities refresh
+            triggerActivitiesRefresh();
+        } catch (error) {
+            console.error('Error assigning task:', error.response?.data || error.message);
+            toast.error('Unable to assign task');
+        }
+    };
+
+    const handleRemoveAssignee = async (userId) => {
+        try {
+            // Ensure userId is a number
+            const numericUserId = parseInt(userId);
+            console.log(`Attempting to remove assignee ID ${numericUserId} from task ${taskId}`);
+
+            if (isNaN(numericUserId)) {
+                console.error('Invalid user ID:', userId);
+                toast.error('Invalid user ID');
+                return;
+            }
+
+            // Get current assignees list (excluding the one to remove)
+            const updatedAssignees = assignedUsers
+                .filter(user => parseInt(user.id) !== numericUserId)
+                .map(user => parseInt(user.id));
+
+            console.log('Current assignees:', assignedUsers);
+            console.log('Updated assignees list:', updatedAssignees);
+
+            // Call API to update assignees list
+            const response = await axios.post(`/api/tasks/${taskId}/assignees`, {
+                userIds: updatedAssignees
+            });
+
+            console.log('Update assignees API response:', response);
+
+            // Update UI immediately
+            setAssignedUsers(prevUsers => prevUsers.filter(user => parseInt(user.id) !== numericUserId));
+
+            // Refresh task data to ensure UI is in sync with server
+            console.log("Remove assignee successful, refreshing task data");
+            await fetchTaskDetails();
+            toast.success('Assignee removed successfully');
+
+            // Trigger activities refresh
+            triggerActivitiesRefresh();
+        } catch (error) {
+            console.error('Error removing assignee:', error);
+            if (error.response) {
+                console.error('Response data:', error.response.data);
+                console.error('Response status:', error.response.status);
+                console.error('Response headers:', error.response.headers);
+            }
+            toast.error('Unable to remove assignee');
+
+            // Refresh data to display current state from server
+            await fetchTaskDetails();
+        }
+    };
+
+    // Add this useEffect to automatically fetch available assignees when projectId is available
+    useEffect(() => {
+        if (taskDetails && taskDetails.projectId) {
+            console.log("Project ID available or changed, fetching available assignees:", taskDetails.projectId);
+            fetchAvailableAssignees(taskDetails.projectId);
+        }
+    }, [taskDetails?.projectId]); // Only trigger when projectId changes
+
+    // Update the getUnassignedMembers helper function with more detailed logging
+    const getUnassignedMembers = () => {
+        console.log("Assigned users:", assignedUsers);
+        console.log("Assigned IDs:", assignedUsers.map(user => parseInt(user.id)));
+        console.log("Available assignees before filtering:", availableAssignees);
+
+        // Fix: Check both ID AND username match for accurate comparison
+        const unassignedMembers = availableAssignees.filter(user => {
+            const userId = parseInt(user.id);
+            const username = user.username;
+
+            // Only consider assigned if BOTH the ID AND username match an assigned user
+            // OR if username matches (to handle same user with different IDs)
+            const isAssigned = assignedUsers.some(assigned =>
+                (parseInt(assigned.id) === userId && assigned.username === username) ||
+                assigned.username === username
+            );
+
+            console.log(`Checking user ${user.fullName} (ID: ${userId}, username: ${username}): isAssigned=${isAssigned}`);
+            return !isAssigned;
+        });
+
+        console.log("Unassigned members after filtering:", unassignedMembers);
+        return unassignedMembers;
+    };
+
+    // Update the getUnwatchedMembers helper function with similar logic
+    const getUnwatchedMembers = () => {
+        console.log("Watchers:", watchers);
+        console.log("Watcher IDs:", watchers.map(user => parseInt(user.id)));
+        console.log("Available assignees before filtering:", availableAssignees);
+
+        // Fix: Check both ID AND username together, not separately
+        const unwatchedMembers = availableAssignees.filter(user => {
+            const userId = parseInt(user.id);
+            const username = user.username;
+
+            // Only consider watching if BOTH the ID AND username match a watcher
+            // OR if username matches (to handle same user with different IDs)
+            const isWatching = watchers.some(watcher =>
+                (parseInt(watcher.id) === userId && watcher.username === username) ||
+                watcher.username === username
+            );
+
+            console.log(`Checking user ${user.fullName} (ID: ${userId}, username: ${username}): isWatching=${isWatching}`);
+            return !isWatching;
+        });
+
+        console.log("Unwatched members after filtering:", unwatchedMembers);
+        return unwatchedMembers;
     };
 
     if (isLoading) {
@@ -777,23 +1535,28 @@ const TaskDetail = () => {
                     <div className="relative">
                         <button
                             onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                            className={`${getStatusColor(taskDetails.statusId)} text-white px-3 py-1 rounded-sm ml-2 flex items-center`}
+                            className="text-white px-3 py-1 rounded-sm ml-2 flex items-center"
+                            style={{ backgroundColor: taskDetails && taskDetails.statusId ? getStatusColor(taskDetails.statusId) : '#cccccc' }}
                         >
-                            {getStatusName(taskDetails.statusId)} <ChevronDown size={16} />
+                            {taskDetails && taskDetails.statusId ? getStatusName(taskDetails.statusId) : 'Status'} <ChevronDown size={16} />
                         </button>
 
                         {showStatusDropdown && (
                             <div className="dropdown-menu dropdown-arrow-down absolute z-50 right-0 mt-1 w-48 bg-white border border-gray-200 rounded shadow-lg">
-                                {statuses.map(status => (
-                                    <div
-                                        key={status.id}
-                                        className={`flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer ${status.id === taskDetails.statusId ? 'bg-gray-100' : ''}`}
-                                        onClick={() => handleStatusChange(status.id)}
-                                    >
-                                        <div className={`w-3 h-3 rounded-full ${status.color} mr-2`}></div>
-                                        <span>{status.name}</span>
-                                    </div>
-                                ))}
+                                {statuses.length > 0 ? (
+                                    statuses.map(status => (
+                                        <div
+                                            key={status.id}
+                                            className={`flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer ${taskDetails && taskDetails.statusId === status.id ? 'bg-gray-100' : ''}`}
+                                            onClick={() => handleStatusChange(status.id)}
+                                        >
+                                            <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: status.color }}></div>
+                                            <span>{status.name}</span>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="px-4 py-2 text-gray-500">Loading statuses...</div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -807,13 +1570,28 @@ const TaskDetail = () => {
                     {/* User Story link if this task belongs to a User Story */}
                     {taskDetails.userStoryId && (
                         <div className="mb-6">
-                            <a
-                                href={`/projects/${taskDetails.projectId}/userstory/${taskDetails.userStoryId}`}
-                                className="text-blue-500 flex items-center"
+                            <button
+                                onClick={async () => {
+                                    try {
+                                        // Chờ fetchUserStoryIfNeeded để đảm bảo có projectId
+                                        const projectId = await fetchUserStoryIfNeeded();
+
+                                        if (projectId) {
+                                            navigate(`/projects/${projectId}/userstory/${taskDetails.userStoryId}`, { replace: true });
+                                        } else {
+                                            console.error('Could not determine projectId for navigation');
+                                            message.error('Không thể xem User Story do thiếu thông tin dự án.');
+                                        }
+                                    } catch (error) {
+                                        console.error('Error navigating to user story:', error);
+                                        message.error('Không thể xem User Story. Vui lòng thử lại sau.');
+                                    }
+                                }}
+                                className="text-blue-500 flex items-center hover:underline focus:outline-none bg-transparent border-0 p-0"
                             >
                                 <span className="mr-2">🔗</span>
                                 US #{taskDetails.userStoryId}: {taskDetails.userStoryName || 'User Story'}
-                            </a>
+                            </button>
                         </div>
                     )}
 
@@ -822,18 +1600,60 @@ const TaskDetail = () => {
                         <div className="bg-gray-100 py-2 px-4 text-sm font-semibold">
                             TAGS
                         </div>
-                        <div className="flex mt-2 space-x-2">
+                        <div className="flex mt-2 space-x-2 flex-wrap">
                             {taskDetails.tags && taskDetails.tags.length > 0 ? (
                                 taskDetails.tags.map(tag => (
-                                    <button key={tag.id} className="bg-green-500 text-white px-3 py-1 rounded-sm flex items-center text-sm">
-                                        {tag.name} <X size={14} className="ml-1" />
-                                    </button>
+                                    <div
+                                        key={tag.id}
+                                        className="flex items-center px-3 py-1 rounded-sm text-white mb-2"
+                                        style={{ backgroundColor: tag.color || '#cccccc' }}
+                                    >
+                                        <span>{tag.name}</span>
+                                        <button
+                                            type="button"
+                                            className="ml-1 cursor-pointer bg-transparent border-0 p-0 text-white focus:outline-none"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                console.log("Tag removal button clicked for tag ID:", tag.id);
+                                                handleRemoveTag(tag.id);
+                                            }}
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    </div>
                                 ))
                             ) : (
-                                <button className="bg-white border border-gray-300 px-3 py-1 rounded-sm flex items-center text-sm">
+                                <span className="text-gray-500 italic">No tags applied</span>
+                            )}
+                            <div className="relative">
+                                <button
+                                    className="bg-white border border-gray-300 px-3 py-1 rounded-sm flex items-center text-sm mb-2"
+                                    onClick={() => setShowTagsDropdown(!showTagsDropdown)}
+                                >
                                     Add tag <Plus size={14} className="ml-1" />
                                 </button>
-                            )}
+
+                                {showTagsDropdown && (
+                                    <div className="dropdown-menu dropdown-arrow-down absolute z-50 left-0 mt-1 w-48 bg-white border border-gray-200 rounded shadow-lg">
+                                        {projectTags.length > 0 ? (
+                                            projectTags
+                                                .filter(tag => !taskDetails.tags || !taskDetails.tags.some(t => t.id === tag.id))
+                                                .map(tag => (
+                                                    <div
+                                                        key={tag.id}
+                                                        className="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                                        onClick={() => handleAddTag(tag.id)}
+                                                    >
+                                                        <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: tag.color }}></div>
+                                                        <span>{tag.name}</span>
+                                                    </div>
+                                                ))
+                                        ) : (
+                                            <div className="px-4 py-2 text-gray-500">No available tags</div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -852,11 +1672,11 @@ const TaskDetail = () => {
                     </div>
 
                     {/* Created by info */}
-                    <div className="text-right text-sm text-gray-500 mb-8">
+                    {/* <div className="text-right text-sm text-gray-500 mb-8">
                         <span>Created by {taskDetails.createdByFullName || 'Unknown'}</span>
                         <br />
                         <span>{dayjs(taskDetails.createdAt).format('YYYY-MM-DD HH:mm')}</span>
-                    </div>
+                    </div> */}
 
                     {/* Attachments section */}
                     <div className="mb-6">
@@ -864,13 +1684,56 @@ const TaskDetail = () => {
                             <div className="px-4 font-semibold">
                                 {taskDetails.attachments?.length || 0} Attachments
                             </div>
-                            <button className="mr-2 bg-blue-100 hover:bg-blue-200 p-1 rounded">
-                                <Plus size={16} className="text-blue-500" />
+                            <button
+                                className="mr-2 bg-blue-100 hover:bg-blue-200 p-1 rounded"
+                                onClick={handleUploadClick}
+                                disabled={isUploading}
+                            >
+                                {isUploading ? (
+                                    <LoadingOutlined />
+                                ) : (
+                                    <Plus size={16} className="text-blue-500" />
+                                )}
                             </button>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                className="hidden"
+                                onChange={handleFileChange}
+                                accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            />
                         </div>
-                        <div className="border border-dashed border-gray-300 py-8 text-center text-gray-400">
-                            Drop attachments here!
-                        </div>
+
+                        {taskDetails.attachments && taskDetails.attachments.length > 0 ? (
+                            <div className="space-y-2">
+                                {taskDetails.attachments.map(attachment => (
+                                    <div key={attachment.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+                                        <div className="flex items-center">
+                                            <FileText className="mr-2 text-blue-500" />
+                                            <span className="text-gray-700">{attachment.filename}</span>
+                                        </div>
+                                        <div className="flex items-center">
+                                            <button
+                                                className="text-blue-500 hover:text-blue-700 mr-2"
+                                                onClick={() => handleDownloadAttachment(attachment)}
+                                            >
+                                                <Download size={16} />
+                                            </button>
+                                            <button
+                                                className="text-red-500 hover:text-red-700"
+                                                onClick={() => handleDeleteAttachment(attachment)}
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="border border-dashed border-gray-300 py-8 text-center text-gray-400">
+                                Drop attachments here!
+                            </div>
+                        )}
                     </div>
 
                     {/* Comments and Activities section */}
@@ -892,8 +1755,8 @@ const TaskDetail = () => {
 
                         {/* Tab content */}
                         {activeTab === 'comments' ? (
-                            <div className="mt-4">
-                                <div className="space-y-4">
+                            <div className="mt-6">
+                                <div className="space-y-4" ref={commentSectionRef}>
                                     {taskDetails.comments?.map((comment) => (
                                         <div key={comment.id} className="border-b border-gray-100 pb-4">
                                             <div className="flex items-start">
@@ -908,9 +1771,21 @@ const TaskDetail = () => {
                                                             <span className="font-medium">{comment.userFullName}</span>
                                                             <span className="text-gray-500 text-sm ml-2">@{comment.username}</span>
                                                         </div>
-                                                        <span className="text-gray-500 text-sm">
-                                                            {dayjs(comment.createdAt).format('YYYY-MM-DD HH:mm')}
-                                                        </span>
+                                                        <div className="flex items-center">
+                                                            <span className="text-gray-500 text-sm mr-2">
+                                                                {dayjs(comment.createdAt).format('YYYY-MM-DD HH:mm')}
+                                                            </span>
+                                                            {/* Show delete button only for current user's comments */}
+                                                            {comment.userId === getCurrentUserId() && (
+                                                                <button
+                                                                    onClick={() => handleDeleteComment(comment.id, comment.userId)}
+                                                                    className="text-red-500 hover:text-red-700"
+                                                                    title="Delete comment"
+                                                                >
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                     <p className="mt-1 text-gray-700">{comment.content}</p>
                                                 </div>
@@ -918,7 +1793,7 @@ const TaskDetail = () => {
                                         </div>
                                     ))}
                                 </div>
-                                <div className="mt-4">
+                                <div className="mt-6">
                                     <textarea
                                         className="w-full border border-gray-300 p-4 rounded"
                                         placeholder="Type a new comment here"
@@ -938,7 +1813,7 @@ const TaskDetail = () => {
                                 </div>
                             </div>
                         ) : (
-                            <div className="mt-4">
+                            <div className="mt-6">
                                 <div className="space-y-4">
                                     {activities?.map((activity) => (
                                         <div key={activity.id} className="border-b border-gray-100 pb-4">
@@ -975,106 +1850,72 @@ const TaskDetail = () => {
                         <div className="text-gray-500 text-sm mb-2">ASSIGNED</div>
                         <div className="space-y-2">
                             {assignedUsers && assignedUsers.length > 0 ? (
-                                assignedUsers.map(user => {
-                                    console.log('Rendering assignee:', user);
-                                    // Đảm bảo truyền đúng ID cho việc xóa
-                                    const userId = user.id;
-                                    return (
-                                        <div key={userId} className="flex items-center justify-between">
-                                            <div className="flex items-center">
-                                                <div className="w-8 h-8 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2">
-                                                    {user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'}
-                                                </div>
-                                                <div>
-                                                    <div className="font-medium">{user.fullName || user.username}</div>
-                                                    <div className="text-xs text-gray-500">@{user.username}</div>
-                                                </div>
+                                assignedUsers.map(user => (
+                                    <div key={user.id} className="flex items-center justify-between">
+                                        <div className="flex items-center">
+                                            <div className="w-8 h-8 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2">
+                                                {user.photoUrl ? (
+                                                    <img
+                                                        src={user.photoUrl}
+                                                        alt={user.fullName || user.username}
+                                                        className="w-full h-full object-cover rounded-md"
+                                                    />
+                                                ) : (
+                                                    user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'
+                                                )}
                                             </div>
-                                            <button
-                                                onClick={() => {
-                                                    console.log('Removing assignee with ID:', userId);
-                                                    handleRemoveAssignee(userId);
-                                                }}
-                                                className="text-gray-400 hover:text-gray-600"
-                                            >
-                                                <X size={16} />
-                                            </button>
+                                            <div>
+                                                <div className="font-medium">{user.fullName || user.username}</div>
+                                                <div className="text-xs text-gray-500">@{user.username}</div>
+                                            </div>
                                         </div>
-                                    );
-                                })
+                                        <button
+                                            onClick={() => handleRemoveAssignee(user.id)}
+                                            className="text-gray-400 hover:text-gray-600"
+                                        >
+                                            <X size={16} />
+                                        </button>
+                                    </div>
+                                ))
                             ) : (
                                 <div className="text-sm text-gray-500">No users assigned</div>
                             )}
 
                             <div className="relative">
                                 <button
-                                    onClick={() => {
-                                        console.log("Current availableAssignees:", availableAssignees);
-                                        setShowAssigneeDropdown(!showAssigneeDropdown);
-                                    }}
+                                    onClick={() => setShowAssigneeDropdown(!showAssigneeDropdown)}
                                     className="text-gray-500 flex items-center text-sm"
                                 >
                                     <Plus size={14} className="mr-1" /> Add assigned
                                 </button>
                                 {showAssigneeDropdown && (
                                     <div className="dropdown-menu dropdown-arrow-down absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded shadow-lg">
-                                        <div className="px-4 py-2 text-right">
-                                            <button
-                                                onClick={() => {
-                                                    console.log("Reloading available assignees...");
-                                                    if (taskDetails.projectId) {
-                                                        fetchAvailableAssignees(taskDetails.projectId);
-                                                    } else if (taskDetails.userStoryId) {
-                                                        console.log("No projectId, trying to get from userStory");
-                                                        axios.get(`/api/kanban/board/userstory/${taskDetails.userStoryId}`)
-                                                            .then(response => {
-                                                                console.log("UserStory data:", response.data);
-                                                                if (response.data && response.data.projectId) {
-                                                                    fetchAvailableAssignees(response.data.projectId);
-                                                                }
-                                                            })
-                                                            .catch(error => console.error("Error fetching userStory:", error));
-                                                    }
-                                                }}
-                                                className="text-xs text-blue-500 hover:underline"
-                                            >
-                                                Reload users
-                                            </button>
-                                        </div>
-                                        {availableAssignees
-                                            .filter(user => !assignedUsers.some(assigned => assigned.id === user.id))
-                                            .map(user => (
+                                        {getUnassignedMembers().length > 0 ? (
+                                            getUnassignedMembers().map(user => (
                                                 <div
                                                     key={user.id}
                                                     onClick={() => handleAssignUser(user.id)}
                                                     className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center"
                                                 >
                                                     <div className="w-6 h-6 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2 text-xs">
-                                                        {user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'}
+                                                        {user.photoUrl ? (
+                                                            <img
+                                                                src={user.photoUrl}
+                                                                alt={user.fullName || user.username}
+                                                                className="w-full h-full object-cover rounded-md"
+                                                            />
+                                                        ) : (
+                                                            user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'
+                                                        )}
                                                     </div>
                                                     <div>
-                                                        <div className="font-medium">{user.fullName}</div>
+                                                        <div className="font-medium">{user.fullName || user.username}</div>
                                                         <div className="text-xs text-gray-500">@{user.username}</div>
                                                     </div>
                                                 </div>
-                                            ))}
-                                        {availableAssignees.length === 0 && (
-                                            <div className="px-4 py-2 text-gray-500 text-sm">No available users to add</div>
-                                        )}
-                                        {availableAssignees.length > 0 &&
-                                            availableAssignees.filter(user => !assignedUsers.some(assigned => assigned.id === user.id)).length === 0 && (
-                                                <div className="px-4 py-2 text-gray-500 text-sm">All users are already assigned</div>
-                                            )}
-                                        {assignedUsers.length === 0 && (
-                                            <div
-                                                onClick={handleAssignToMe}
-                                                className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                                            >
-                                                <div className="flex items-center text-blue-500">
-                                                    <CheckIcon className="w-4 h-4 mr-1" />
-                                                    <span>Assign to me</span>
-                                                </div>
-                                            </div>
+                                            ))
+                                        ) : (
+                                            <div className="px-4 py-2 text-gray-500 text-center">All members are already assigned</div>
                                         )}
                                     </div>
                                 )}
@@ -1090,7 +1931,15 @@ const TaskDetail = () => {
                                     <div key={user.id} className="flex items-center justify-between">
                                         <div className="flex items-center">
                                             <div className="w-8 h-8 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2">
-                                                {user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'}
+                                                {user.photoUrl ? (
+                                                    <img
+                                                        src={user.photoUrl}
+                                                        alt={user.fullName || user.username}
+                                                        className="w-full h-full object-cover rounded-md"
+                                                    />
+                                                ) : (
+                                                    user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'
+                                                )}
                                             </div>
                                             <div>
                                                 <div className="font-medium">{user.fullName || user.username}</div>
@@ -1108,60 +1957,42 @@ const TaskDetail = () => {
                             ) : (
                                 <div className="text-sm text-gray-500">No watchers</div>
                             )}
-
                             <div className="relative">
                                 <button
-                                    onClick={() => {
-                                        console.log("Current watchers:", watchers);
-                                        console.log("Current availableAssignees for watchers:", availableAssignees);
-                                        setShowWatcherDropdown(!showWatcherDropdown);
-                                    }}
+                                    onClick={() => setShowWatcherDropdown(!showWatcherDropdown)}
                                     className="text-gray-500 flex items-center text-sm"
                                 >
                                     <Plus size={14} className="mr-1" /> Add watchers
                                 </button>
                                 {showWatcherDropdown && (
                                     <div className="dropdown-menu dropdown-arrow-down absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded shadow-lg">
-                                        <div className="px-4 py-2 text-right">
-                                            <button
-                                                onClick={() => {
-                                                    console.log("Reloading available assignees for watchers...");
-                                                    if (taskDetails.projectId) {
-                                                        fetchAvailableAssignees(taskDetails.projectId);
-                                                    } else if (taskDetails.userStoryId) {
-                                                        console.log("No projectId, trying to get from userStory for watchers");
-                                                        axios.get(`/api/kanban/board/userstory/${taskDetails.userStoryId}`)
-                                                            .then(response => {
-                                                                console.log("UserStory data for watchers:", response.data);
-                                                                if (response.data && response.data.projectId) {
-                                                                    fetchAvailableAssignees(response.data.projectId);
-                                                                }
-                                                            })
-                                                            .catch(error => console.error("Error fetching userStory for watchers:", error));
-                                                    }
-                                                }}
-                                                className="text-xs text-blue-500 hover:underline"
-                                            >
-                                                Reload users
-                                            </button>
-                                        </div>
-                                        {availableAssignees
-                                            .filter(user => !watchers.some(watcher => watcher.id === user.id))
-                                            .map(user => (
+                                        {getUnwatchedMembers().length > 0 ? (
+                                            getUnwatchedMembers().map(user => (
                                                 <div
                                                     key={user.id}
                                                     onClick={() => handleAddWatcher(user.id)}
                                                     className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center"
                                                 >
                                                     <div className="w-6 h-6 bg-purple-300 rounded-md flex items-center justify-center text-white mr-2 text-xs">
-                                                        {user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'}
+                                                        {user.photoUrl ? (
+                                                            <img
+                                                                src={user.photoUrl}
+                                                                alt={user.fullName || user.username}
+                                                                className="w-full h-full object-cover rounded-md"
+                                                            />
+                                                        ) : (
+                                                            user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : '?'
+                                                        )}
                                                     </div>
                                                     <div>
-                                                        <div className="font-medium">{user.fullName}</div>
+                                                        <div className="font-medium">{user.fullName || user.username}</div>
                                                         <div className="text-xs text-gray-500">@{user.username}</div>
                                                     </div>
                                                 </div>
-                                            ))}
+                                            ))
+                                        ) : (
+                                            <div className="px-4 py-2 text-gray-500 text-center">All members are already watching</div>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -1184,42 +2015,13 @@ const TaskDetail = () => {
                         </div>
                     </div>
 
-                    {/* Points display for tasks - This is different from UserStory */}
-                    <div className="mb-6">
-                        <div className="flex justify-between items-center mb-2">
-                            <div className="text-gray-500 text-sm">POINTS</div>
-                        </div>
-                        <div className="space-y-2">
-                            <div className="flex justify-between items-center">
-                                <div>Points</div>
-                                {editMode ? (
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        value={editedPoints}
-                                        onChange={(e) => setEditedPoints(parseInt(e.target.value) || 0)}
-                                        className="w-16 text-right border border-gray-300 rounded px-2 py-1"
-                                    />
-                                ) : (
-                                    <div className="text-gray-500">{taskDetails.points || '?'}</div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
                     {/* Action buttons */}
-                    <div className="flex justify-end space-x-2 mt-8">
+                    <div className="flex justify-center space-x-2 mt-8">
                         <button
                             className="bg-red-500 p-2 rounded text-white"
                             onClick={() => setShowDueDatePicker(true)}
                         >
                             <Clock size={16} />
-                        </button>
-                        <button className="bg-gray-100 p-2 rounded text-gray-500 hover:bg-gray-200">
-                            <Users size={16} />
-                        </button>
-                        <button className="bg-gray-100 p-2 rounded text-gray-500 hover:bg-gray-200">
-                            <PaperClipIcon className="w-4 h-4" />
                         </button>
                         <button
                             className={`p-2 rounded ${isBlocked ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-500'} hover:${isBlocked ? 'bg-red-600' : 'bg-gray-200'}`}
@@ -1228,9 +2030,6 @@ const TaskDetail = () => {
                         >
                             <Lock size={16} />
                         </button>
-                        <button className="bg-gray-100 p-2 rounded text-gray-500 hover:bg-gray-200">
-                            <List size={16} />
-                        </button>
                         <button
                             className="bg-red-500 p-2 rounded text-white hover:bg-red-600"
                             onClick={handleDeleteTask}
@@ -1238,12 +2037,11 @@ const TaskDetail = () => {
                         >
                             <Trash2 size={16} />
                         </button>
-
                     </div>
                 </div>
             </div>
 
-            {/* Due Date Modal */}
+            {/* Due Date Picker Modal */}
             {showDueDatePicker && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
@@ -1257,36 +2055,34 @@ const TaskDetail = () => {
                             </button>
                         </div>
 
-                        <div className="mb-4 relative">
+                        <div className="mb-4">
                             <DatePicker
+                                className="w-full border border-gray-300 rounded p-2"
+                                onChange={date => setEditedDueDate(date)}
                                 value={editedDueDate ? dayjs(editedDueDate) : null}
-                                onChange={(date) => setEditedDueDate(date)}
-                                className="w-full"
+                                placeholder="Select date"
                             />
                         </div>
 
-                        <div className="flex space-x-2 mb-4">
+                        <div className="flex flex-wrap space-x-2 mb-4">
                             <button
-                                onClick={() => handleQuickDateSelect(7)}
-                                className="bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded text-sm"
+                                onClick={() => setShowQuickDateSelect(!showQuickDateSelect)}
+                                className="bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded text-sm mb-2"
                             >
-                                In one week
+                                Quick select... <ChevronDown size={14} className="inline" />
                             </button>
-                            <button
-                                onClick={() => handleQuickDateSelect(14)}
-                                className="bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded text-sm"
-                            >
-                                In two weeks
-                            </button>
-                            <button
-                                onClick={() => handleQuickDateSelect(30)}
-                                className="bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded text-sm"
-                            >
-                                In one month
-                            </button>
+
+                            {showQuickDateSelect && (
+                                <div className="w-full bg-gray-50 p-2 rounded mt-1 space-y-1">
+                                    <button onClick={() => handleQuickDateSelect(1)} className="w-full text-left px-2 py-1 hover:bg-gray-200 rounded">Tomorrow</button>
+                                    <button onClick={() => handleQuickDateSelect(7)} className="w-full text-left px-2 py-1 hover:bg-gray-200 rounded">In one week</button>
+                                    <button onClick={() => handleQuickDateSelect(14)} className="w-full text-left px-2 py-1 hover:bg-gray-200 rounded">In two weeks</button>
+                                    <button onClick={() => handleQuickDateSelect(30)} className="w-full text-left px-2 py-1 hover:bg-gray-200 rounded">In one month</button>
+                                </div>
+                            )}
                         </div>
 
-                        <div className="flex justify-between items-center mt-4">
+                        <div className="flex justify-between items-center">
                             <button
                                 onClick={() => {
                                     setEditedDueDate(null);
@@ -1294,7 +2090,7 @@ const TaskDetail = () => {
                                 }}
                                 className="text-gray-500"
                             >
-                                <X size={16} className="inline mr-1" /> Clear
+                                <X size={16} className="inline" /> Clear
                             </button>
                             <button
                                 onClick={handleSaveDueDate}

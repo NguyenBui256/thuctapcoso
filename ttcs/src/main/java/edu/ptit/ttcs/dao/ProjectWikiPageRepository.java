@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface ProjectWikiPageRepository extends JpaRepository<ProjectWikiPage, Integer> {
+public interface ProjectWikiPageRepository extends JpaRepository<ProjectWikiPage, Long> {
     Optional<ProjectWikiPage> findByIdAndProjectIdAndIsDeleteFalse(Long id, Long projectId);
 
     List<ProjectWikiPage> findByProjectAndIsDeleteFalse(Project project);

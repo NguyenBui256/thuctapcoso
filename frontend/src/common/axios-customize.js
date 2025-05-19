@@ -26,7 +26,12 @@ instance.interceptors.request.use(function (config) {
         config.headers.Authorization = "Bearer " + token;
     }
     config.headers.Accept = "application/json";
-    config.headers["Content-Type"] = "application/json; charset=utf-8";
+
+    // Chỉ đặt Content-Type khi không phải là FormData (upload file)
+    const isFormData = config.data instanceof FormData;
+    if (!isFormData) {
+        config.headers["Content-Type"] = "application/json; charset=utf-8";
+    }
     return config;
 });
 

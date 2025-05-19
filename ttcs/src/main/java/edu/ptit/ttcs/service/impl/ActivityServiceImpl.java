@@ -7,10 +7,14 @@ import edu.ptit.ttcs.entity.Project;
 import edu.ptit.ttcs.entity.UserStory;
 import edu.ptit.ttcs.entity.Task;
 import edu.ptit.ttcs.entity.User;
+import edu.ptit.ttcs.entity.UserSettings;
 import edu.ptit.ttcs.entity.dto.ActivityDTO;
 import edu.ptit.ttcs.service.ActivityService;
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +32,7 @@ public class ActivityServiceImpl implements ActivityService {
         private final ProjectMemberRepository projectMemberRepository;
         private final UserStoryRepository userStoryRepository;
         private final TaskRepository taskRepository;
+        private final UserSettingsRepository userSettingsRepository;
 
         @Override
         @Transactional
@@ -141,6 +146,29 @@ public class ActivityServiceImpl implements ActivityService {
                 return activities.stream()
                                 .map(this::mapToDTO)
                                 .collect(Collectors.toList());
+        }
+
+        public Page<ActivityDTO> getProjectActivitiesPaginated(Long projectId, Pageable pageable) {
+                // Fetch paginated activities from repository
+                Page<Activity> activities = activityRepository.findByProjectIdOrderByTimestampDesc(projectId, pageable);
+
+                // Convert to DTOs
+                return activities.map(activity -> {
+                        ActivityDTO dto = new ActivityDTO();
+                        dto.setId(activity.getId());
+                        dto.setAction(activity.getAction());
+                        dto.setTimestamp(activity.getTimestamp());
+                        dto.setDetails(activity.getDetails());
+                        if (activity.getUser() != null) {
+                                dto.setUserId(activity.getUser().getId());
+                                dto.setUsername(activity.getUser().getUsername());
+                                dto.setUserFullName(activity.getUser().getFullName());
+                                UserSettings userSettings = userSettingsRepository.findByUser(activity.getUser())
+                                                .orElse(null);
+                                dto.setPhotoUrl(userSettings != null ? userSettings.getPhotoUrl() : null);
+                        }
+                        return dto;
+                });
         }
 
         @Override

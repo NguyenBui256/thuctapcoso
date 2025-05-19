@@ -1,34 +1,38 @@
 package edu.ptit.ttcs.service.impl;
 
+import edu.ptit.ttcs.dao.PermissionRepository;
 import edu.ptit.ttcs.dao.ProjectRepository;
 import edu.ptit.ttcs.dao.ProjectRoleRepository;
 import edu.ptit.ttcs.entity.Permission;
 import edu.ptit.ttcs.entity.Project;
 import edu.ptit.ttcs.entity.ProjectRole;
 import edu.ptit.ttcs.entity.dto.ProjectRoleDTO;
-import edu.ptit.ttcs.entity.dto.ProjectRoleDTO;
+import edu.ptit.ttcs.entity.enums.ProjectRoleName;
 import edu.ptit.ttcs.service.ActivityService;
 import edu.ptit.ttcs.service.ProjectRoleService;
 import edu.ptit.ttcs.service.ProjectService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ProjectRoleServiceImpl implements ProjectRoleService {
 
         private final ProjectRepository projectRepository;
         private final ProjectRoleRepository projectRoleRepository;
         private final ProjectService projectService;
         private final ActivityService activityService;
+        private final PermissionRepository permissionRepository;
 
         @Override
         @Transactional
@@ -57,6 +61,9 @@ public class ProjectRoleServiceImpl implements ProjectRoleService {
                                 permissions.add(permission);
                         }
                         projectRole.setPermissions(permissions);
+                } else {
+                        // If no permissions specified, use default permissions based on role name
+                        initializeRolePermissions(projectRole);
                 }
 
                 ProjectRole savedRole = projectRoleRepository.save(projectRole);
@@ -168,6 +175,86 @@ public class ProjectRoleServiceImpl implements ProjectRoleService {
                                 requestUserId,
                                 "DELETE_ROLE",
                                 "Deleted role: " + role.getRoleName());
+        }
+
+        @Override
+        public List<ProjectRole> getAllRolesByProject(Project project) {
+                return projectRoleRepository.findAllByProject(project);
+        }
+
+        @Override
+        public Optional<ProjectRole> findById(Long id) {
+                return projectRoleRepository.findById(id);
+        }
+
+        @Override
+        public ProjectRole save(ProjectRole role) {
+                return projectRoleRepository.save(role);
+        }
+
+        @Override
+        @Transactional
+        public ProjectRole initializeRolePermissions(ProjectRole role) {
+                log.info("Initializing permissions for role: {}", role.getRoleName());
+                Set<Permission> permissions = new HashSet<>();
+                String roleName = role.getRoleName();
+
+                try {
+                        // Common permissions for all roles - read access to basic modules
+                        List<Permission> viewPermissions = permissionRepository.findAll().stream()
+                                .filter(p -> p.getMethod().equals("GET"))
+                                .collect(Collectors.toList());
+                        permissions.addAll(viewPermissions);
+
+                        if (roleName.equals(ProjectRoleName.PROJECT_MANAGER.name())) {
+                                // Project Manager gets all permissions
+                                permissions.addAll(permissionRepository.findAll());
+                        } else if (roleName.equals(ProjectRoleName.FRONTEND_DEVELOPER.name()) || 
+                                roleName.equals(ProjectRoleName.BACKEND_DEVELOPER.name())) {
+                                // Developers get task and User Story related permissions
+                                permissions.addAll(permissionRepository.findByModule("Tasks"));
+                                permissions.addAll(permissionRepository.findByModule("User Stories"));
+                                
+                                // Add ability to comment on issues
+                                permissions.addAll(permissionRepository.findByMethodAndModule("POST", "Issues"));
+                                
+                                // Wiki access
+                                permissions.addAll(permissionRepository.findByModule("Wiki"));
+                        } else if (roleName.equals(ProjectRoleName.QA_ENGINEER.name()) || 
+                                roleName.equals(ProjectRoleName.TESTER.name())) {
+                                // QA and Testers get issue permissions
+                                permissions.addAll(permissionRepository.findByModule("Issues"));
+                                
+                                // Read-only access to tasks and user stories
+                                permissions.addAll(permissionRepository.findByMethodAndModule("GET", "Tasks"));
+                                permissions.addAll(permissionRepository.findByMethodAndModule("GET", "User Stories"));
+                                
+                                // Comment ability
+                                permissions.addAll(permissionRepository.findByMethodAndModule("POST", "Tasks"));
+                                permissions.addAll(permissionRepository.findByMethodAndModule("POST", "User Stories"));
+                                
+                                // Wiki access
+                                permissions.addAll(permissionRepository.findByModule("Wiki"));
+                        } else if (roleName.equals(ProjectRoleName.BUSINESS_ANALYST.name())) {
+                                // Business analysts get epic and user story permissions
+                                permissions.addAll(permissionRepository.findByModule("Epics"));
+                                permissions.addAll(permissionRepository.findByModule("User Stories"));
+                                
+                                // Read-only access to tasks
+                                permissions.addAll(permissionRepository.findByMethodAndModule("GET", "Tasks"));
+                                
+                                // Wiki full access
+                                permissions.addAll(permissionRepository.findByModule("Wiki"));
+                        }
+
+                        // Assign permissions to the role
+                        role.setPermissions(permissions);
+                        log.info("Initialized {} permissions for role {}", permissions.size(), roleName);
+                } catch (Exception e) {
+                        log.error("Error initializing permissions for role {}: {}", roleName, e.getMessage(), e);
+                }
+                
+                return role;
         }
 
         private ProjectRoleDTO mapToDTO(ProjectRole role) {

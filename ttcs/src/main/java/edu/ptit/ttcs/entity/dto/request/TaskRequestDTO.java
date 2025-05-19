@@ -1,29 +1,19 @@
 package edu.ptit.ttcs.entity.dto.request;
 
 import java.time.LocalDate;
-import java.util.Date;
 import java.util.List;
 
 public class TaskRequestDTO {
-    private Integer id;
     private String name;
     private String description;
+    private LocalDate dueDate;
+    private Integer points;
+    private Integer statusId;
     private Integer userId;
     private Integer userStoryId;
-    private Integer statusId;
-    private LocalDate dueDate;
-    private List<Integer> tagIds;
-    private List<Integer> watcherIds;
     private List<Integer> assigneeIds;
-    private Integer points;
-
-    public Integer getId() {
-        return id;
-    }
-
-    public void setId(Integer id) {
-        this.id = id;
-    }
+    private List<Long> tagIds;
+    private List<Integer> watcherIds;
 
     public String getName() {
         return name;
@@ -39,6 +29,30 @@ public class TaskRequestDTO {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public LocalDate getDueDate() {
+        return dueDate;
+    }
+
+    public void setDueDate(LocalDate dueDate) {
+        this.dueDate = dueDate;
+    }
+
+    public Integer getPoints() {
+        return points;
+    }
+
+    public void setPoints(Integer points) {
+        this.points = points;
+    }
+
+    public Integer getStatusId() {
+        return statusId;
+    }
+
+    public void setStatusId(Integer statusId) {
+        this.statusId = statusId;
     }
 
     public Integer getUserId() {
@@ -57,27 +71,19 @@ public class TaskRequestDTO {
         this.userStoryId = userStoryId;
     }
 
-    public Integer getStatusId() {
-        return statusId;
+    public List<Integer> getAssigneeIds() {
+        return assigneeIds;
     }
 
-    public void setStatusId(Integer statusId) {
-        this.statusId = statusId;
+    public void setAssigneeIds(List<Integer> assigneeIds) {
+        this.assigneeIds = assigneeIds;
     }
 
-    public LocalDate getDueDate() {
-        return dueDate;
-    }
-
-    public void setDueDate(LocalDate dueDate) {
-        this.dueDate = dueDate;
-    }
-
-    public List<Integer> getTagIds() {
+    public List<Long> getTagIds() {
         return tagIds;
     }
 
-    public void setTagIds(List<Integer> tagIds) {
+    public void setTagIds(List<Long> tagIds) {
         this.tagIds = tagIds;
     }
 
@@ -87,21 +93,5 @@ public class TaskRequestDTO {
 
     public void setWatcherIds(List<Integer> watcherIds) {
         this.watcherIds = watcherIds;
-    }
-
-    public List<Integer> getAssigneeIds() {
-        return assigneeIds;
-    }
-
-    public void setAssigneeIds(List<Integer> assigneeIds) {
-        this.assigneeIds = assigneeIds;
-    }
-
-    public Integer getPoints() {
-        return points;
-    }
-
-    public void setPoints(Integer points) {
-        this.points = points;
     }
 }

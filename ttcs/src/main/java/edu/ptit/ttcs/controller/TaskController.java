@@ -3,21 +3,39 @@ package edu.ptit.ttcs.controller;
 import edu.ptit.ttcs.dao.ProjectSettingTagRepository;
 import edu.ptit.ttcs.dao.TaskRepository;
 import edu.ptit.ttcs.dao.UserRepository;
+import edu.ptit.ttcs.dao.UserSettingsRepository;
 import edu.ptit.ttcs.dao.UserStoryRepository;
 import edu.ptit.ttcs.dao.ProjectMemberRepository;
 import edu.ptit.ttcs.dao.CommentRepository;
+import edu.ptit.ttcs.dao.NotificationRepository;
+import edu.ptit.ttcs.dao.AttachmentRepository;
+import edu.ptit.ttcs.dao.TaskAttachmentRepository;
+import edu.ptit.ttcs.dao.PjSettingStatusRepository;
+import edu.ptit.ttcs.dao.ProjectRepository;
+import edu.ptit.ttcs.dao.ActivityRepository;
 import edu.ptit.ttcs.entity.dto.TaskDTO;
 import edu.ptit.ttcs.entity.dto.request.TaskRequestDTO;
 import edu.ptit.ttcs.entity.ProjectSettingTag;
 import edu.ptit.ttcs.entity.Task;
 import edu.ptit.ttcs.entity.User;
+import edu.ptit.ttcs.entity.UserSettings;
 import edu.ptit.ttcs.entity.UserStory;
 import edu.ptit.ttcs.entity.ProjectMember;
 import edu.ptit.ttcs.entity.ProjectSettingStatus;
 import edu.ptit.ttcs.entity.Comment;
+import edu.ptit.ttcs.entity.Notification;
 import edu.ptit.ttcs.entity.dto.CommentDTO;
 import edu.ptit.ttcs.entity.dto.ActivityDTO;
+import edu.ptit.ttcs.entity.Project;
+import edu.ptit.ttcs.entity.Activity;
 import edu.ptit.ttcs.service.ActivityService;
+import edu.ptit.ttcs.entity.Attachment;
+import edu.ptit.ttcs.entity.TaskAttachment;
+import edu.ptit.ttcs.entity.dto.AttachmentDTO;
+import edu.ptit.ttcs.service.NotificationService;
+import edu.ptit.ttcs.util.SecurityUtils;
+
+import org.apache.catalina.security.SecurityUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -32,6 +50,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 
 @RestController
 @RequestMapping("/api/tasks")
@@ -50,7 +69,12 @@ public class TaskController {
     private UserStoryRepository userStoryRepository;
 
     @Autowired
-    private ProjectSettingTagRepository tagRepository;
+    private UserSettingsRepository userSettingsRepository;
+    @Autowired
+    private SecurityUtils securityUtils;
+
+    @Autowired
+    private ProjectSettingTagRepository projectSettingTagRepository;
 
     @Autowired
     private ProjectMemberRepository projectMemberRepository;
@@ -60,6 +84,27 @@ public class TaskController {
 
     @Autowired
     private ActivityService activityService;
+
+    @Autowired
+    private ActivityRepository activityRepository;
+
+    @Autowired
+    private AttachmentRepository attachmentRepository;
+
+    @Autowired
+    private TaskAttachmentRepository taskAttachmentRepository;
+
+    @Autowired
+    private NotificationRepository notificationRepository;
+
+    @Autowired
+    private NotificationService notificationService;
+
+    @Autowired
+    private PjSettingStatusRepository pjSettingStatusRepository;
+
+    @Autowired
+    private ProjectRepository projectRepository;
 
     private Long getUserIdFromHeader() {
         try {
@@ -99,10 +144,27 @@ public class TaskController {
      * @return Task if found
      */
     @GetMapping("/{id}")
-    public ResponseEntity<TaskDTO> getTaskById(@PathVariable Integer id) {
+    public ResponseEntity<TaskDTO> getTaskById(
+            @PathVariable Integer id,
+            @RequestHeader(name = "User-Id", required = false) Long userId) {
+
         Optional<Task> taskOptional = taskRepository.findById(id);
-        return taskOptional.map(task -> ResponseEntity.ok(convertToDTO(task)))
-                .orElseGet(() -> ResponseEntity.notFound().build());
+        if (!taskOptional.isPresent()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        // Get user ID from header if not provided
+        if (userId == null) {
+            userId = getUserIdFromHeader();
+        }
+
+        // Check if user is a member of the project
+        if (!isUserInProject(id, userId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .build();
+        }
+
+        return ResponseEntity.ok(convertToDTO(taskOptional.get()));
     }
 
     /**
@@ -113,16 +175,48 @@ public class TaskController {
      */
     @GetMapping("/userstory/{userStoryId}")
     public ResponseEntity<List<TaskDTO>> getTasksByUserStory(@PathVariable Integer userStoryId) {
-        Optional<UserStory> userStoryOptional = userStoryRepository.findById(userStoryId);
-        if (!userStoryOptional.isPresent()) {
-            return ResponseEntity.notFound().build();
-        }
+        try {
+            System.out.println("Getting tasks for userStory ID: " + userStoryId);
 
-        List<Task> tasks = taskRepository.findByUserStory(userStoryOptional.get());
-        List<TaskDTO> taskDTOs = tasks.stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(taskDTOs);
+            // Verify user story exists but use findByUserStoryId directly for better
+            // filtering
+            Optional<UserStory> userStoryOptional = userStoryRepository.findById(userStoryId);
+            if (!userStoryOptional.isPresent()) {
+                System.out.println("User story not found with ID: " + userStoryId);
+                return ResponseEntity.notFound().build();
+            }
+
+            // Kiểm tra nếu user story đã bị đánh dấu là đã xóa
+            UserStory userStory = userStoryOptional.get();
+            if (userStory.getIsDeleted() != null && userStory.getIsDeleted()) {
+                System.out.println("User story with ID: " + userStoryId + " is marked as deleted");
+                return ResponseEntity.notFound().build();
+            }
+
+            // Use direct ID-based query instead of entity-based query
+            List<Task> tasks = taskRepository.findByUserStoryId(userStoryId);
+
+            System.out.println("Found " + tasks.size() + " tasks for userStory ID: " + userStoryId);
+            tasks.forEach(task -> System.out.println("Task ID: " + task.getId() +
+                    ", Name: " + task.getName() +
+                    ", UserStory ID: " + (task.getUserStory() != null ? task.getUserStory().getId() : "null")));
+
+            List<TaskDTO> taskDTOs = tasks.stream()
+                    .map(this::convertToDTO)
+                    .collect(Collectors.toList());
+
+            // Log the resulting DTOs to verify userStoryId is preserved
+            System.out.println("Returning " + taskDTOs.size() + " task DTOs");
+            taskDTOs.forEach(dto -> System.out.println("TaskDTO ID: " + dto.getId() +
+                    ", Subject: " + dto.getSubject() +
+                    ", UserStoryId: " + dto.getUserStoryId()));
+
+            return ResponseEntity.ok(taskDTOs);
+        } catch (Exception e) {
+            System.err.println("Error in getTasksByUserStory: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
     }
 
     /**
@@ -131,19 +225,20 @@ public class TaskController {
      * @param userId User ID
      * @return List of tasks
      */
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<List<TaskDTO>> getTasksByUser(@PathVariable Integer userId) {
-        Optional<User> userOptional = userRepository.findById(userId.longValue());
-        if (!userOptional.isPresent()) {
-            return ResponseEntity.notFound().build();
-        }
-
-        List<Task> tasks = taskRepository.findByUser(userOptional.get());
-        List<TaskDTO> taskDTOs = tasks.stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(taskDTOs);
-    }
+    // @GetMapping("/user/{userId}")
+    // public ResponseEntity<List<TaskDTO>> getTasksByUser(@PathVariable Integer
+    // userId) {
+    // Optional<User> userOptional = userRepository.findById(userId.longValue());
+    // if (!userOptional.isPresent()) {
+    // return ResponseEntity.notFound().build();
+    // }
+    //
+    //// List<Task> tasks = taskRepository.findByUser(userOptional.get());
+    // List<TaskDTO> taskDTOs = tasks.stream()
+    // .map(this::convertToDTO)
+    // .collect(Collectors.toList());
+    // return ResponseEntity.ok(taskDTOs);
+    // }
 
     /**
      * Create new task
@@ -202,10 +297,26 @@ public class TaskController {
      * @return Updated task
      */
     @PutMapping("/{id}")
-    public ResponseEntity<TaskDTO> updateTask(@PathVariable Integer id, @RequestBody TaskRequestDTO taskRequestDTO) {
+    public ResponseEntity<TaskDTO> updateTask(
+            @PathVariable Integer id,
+            @RequestBody TaskRequestDTO taskRequestDTO) {
+
+        User user = securityUtils.getCurrentUser();
+        Long userId = user.getId();
         Optional<Task> taskOptional = taskRepository.findById(id);
         if (!taskOptional.isPresent()) {
             return ResponseEntity.notFound().build();
+        }
+
+        // Get user ID from header if not provided
+        if (userId == null) {
+            userId = getUserIdFromHeader();
+        }
+
+        // Check if user is a member of the project
+        if (!isUserInProject(id, userId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .build();
         }
 
         try {
@@ -219,7 +330,6 @@ public class TaskController {
             Task updatedTask = taskRepository.save(task);
 
             // Record activities for changes
-            Long userId = getUserIdFromHeader();
             Long projectId = updatedTask.getProject().getId();
 
             // Name change
@@ -275,23 +385,40 @@ public class TaskController {
      * @return No content
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteTask(@PathVariable Integer id) {
+    public ResponseEntity<Void> deleteTask(
+            @PathVariable Integer id,
+            @RequestHeader(name = "User-Id", required = false) Long userId) {
+
         Optional<Task> taskOptional = taskRepository.findById(id);
         if (!taskOptional.isPresent()) {
             return ResponseEntity.notFound().build();
         }
 
+        // Get user ID from header if not provided
+        if (userId == null) {
+            userId = getUserIdFromHeader();
+        }
+
+        // Check if user is a member of the project
+        if (!isUserInProject(id, userId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .build();
+        }
+
         Task task = taskOptional.get();
 
-        // Record activity before deletion
+        // Record activity before soft deletion
         activityService.recordTaskActivity(
                 task.getProject().getId(),
                 task.getId(),
-                getUserIdFromHeader(),
+                userId,
                 "task_deleted",
                 "Task \"" + task.getName() + "\" was deleted");
 
-        taskRepository.deleteById(id);
+        // Perform soft delete instead of hard delete
+        task.setIsDeleted(true);
+        taskRepository.save(task);
+
         return ResponseEntity.noContent().build();
     }
 
@@ -350,6 +477,9 @@ public class TaskController {
                             userId,
                             "assignee_added",
                             "User " + newAssignee.getUser().getUsername() + " assigned to task");
+
+                    // Send notification to the new assignee
+                    createAssigneeNotification(newAssignee.getUser(), updatedTask, userId);
                 }
             }
 
@@ -408,36 +538,21 @@ public class TaskController {
             }
 
             Task task = taskOptional.get();
-            User user = userOptional.get();
-
-            // Kiểm tra xem người dùng có thuộc project không
-            Long projectId = null;
-            if (task.getUserStory() != null && task.getUserStory().getProject() != null) {
-                projectId = task.getUserStory().getProject().getId();
-            } else {
-                return ResponseEntity.badRequest().build(); // Task phải thuộc một project
-            }
-
-            boolean isInProject = projectMemberRepository.existsByProjectIdAndUserIdAndIsDeleteFalse(
-                    projectId, user.getId());
-
-            if (!isInProject) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(null); // Người dùng không thuộc project
-            }
-
             ProjectMember projectMember = projectMemberRepository.findByProjectIdAndUserIdAndIsDeleteFalse(
-                    task.getProject().getId(), user.getId());
+                    task.getProject().getId(), userId.longValue());
 
-            // Initialize list if null
+            // Add user if not already in list
             if (task.getAssignees() == null) {
                 task.setAssignees(new ArrayList<>());
             }
 
-            // Add user if not already in list
             if (!task.getAssignees().contains(projectMember)) {
                 task.getAssignees().add(projectMember);
                 task = taskRepository.save(task);
+
+                // Send notification to the added assignee
+                Long currentUserId = getUserIdFromHeader();
+                createAssigneeNotification(userOptional.get(), task, currentUserId);
             }
 
             return ResponseEntity.ok(convertToDTO(task));
@@ -514,6 +629,8 @@ public class TaskController {
                         dto.setId(member.getUser().getId().intValue());
                         dto.setUsername(member.getUser().getUsername());
                         dto.setFullName(member.getUser().getFullName());
+                        UserSettings userSettings = userSettingsRepository.findByUser(member.getUser()).orElse(null);
+                        dto.setPhotoUrl(userSettings != null ? userSettings.getPhotoUrl() : null);
                         return dto;
                     })
                     .collect(Collectors.toList());
@@ -565,6 +682,9 @@ public class TaskController {
                             userId,
                             "watcher_added",
                             "User " + newWatcher.getUser().getUsername() + " started watching task");
+
+                    // Send notification to the new watcher
+                    createWatcherNotification(newWatcher.getUser(), updatedTask, userId);
                 }
             }
 
@@ -608,36 +728,21 @@ public class TaskController {
             }
 
             Task task = taskOptional.get();
-            User user = userOptional.get();
+            ProjectMember projectMember = projectMemberRepository.findByProjectIdAndUserIdAndIsDeleteFalse(
+                    task.getProject().getId(), userId.longValue());
 
-            // Kiểm tra xem người dùng có thuộc project không
-            Long projectId = null;
-            if (task.getUserStory() != null && task.getUserStory().getProject() != null) {
-                projectId = task.getUserStory().getProject().getId();
-            } else {
-                return ResponseEntity.badRequest().build(); // Task phải thuộc một project
-            }
-
-            boolean isInProject = projectMemberRepository.existsByProjectIdAndUserIdAndIsDeleteFalse(
-                    projectId, user.getId());
-
-            if (!isInProject) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(null); // Người dùng không thuộc project
-            }
-
-            // Initialize list if null
+            // Add user if not already in list
             if (task.getWatchers() == null) {
                 task.setWatchers(new ArrayList<>());
             }
 
-            ProjectMember projectMember = projectMemberRepository.findByProjectIdAndUserIdAndIsDeleteFalse(
-                    task.getProject().getId(), user.getId());
-
-            // Add user if not already in list
             if (!task.getWatchers().contains(projectMember)) {
                 task.getWatchers().add(projectMember);
                 task = taskRepository.save(task);
+
+                // Send notification to the added watcher
+                Long currentUserId = getUserIdFromHeader();
+                createWatcherNotification(userOptional.get(), task, currentUserId);
             }
 
             return ResponseEntity.ok(convertToDTO(task));
@@ -661,21 +766,14 @@ public class TaskController {
                 return ResponseEntity.notFound().build();
             }
 
-            // Find user
-            Optional<User> userOptional = userRepository.findById(userId.longValue());
-            if (!userOptional.isPresent()) {
+            Task task = taskOptional.get();
+            Optional<ProjectMember> projectMember = projectMemberRepository.findById(userId.longValue());
+            if (!projectMember.isPresent()) {
                 return ResponseEntity.notFound().build();
             }
 
-            Task task = taskOptional.get();
-            ProjectMember projectMember = projectMemberRepository.findByProjectIdAndUserIdAndIsDeleteFalse(
-                    task.getProject().getId(), userId.longValue());
-
-            // Remove user if in list
-            if (task.getWatchers() != null) {
-                task.getWatchers().remove(projectMember);
-                task = taskRepository.save(task);
-            }
+            task.getWatchers().remove(projectMember.get());
+            task = taskRepository.save(task);
 
             return ResponseEntity.ok(convertToDTO(task));
         } catch (Exception e) {
@@ -701,14 +799,14 @@ public class TaskController {
     /**
      * Update task status
      * 
-     * @param id     Task ID
-     * @param status New status
+     * @param id       Task ID
+     * @param statusId New status ID from project_setting_status table
      * @return Updated task
      */
-    @PutMapping("/{id}/status/{status}")
+    @PutMapping("/{id}/status/{statusId}")
     public ResponseEntity<TaskDTO> updateTaskStatus(
             @PathVariable Integer id,
-            @PathVariable String status) {
+            @PathVariable Integer statusId) {
         Optional<Task> taskOptional = taskRepository.findById(id);
         if (!taskOptional.isPresent()) {
             return ResponseEntity.notFound().build();
@@ -718,39 +816,25 @@ public class TaskController {
             Task task = taskOptional.get();
             ProjectSettingStatus oldStatus = task.getStatus();
 
-            // Validate status
-            if (!isValidStatus(status)) {
+            // Tìm status theo ID trong bảng project_setting_status
+            Optional<ProjectSettingStatus> statusOptional = pjSettingStatusRepository.findById(statusId);
+            if (!statusOptional.isPresent()) {
                 return ResponseEntity.badRequest().build();
             }
 
-            // Convert string status to ProjectSettingStatus
-            ProjectSettingStatus projectSettingStatus = new ProjectSettingStatus();
-            projectSettingStatus.setName(status);
-            // Set ID based on status name
-            switch (status) {
-                case "NEW":
-                    projectSettingStatus.setId(1);
-                    break;
-                case "IN_PROGRESS":
-                    projectSettingStatus.setId(2);
-                    break;
-                case "READY_FOR_TEST":
-                    projectSettingStatus.setId(3);
-                    break;
-                case "TESTING":
-                    projectSettingStatus.setId(4);
-                    break;
-                case "DONE":
-                    projectSettingStatus.setId(5);
-                    break;
-                case "CLOSED":
-                    projectSettingStatus.setId(6);
-                    break;
-                default:
-                    return ResponseEntity.badRequest().build();
-            }
-            task.setStatus(projectSettingStatus);
+            ProjectSettingStatus newStatus = statusOptional.get();
 
+            // Kiểm tra xem status có thuộc project của task hay không
+            if (!newStatus.getProject().getId().equals(task.getProject().getId())) {
+                return ResponseEntity.badRequest().build();
+            }
+
+            // Kiểm tra xem status có đúng type là TASK không
+            if (!"TASK".equals(newStatus.getType())) {
+                return ResponseEntity.badRequest().build();
+            }
+
+            task.setStatus(newStatus);
             Task updatedTask = taskRepository.save(task);
 
             // Record activity for status change
@@ -759,24 +843,123 @@ public class TaskController {
                     updatedTask.getId(),
                     getUserIdFromHeader(),
                     "status_updated",
-                    "Status changed from " + (oldStatus != null ? oldStatus.getName() : "None") + " to " + status);
+                    "Status changed from " + (oldStatus != null ? oldStatus.getName() : "None") + " to "
+                            + newStatus.getName());
 
             return ResponseEntity.ok(convertToDTO(updatedTask));
         } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.badRequest().build();
         }
     }
 
     /**
-     * Check if status is valid
+     * Update task status using status ID in request body
+     * This endpoint matches the format used in the frontend
+     * 
+     * @param id      Task ID
+     * @param request Request containing status ID
+     * @return Updated task
      */
-    private boolean isValidStatus(String status) {
-        return status != null && (status.equals("NEW") ||
-                status.equals("IN_PROGRESS") ||
-                status.equals("READY_FOR_TEST") ||
-                status.equals("TESTING") ||
-                status.equals("DONE") ||
-                status.equals("CLOSED"));
+    @PutMapping("/{id}/status")
+    public ResponseEntity<TaskDTO> updateTaskStatusWithBody(
+            @PathVariable Integer id,
+            @RequestBody UpdateStatusRequest request) {
+        try {
+            // Validate task exists
+            Optional<Task> taskOptional = taskRepository.findById(id);
+            if (!taskOptional.isPresent()) {
+                System.out.println("Status update failed: task not found with ID " + id);
+                return ResponseEntity.notFound().build();
+            }
+
+            Task task = taskOptional.get();
+            ProjectSettingStatus oldStatus = task.getStatus();
+
+            // Validate statusId is provided
+            Integer statusId = request.getStatusId();
+            if (statusId == null) {
+                System.out.println("Status update failed: statusId is null in request body");
+                return ResponseEntity.badRequest().build();
+            }
+
+            System.out.println("Updating task " + id + " status to " + statusId);
+
+            // Validate status exists
+            Optional<ProjectSettingStatus> statusOptional = pjSettingStatusRepository.findById(statusId);
+            if (!statusOptional.isPresent()) {
+                System.out.println("Status update failed: status with ID " + statusId + " not found");
+                return ResponseEntity.badRequest().build();
+            }
+
+            // Use the retrieved status
+            ProjectSettingStatus newStatus = statusOptional.get();
+            System.out.println("Found status: " + newStatus.getName());
+
+            // Update the task with the new status
+            task.setStatus(newStatus);
+
+            // Save the updated task
+            Task updatedTask = taskRepository.save(task);
+            System.out.println("Task status updated successfully to: " + newStatus.getName());
+
+            // Record activity for status change
+            activityService.recordTaskActivity(
+                    updatedTask.getProject().getId(),
+                    updatedTask.getId(),
+                    getUserIdFromHeader(),
+                    "status_updated",
+                    "Status changed from " + (oldStatus != null ? oldStatus.getName() : "None") + " to "
+                            + newStatus.getName());
+
+            return ResponseEntity.ok(convertToDTO(updatedTask));
+        } catch (Exception e) {
+            System.out.println("Status update failed with exception: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * Request class for status update
+     */
+    public static class UpdateStatusRequest {
+        private Integer statusId;
+
+        public Integer getStatusId() {
+            return statusId;
+        }
+
+        public void setStatusId(Integer statusId) {
+            this.statusId = statusId;
+        }
+    }
+
+    /**
+     * Get all available statuses for a task in a project
+     * 
+     * @param projectId Project ID
+     * @return List of available statuses
+     */
+    @GetMapping("/project/{projectId}/statuses")
+    public ResponseEntity<List<ProjectSettingStatus>> getTaskStatuses(@PathVariable Long projectId) {
+        try {
+            // Find project
+            Optional<Project> projectOptional = projectRepository.findById(projectId);
+            if (!projectOptional.isPresent()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            Project project = projectOptional.get();
+
+            // Get statuses of type TASK for this project
+            List<ProjectSettingStatus> statuses = pjSettingStatusRepository.findAllByProjectAndType(project, "TASK");
+
+            return ResponseEntity.ok(statuses);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     /**
@@ -921,6 +1104,12 @@ public class TaskController {
                 return ResponseEntity.badRequest().build();
             }
 
+            // Check if user is a member of the project
+            if (!isUserInProject(taskId, request.getUserId().longValue())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(null);
+            }
+
             Comment comment = new Comment();
             comment.setContent(request.getContent());
             comment.setTask(task);
@@ -962,7 +1151,9 @@ public class TaskController {
      * Get comments for task
      */
     @GetMapping("/{taskId}/comments")
-    public ResponseEntity<List<CommentDTO>> getComments(@PathVariable Integer taskId) {
+    public ResponseEntity<List<CommentDTO>> getComments(
+            @PathVariable Integer taskId,
+            @RequestHeader(name = "User-Id", required = false) Long userId) {
         try {
             // Find task
             Optional<Task> taskOptional = taskRepository.findById(taskId);
@@ -971,6 +1162,17 @@ public class TaskController {
             }
 
             Task task = taskOptional.get();
+
+            // Get user ID from header if not provided
+            if (userId == null) {
+                userId = getUserIdFromHeader();
+            }
+
+            // Check if user is a member of the project
+            if (!isUserInProject(taskId, userId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(null);
+            }
 
             // Get comments
             List<Comment> comments = commentRepository.findByTaskOrderByCreatedAtDesc(task);
@@ -1034,64 +1236,68 @@ public class TaskController {
         dto.setIsBlocked(task.getIsBlocked());
         dto.setPoints(task.getPoints());
 
-        // Set status info if available
-        if (task.getStatus() != null) {
-            dto.setStatusId(task.getStatus().getId().intValue());
-            dto.setStatusName(task.getStatus().getName());
+        if (task.getAssigned() != null) {
+            dto.setAssignedTo(task.getAssigned().getId().intValue());
+            dto.setAssignedToName(task.getAssigned().getUser().getFullName());
         }
 
-        // Set user story info if available
         if (task.getUserStory() != null) {
             dto.setUserStoryId(task.getUserStory().getId());
             dto.setUserStoryName(task.getUserStory().getName());
         }
 
-        // Set assignee info if available
-        if (task.getUser() != null) {
-            dto.setAssignedTo(task.getUser().getId().intValue());
-            dto.setAssignedToName(task.getUser().getFullName());
+        if (task.getStatus() != null) {
+            dto.setStatusId(task.getStatus().getId());
+            dto.setStatus(task.getStatus().getName());
+            dto.setStatusName(task.getStatus().getName());
         }
 
-        // Set assignees info if available
-        if (task.getAssignees() != null && !task.getAssignees().isEmpty()) {
-            List<TaskDTO.UserDTO> assigneeDTOs = task.getAssignees().stream()
-                    .map(assignee -> {
-                        TaskDTO.UserDTO userDTO = new TaskDTO.UserDTO();
-                        userDTO.setId(assignee.getId().intValue());
-                        userDTO.setUsername(assignee.getUser().getUsername());
-                        userDTO.setFullName(assignee.getUser().getFullName());
-                        return userDTO;
-                    })
-                    .collect(Collectors.toList());
-            dto.setAssignees(assigneeDTOs);
-        }
-
-        // Set tags if available
         if (task.getTags() != null && !task.getTags().isEmpty()) {
-            List<TaskDTO.TagDTO> tagDTOs = task.getTags().stream()
-                    .map(tag -> {
-                        TaskDTO.TagDTO tagDTO = new TaskDTO.TagDTO();
-                        tagDTO.setId(tag.getId().intValue());
-                        tagDTO.setName(tag.getName());
-                        tagDTO.setColor(tag.getColor());
-                        return tagDTO;
-                    })
-                    .collect(Collectors.toList());
+            List<TaskDTO.TagDTO> tagDTOs = task.getTags().stream().map(tag -> {
+                TaskDTO.TagDTO tagDTO = new TaskDTO.TagDTO();
+                tagDTO.setId(tag.getId().intValue());
+                tagDTO.setName(tag.getName());
+                tagDTO.setColor(tag.getColor());
+                return tagDTO;
+            }).toList();
             dto.setTags(tagDTOs);
         }
 
-        // Set watchers if available
         if (task.getWatchers() != null && !task.getWatchers().isEmpty()) {
-            List<TaskDTO.UserDTO> watcherDTOs = task.getWatchers().stream()
-                    .map(watcher -> {
-                        TaskDTO.UserDTO userDTO = new TaskDTO.UserDTO();
-                        userDTO.setId(watcher.getId().intValue());
-                        userDTO.setUsername(watcher.getUser().getUsername());
-                        userDTO.setFullName(watcher.getUser().getFullName());
-                        return userDTO;
-                    })
-                    .collect(Collectors.toList());
+            List<TaskDTO.UserDTO> watcherDTOs = task.getWatchers().stream().map(watcher -> {
+                TaskDTO.UserDTO userDTO = new TaskDTO.UserDTO();
+                userDTO.setId(watcher.getId().intValue());
+                userDTO.setUsername(watcher.getUser().getUsername());
+                userDTO.setFullName(watcher.getUser().getFullName());
+                UserSettings userSettings = userSettingsRepository.findByUser(watcher.getUser()).orElse(null);
+                userDTO.setPhotoUrl(userSettings != null ? userSettings.getPhotoUrl() : null);
+                return userDTO;
+            }).toList();
             dto.setWatchers(watcherDTOs);
+        }
+
+        if (task.getAssignees() != null && !task.getAssignees().isEmpty()) {
+            List<TaskDTO.UserDTO> assigneeDTOs = task.getAssignees().stream().map(assignee -> {
+                TaskDTO.UserDTO userDTO = new TaskDTO.UserDTO();
+                userDTO.setId(assignee.getId().intValue());
+                userDTO.setUsername(assignee.getUser().getUsername());
+                userDTO.setFullName(assignee.getUser().getFullName());
+                UserSettings userSettings = userSettingsRepository.findByUser(assignee.getUser()).orElse(null);
+                userDTO.setPhotoUrl(userSettings != null ? userSettings.getPhotoUrl() : null);
+                return userDTO;
+            }).toList();
+            dto.setAssignees(assigneeDTOs);
+        }
+
+        // Convert task attachments
+        if (task.getTaskAttachments() != null && !task.getTaskAttachments().isEmpty()) {
+            List<AttachmentDTO> attachmentDTOs = task.getTaskAttachments().stream()
+                    .filter(taskAttachment -> taskAttachment.getAttachment() != null &&
+                            (taskAttachment.getAttachment().getIsDelete() == null ||
+                                    !taskAttachment.getAttachment().getIsDelete()))
+                    .map(taskAttachment -> AttachmentDTO.fromEntity(taskAttachment.getAttachment()))
+                    .toList();
+            dto.setAttachments(attachmentDTOs);
         }
 
         return dto;
@@ -1147,17 +1353,6 @@ public class TaskController {
             task.setStatus(status);
         }
 
-        // Set user (assignee) - Giữ lại để tương thích ngược
-        if (taskRequestDTO.getUserId() != null) {
-            Optional<User> userOptional = userRepository.findById(taskRequestDTO.getUserId().longValue());
-            if (!userOptional.isPresent()) {
-                throw new Exception("Assigned user not found");
-            }
-            task.setUser(userOptional.get());
-        } else {
-            task.setUser(null);
-        }
-
         // Set user story first, as it's needed for project reference
         if (taskRequestDTO.getUserStoryId() != null) {
             Optional<UserStory> userStoryOptional = userStoryRepository.findById(taskRequestDTO.getUserStoryId());
@@ -1197,8 +1392,8 @@ public class TaskController {
         // Set tags if provided
         if (taskRequestDTO.getTagIds() != null && !taskRequestDTO.getTagIds().isEmpty()) {
             List<ProjectSettingTag> tags = new ArrayList<>();
-            for (Integer tagId : taskRequestDTO.getTagIds()) {
-                Optional<ProjectSettingTag> tagOptional = tagRepository.findById(tagId);
+            for (Long tagId : taskRequestDTO.getTagIds()) {
+                Optional<ProjectSettingTag> tagOptional = projectSettingTagRepository.findById(tagId);
                 if (tagOptional.isPresent()) {
                     tags.add(tagOptional.get());
                 }
@@ -1283,5 +1478,307 @@ public class TaskController {
         public void setPoints(Integer points) {
             this.points = points;
         }
+    }
+
+    /**
+     * Create notification for user added as an assignee to a task
+     */
+    private void createAssigneeNotification(User receiver, Task task, Long senderId) {
+        String description = "You have been assigned to task: " + task.getName();
+        notificationService.createNotification(
+                receiver,
+                description,
+                task.getId(),
+                "TASK_ASSIGNED",
+                senderId);
+    }
+
+    /**
+     * Create notification for user added as a watcher to a task
+     */
+    private void createWatcherNotification(User receiver, Task task, Long senderId) {
+        String description = "You have been added as a watcher to task: " + task.getName();
+        notificationService.createNotification(
+                receiver,
+                description,
+                task.getId(),
+                "TASK_WATCHING",
+                senderId);
+    }
+
+    // Add tag management endpoints
+    @PostMapping("/{taskId}/tags/{tagId}")
+    public ResponseEntity<?> addTagToTask(
+            @PathVariable Integer taskId,
+            @PathVariable Long tagId,
+            @RequestHeader(name = "User-Id", required = false) Long userId) {
+        try {
+            // Find the task
+            Task task = taskRepository.findById(taskId)
+                    .orElseThrow(() -> new IllegalArgumentException("Task not found"));
+
+            // Get user ID from header if not provided
+            if (userId == null) {
+                userId = getUserIdFromHeader();
+            }
+
+            // Check if user is a member of the project
+            if (!isUserInProject(taskId, userId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body("You do not have permission to access this task");
+            }
+
+            // Find the tag
+            ProjectSettingTag tag = projectSettingTagRepository.findById(tagId)
+                    .orElseThrow(() -> new IllegalArgumentException("Tag not found"));
+
+            // Verify the tag belongs to the same project as the task
+            Project taskProject = null;
+            if (task.getUserStory() != null) {
+                taskProject = task.getUserStory().getProject();
+            }
+
+            if (taskProject == null) {
+                return ResponseEntity.badRequest().body("Task's project could not be determined");
+            }
+
+            if (!tag.getProject().getId().equals(taskProject.getId())) {
+                return ResponseEntity.badRequest().body("Tag does not belong to the same project as the task");
+            }
+
+            // Initialize tags collection if null
+            if (task.getTags() == null) {
+                task.setTags(new ArrayList<ProjectSettingTag>());
+            }
+
+            // Add the tag
+            task.getTags().add(tag);
+            taskRepository.save(task);
+
+            // Try to record activity safely
+            try {
+                // Get or determine an effective user ID
+                Long effectiveUserId = userId;
+                if (effectiveUserId == null) {
+                    // Try to get from current request
+                    effectiveUserId = getUserIdFromHeader();
+
+                    // If still null, use default
+                    if (effectiveUserId == null || effectiveUserId <= 0) {
+                        // Fallback to a system user ID
+                        effectiveUserId = 1L;
+                    }
+                }
+
+                // Record activity with the effective user ID
+                activityService.recordTaskActivity(
+                        taskProject.getId(),
+                        task.getId(),
+                        effectiveUserId,
+                        "tag_added",
+                        "Added tag: " + tag.getName());
+            } catch (Exception e) {
+                // Log but don't fail the transaction just because activity recording failed
+                System.err.println("Failed to record tag add activity: " + e.getMessage());
+            }
+
+            return ResponseEntity.ok(convertToDTO(task));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error adding tag to task: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/{taskId}/tags/{tagId}")
+    public ResponseEntity<?> removeTagFromTask(
+            @PathVariable Integer taskId,
+            @PathVariable Long tagId,
+            @RequestHeader(name = "User-Id", required = false) Long userId) {
+        try {
+            // Find the task
+            Task task = taskRepository.findById(taskId)
+                    .orElseThrow(() -> new IllegalArgumentException("Task not found"));
+
+            // Get user ID from header if not provided
+            if (userId == null) {
+                userId = getUserIdFromHeader();
+            }
+
+            // Check if user is a member of the project
+            if (!isUserInProject(taskId, userId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body("You do not have permission to access this task");
+            }
+
+            // Find the tag for activity recording
+            ProjectSettingTag tag = projectSettingTagRepository.findById(tagId)
+                    .orElseThrow(() -> new IllegalArgumentException("Tag not found"));
+
+            // Get project ID for activity recording
+            Long projectId = null;
+            if (task.getUserStory() != null && task.getUserStory().getProject() != null) {
+                projectId = task.getUserStory().getProject().getId();
+            }
+
+            // Remove the tag
+            if (task.getTags() != null) {
+                task.getTags().removeIf(t -> t.getId().equals(tagId));
+                taskRepository.save(task);
+            }
+
+            // Try to record activity safely
+            if (projectId != null) {
+                try {
+                    // Get or determine an effective user ID
+                    Long effectiveUserId = userId;
+                    if (effectiveUserId == null) {
+                        // Try to get from current request
+                        effectiveUserId = getUserIdFromHeader();
+
+                        // If still null, use default
+                        if (effectiveUserId == null || effectiveUserId <= 0) {
+                            // Fallback to a system user ID
+                            effectiveUserId = 1L;
+                        }
+                    }
+
+                    // Record activity with the effective user ID
+                    activityService.recordTaskActivity(
+                            projectId,
+                            task.getId(),
+                            effectiveUserId,
+                            "tag_removed",
+                            "Removed tag: " + tag.getName());
+                } catch (Exception e) {
+                    // Log but don't fail the transaction just because activity recording failed
+                    System.err.println("Failed to record tag removal activity: " + e.getMessage());
+                }
+            }
+
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error removing tag from task: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Delete a comment from a task
+     * Only the comment creator can delete their own comments
+     */
+    @DeleteMapping("/{taskId}/comments/{commentId}")
+    public ResponseEntity<?> deleteComment(
+            @PathVariable Integer taskId,
+            @PathVariable Long commentId,
+            @RequestHeader(name = "User-Id", required = false) Long userId) {
+        try {
+            // Find the comment directly without loading the entire task
+            Optional<Comment> commentOptional = commentRepository.findById(commentId);
+            if (!commentOptional.isPresent()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Comment not found");
+            }
+
+            Comment comment = commentOptional.get();
+
+            // Verify the comment belongs to the task specified
+            if (comment.getTask() == null || !comment.getTask().getId().equals(taskId)) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Comment does not belong to this task");
+            }
+
+            // Get user ID from header if not provided
+            if (userId == null) {
+                userId = getUserIdFromHeader();
+            }
+
+            // Check if user is a member of the project
+            if (!isUserInProject(taskId, userId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body("You do not have permission to access this task");
+            }
+
+            // Verify the user is the comment creator
+            if (!comment.getUser().getId().equals(userId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body("You can only delete your own comments");
+            }
+
+            // Store task project info for activity logging before deletion
+            Integer taskIdForLog = taskId;
+            Long projectId = null;
+
+            try {
+                if (comment.getTask() != null && comment.getTask().getProject() != null) {
+                    projectId = comment.getTask().getProject().getId();
+                }
+            } catch (Exception e) {
+                // Ignore if we can't get project ID, we'll skip logging activity
+                System.err.println("Failed to get project ID for activity logging: " + e.getMessage());
+            }
+
+            // Delete the comment without loading the entire task
+            commentRepository.delete(comment);
+
+            // Explicitly flush to ensure immediate database update
+            commentRepository.flush();
+
+            // Record activity if we have project ID
+            if (projectId != null) {
+                try {
+                    activityService.recordTaskActivity(
+                            projectId,
+                            taskIdForLog,
+                            userId,
+                            "comment_deleted",
+                            "Deleted a comment");
+                } catch (Exception e) {
+                    // Just log the error but don't fail the request
+                    System.err.println("Failed to record comment deletion activity: " + e.getMessage());
+                }
+            }
+
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error deleting comment: " + e.getMessage());
+        }
+    }
+
+    @PutMapping("/{id}/soft-delete")
+    public ResponseEntity<Void> softDeleteTask(
+            @PathVariable Integer id,
+            @RequestHeader(name = "User-Id", required = false) Long userId) {
+
+        Optional<Task> taskOptional = taskRepository.findById(id);
+        if (!taskOptional.isPresent()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        // Get user ID from header if not provided
+        if (userId == null) {
+            userId = getUserIdFromHeader();
+        }
+
+        // Check if user is a member of the project
+        if (!isUserInProject(id, userId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .build();
+        }
+
+        Task task = taskOptional.get();
+
+        // Record activity before soft deletion
+        activityService.recordTaskActivity(
+                task.getProject().getId(),
+                task.getId(),
+                userId,
+                "task_deleted",
+                "Task \"" + task.getName() + "\" was deleted");
+
+        // Perform soft delete
+        task.setIsDeleted(true);
+        taskRepository.save(task);
+
+        return ResponseEntity.noContent().build();
     }
 }

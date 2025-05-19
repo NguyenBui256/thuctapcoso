@@ -22,6 +22,8 @@ public class UserStoryResponseDTO {
     private Long assignedUserId;
     private Boolean isBlocked;
     private List<UserDTO> assignedUsers;
+    private List<AttachmentDTO> attachments;
+    private List<TagDTO> tags;
 
     // Getters and Setters
     public Integer getId() {
@@ -160,6 +162,22 @@ public class UserStoryResponseDTO {
         this.assignedUsers = assignedUsers;
     }
 
+    public List<AttachmentDTO> getAttachments() {
+        return attachments;
+    }
+
+    public void setAttachments(List<AttachmentDTO> attachments) {
+        this.attachments = attachments;
+    }
+
+    public List<TagDTO> getTags() {
+        return tags;
+    }
+
+    public void setTags(List<TagDTO> tags) {
+        this.tags = tags;
+    }
+
     // Add methods with alternative naming for Jackson serialization
     public Boolean isBlocked() {
         return isBlocked;
@@ -167,5 +185,36 @@ public class UserStoryResponseDTO {
 
     public void setBlocked(Boolean blocked) {
         this.isBlocked = blocked;
+    }
+
+    // Add TagDTO inner class
+    public static class TagDTO {
+        private Long id;
+        private String name;
+        private String color;
+
+        public Long getId() {
+            return id;
+        }
+
+        public void setId(Long id) {
+            this.id = id;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getColor() {
+            return color;
+        }
+
+        public void setColor(String color) {
+            this.color = color;
+        }
     }
 }

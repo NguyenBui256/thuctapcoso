@@ -1,5 +1,6 @@
 package edu.ptit.ttcs.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -15,7 +16,7 @@ public class Module extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Long id;
 
     @Column(length = 100)
     private String name;
@@ -24,5 +25,6 @@ public class Module extends BaseEntity {
     private String description;
 
     @ManyToMany(mappedBy = "modules")
+    @JsonIgnore
     private Set<Project> projects = new HashSet<>();
 }
