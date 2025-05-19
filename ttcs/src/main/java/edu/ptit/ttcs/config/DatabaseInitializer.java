@@ -67,7 +67,7 @@ public class DatabaseInitializer implements CommandLineRunner {
                         adminUser.setEmail("admin@gmail.com");
                         adminUser.setFullName("I'm super admin");
                         adminUser.setPassword(this.passwordEncoder.encode("123456"));
-                        Role adminRole = this.roleRepository.getById(1L);
+                        Role adminRole = this.roleRepository.findByName("ADMIN").orElse(null);
                         adminUser.setRole(adminRole);
 
                         // Set required timestamp fields

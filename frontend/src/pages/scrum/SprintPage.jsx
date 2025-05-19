@@ -140,7 +140,8 @@ export default function SprintPage() {
         const transformedStatuses = data.map(status => ({
           id: status.id,
           name: status.name.toUpperCase(), // Convert to uppercase for consistency
-          color: status.color || '#cccccc'  // Keep as hex color for easier manipulation
+          color: status.color || '#cccccc',  // Keep as hex color for easier manipulation
+          closed: status.closed || false
         }));
         console.log("Transformed statuses:", transformedStatuses);
         setStatuses(transformedStatuses);
@@ -819,7 +820,7 @@ export default function SprintPage() {
   useEffect(() => {
     if (Object.keys(tasks).length > 0) {
       const doneStatusIds = statuses
-        .filter(s => s.name.toUpperCase() === 'DONE' || s.name.toUpperCase() === 'ARCHIVED')
+        .filter(s => s.closed === true)
         .map(s => s.id);
 
       let totalTasks = 0;
