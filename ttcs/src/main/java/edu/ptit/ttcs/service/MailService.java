@@ -6,6 +6,8 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.context.Context;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
@@ -16,6 +18,7 @@ import java.util.Map;
 public class MailService implements EmailService {
 
     private final JavaMailSender mailSender;
+    private final TemplateEngine templateEngine;
 
     @Value("${spring.mail.username}")
     private String fromMail;
@@ -40,15 +43,15 @@ public class MailService implements EmailService {
             helper.setTo(to);
             helper.setSubject(subject);
 
-            // Basic placeholder replacement
-            String content = "Template: " + templateName;
+            // Process template with Thymeleaf
+            Context context = new Context();
             if (variables != null) {
-                for (Map.Entry<String, Object> entry : variables.entrySet()) {
-                    content += "\n" + entry.getKey() + ": " + entry.getValue();
-                }
+                variables.forEach(context::setVariable);
             }
 
-            helper.setText(content, false);
+            String htmlContent = templateEngine.process("email/" + templateName, context);
+            helper.setText(htmlContent, true);
+
             mailSender.send(mimeMessage);
         } catch (MessagingException e) {
             throw new RuntimeException("Failed to send template email", e);
