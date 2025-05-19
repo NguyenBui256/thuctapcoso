@@ -1424,12 +1424,18 @@ public class UserStoryController {
 
             User watcher = userOpt.get();
             String username = watcher.getUsername();
+            ProjectMember projectMember = projectMemberRepository.findByProjectIdAndUserIdAndIsDeleteFalse(
+                    userStory.getProject().getId(), userId.longValue());
+            if (projectMember == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body("User is not a watcher of this task or not a project member");
+            }
 
-            userStory.getWatchers().remove(watcher);
+            userStory.getWatchers().remove(projectMember);
             userStoryRepository.save(userStory);
 
             // Record activity for removing watcher
-            Long actorUserId = 1L; // Default actor
+            Long actorUserId = userStory.getCreatedBy().getUser().getId();
             try {
                 ServletRequestAttributes requestAttributes = (ServletRequestAttributes) RequestContextHolder
                         .getRequestAttributes();

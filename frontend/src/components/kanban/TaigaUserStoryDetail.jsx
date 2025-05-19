@@ -757,24 +757,29 @@ export default function TaigaUserStoryDetail() {
     // Cập nhật hàm handleRemoveWatcher
     const handleRemoveWatcher = async (userId) => {
         try {
-            // Get the user details before removing
-            const user = watchers.find(u => u.id === userId);
-            const username = user ? user.username : `User ${userId}`;
-
-            await axios.delete(`/api/kanban/board/userstory/${userStoryId}/watchers/${userId}`);
-
+            const numericUserId = parseInt(userId);
+            if (isNaN(numericUserId)) {
+                console.error('Invalid user ID:', userId);
+                message.error('User ID không hợp lệ');
+                return;
+            }
+            await axios.delete(`/api/kanban/board/userstory/${userStoryId}/watchers/${numericUserId}`);
+            // Update UI immediately for better responsiveness
+            setWatchers(prev => prev.filter(watcher => parseInt(watcher.id) !== numericUserId));
+            message.success('Watcher removed successfully');
             // Fetch updated watchers
             const watchersResponse = await axios.get(`/api/kanban/board/userstory/${userStoryId}/watchers`);
             setWatchers(watchersResponse.data);
-
             // Record activity
-            await recordActivity('watcher_removed', `User ${username} stopped watching this story`);
-
+            await recordActivity('watcher_removed', `User removed from watchers`);
             // Trigger làm mới hoạt động
             triggerActivitiesRefresh();
         } catch (err) {
             console.error('Error removing watcher:', err);
-            alert('Failed to remove watcher. Please try again.');
+            message.error('Failed to remove watcher. Please try again.');
+            // Optionally refresh watchers from server
+            const watchersResponse = await axios.get(`/api/kanban/board/userstory/${userStoryId}/watchers`);
+            setWatchers(watchersResponse.data);
         }
     };
 

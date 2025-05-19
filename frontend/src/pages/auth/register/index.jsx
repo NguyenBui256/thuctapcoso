@@ -1,17 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { FaGithub, FaGoogle  } from 'react-icons/fa';
+import { FaGithub, FaGoogle } from 'react-icons/fa';
 import logo from '/icons/logo-color.svg'
 import { Link } from 'react-router-dom';
 import { OpenOauthLoginPage } from '../../../utils/Oauth2Utils'
 import { checkAuthenticated, setUserData } from '../../../utils/AuthUtils';
 import { BASE_API_URL } from '../../../common/constants';
+import { toast } from 'react-toastify';
 
 const RegisterPage = () => {
 
   useEffect(() => {
     const check = async () => {
       const authenticated = await checkAuthenticated()
-      if(authenticated) window.location.assign("/")
+      if (authenticated) window.location.assign("/")
     }
 
     check()
@@ -29,16 +30,17 @@ const RegisterPage = () => {
 
   const handleChangeRegisterInfo = (attrName, value) => {
     setRegisterInfo(prev => ({
-        ...prev,
-        [attrName]: value
+      ...prev,
+      [attrName]: value
     }))
   }
 
   const handleSubmit = (e) => {
     e.preventDefault();
     setError('')
-    if(registerInfo.password !== registerInfo.retypePassword){
+    if (registerInfo.password !== registerInfo.retypePassword) {
       setError("Mật khẩu nhập lại không trùng khớp")
+      toast.error("Mật khẩu nhập lại không trùng khớp");
       return
     }
     const body = {
@@ -57,12 +59,20 @@ const RegisterPage = () => {
     })
       .then(res => res.json())
       .then(res => {
-        if(res.message) setError(res.message)
-        else{
+        if (res.message) {
+          setError(res.message)
+          toast.error(res.message);
+        }
+        else {
           localStorage.setItem('access_token', res.token)
           setUserData(res.token)
+          toast.success('Đăng ký thành công!');
           window.location.assign('/')
         }
+      })
+      .catch(() => {
+        setError('Đã xảy ra lỗi khi đăng ký. Vui lòng thử lại sau.')
+        toast.error('Đã xảy ra lỗi khi đăng ký. Vui lòng thử lại sau.');
       })
   };
 
@@ -70,13 +80,13 @@ const RegisterPage = () => {
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
       <div className="w-full max-w-md p-6 flex flex-col items-center">
         <a
-            href='/' 
-            className="mb-4"
+          href='/'
+          className="mb-4"
         >
-            <img
-                src={logo}
-                className='w-30'
-            />
+          <img
+            src={logo}
+            className='w-30'
+          />
         </a>
 
         <h1 className="text-3xl font-bold text-gray-800 mb-7">Tagai</h1>
@@ -84,7 +94,7 @@ const RegisterPage = () => {
         {error && (
           <p className='text-red-500 text-sm'>{error}</p>
         )}
-        
+
         <form onSubmit={handleSubmit} className="w-full mt-2">
           <div className="mb-4">
             <input
@@ -118,7 +128,7 @@ const RegisterPage = () => {
               required
             />
           </div>
-          
+
           <div className="mb-4 relative">
             <input
               type="password"
@@ -140,43 +150,43 @@ const RegisterPage = () => {
               required
             />
           </div>
-          
-          <button 
-            type="submit" 
+
+          <button
+            type="submit"
             className="cursor-pointer w-full py-2 rounded bg-teal-400 hover:bg-teal-500 text-white font-medium transition duration-200"
           >
             ĐĂNG KÝ
           </button>
         </form>
-        
+
         <div className="mt-4 w-full">
-            <p className="text-center text-gray-600 mb-2">Hoặc đăng nhập với</p>
-          
-            <button 
-                className="cursor-pointer w-full mb-2 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded flex items-center justify-center"
-                onClick={() => OpenOauthLoginPage('github')}
-            >
-                <FaGithub size={20} className="mr-2" />
-                ĐĂNG NHẬP VỚI GITHUB
-            </button>
-          
-            <button 
-                className="cursor-pointer w-full py-2 bg-gray-700 hover:bg-gray-800 text-white rounded flex items-center justify-center"
-                onClick={() => OpenOauthLoginPage('google')}
-            >
-                <FaGoogle size={20} className="mr-2" />
-                ĐĂNG NHẬP VỚI GOOGLE
-            </button>
+          <p className="text-center text-gray-600 mb-2">Hoặc đăng nhập với</p>
+
+          <button
+            className="cursor-pointer w-full mb-2 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded flex items-center justify-center"
+            onClick={() => OpenOauthLoginPage('github')}
+          >
+            <FaGithub size={20} className="mr-2" />
+            ĐĂNG NHẬP VỚI GITHUB
+          </button>
+
+          <button
+            className="cursor-pointer w-full py-2 bg-gray-700 hover:bg-gray-800 text-white rounded flex items-center justify-center"
+            onClick={() => OpenOauthLoginPage('google')}
+          >
+            <FaGoogle size={20} className="mr-2" />
+            ĐĂNG NHẬP VỚI GOOGLE
+          </button>
         </div>
-        
+
         <div className="mt-6 text-center">
-            <span className="text-gray-600">Đã có tài khoản? </span>
-            <Link 
-                to="/login" 
-                className="text-blue-600 hover:underline"
-            >
-                Đăng nhập
-            </Link>
+          <span className="text-gray-600">Đã có tài khoản? </span>
+          <Link
+            to="/login"
+            className="text-blue-600 hover:underline"
+          >
+            Đăng nhập
+          </Link>
         </div>
       </div>
     </div>
