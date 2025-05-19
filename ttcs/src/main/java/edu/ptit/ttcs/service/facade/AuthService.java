@@ -32,6 +32,7 @@ import java.time.ZoneId;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -200,13 +201,19 @@ public class AuthService {
                 .build();
         forgotPasswordTokenDAO.save(token);
         String recoveryUrl = constant.getFeBaseUrl() + "/reset-password/" + token.getToken();
-        mailService.sendEmail(email, "[Tagai] Yêu cầu đặt lại mật khẩu",
-                String.format("""
-                        Hãy truy cập vào link sau để đặt lại mật khẩu: \
 
-                        %s \
+        // Create variables for the template
+        Map<String, Object> templateVariables = new HashMap<>();
+        templateVariables.put("resetUrl", recoveryUrl);
+        templateVariables.put("username", user.getUsername());
+        templateVariables.put("fullName", user.getFullName());
 
-                        Link sẽ hết hạn trong 10 phút""", recoveryUrl));
+        // Send email with template
+        mailService.sendTemplateMessage(
+                email,
+                "[Tagai] Yêu cầu đặt lại mật khẩu",
+                "reset-password.html",
+                templateVariables);
     }
 
     public void resetPassword(ResetPasswordDTO dto) {

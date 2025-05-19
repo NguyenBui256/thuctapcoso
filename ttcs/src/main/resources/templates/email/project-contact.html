@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Liên hệ từ dự án</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .logo {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .logo img {
+            max-width: 150px;
+        }
+        .header {
+            background-color: #4a6cf7;
+            color: #ffffff;
+            padding: 20px;
+            text-align: center;
+            border-radius: 5px 5px 0 0;
+        }
+        .content {
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 0 0 5px 5px;
+            border: 1px solid #e0e0e0;
+        }
+        .message-box {
+            background-color: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .project-info {
+            background-color: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 12px;
+            color: #999;
+        }
+        .sender-info {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .project-link {
+            display: inline-block;
+            background-color: #4a6cf7;
+            color: #ffffff !important;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        .project-link:hover {
+            background-color: #3a5bd8;
+        }
+    </style>
+</head>
+<body>
+    <div class="logo">
+        <!-- You can add your logo here -->
+        <h1>Tagai</h1>
+    </div>
+    
+    <div class="header">
+        <h2>Liên hệ từ dự án</h2>
+    </div>
+    
+    <div class="content">
+        <p>Xin chào,</p>
+        
+        <p>Bạn đã nhận được một tin nhắn liên hệ từ dự án <strong th:text="${projectName}">Tên dự án</strong>.</p>
+        
+        <div class="project-info">
+            <p><strong>Dự án:</strong> <span th:text="${projectName}">Tên dự án</span></p>
+            <p><strong>Người gửi:</strong> <span th:text="${senderName}">Tên người gửi</span></p>
+            <p><strong>Thời gian:</strong> <span th:text="${currentTime}">Thời gian</span></p>
+        </div>
+        
+        <div class="message-box">
+            <div class="sender-info">Nội dung tin nhắn:</div>
+            <p th:text="${message}">Nội dung tin nhắn</p>
+        </div>
+        
+        <div style="text-align: center;">
+            <a th:href="${projectUrl}" class="project-link">Xem dự án</a>
+        </div>
+        
+        <p>Bạn có thể trả lời tin nhắn này bằng cách liên hệ trực tiếp với người gửi hoặc thông qua hệ thống Tagai.</p>
+        
+        <p>Trân trọng,<br />Đội ngũ Tagai</p>
+    </div>
+    
+    <div class="footer">
+        <p>&copy; 2024 Tagai. Tất cả các quyền được bảo lưu.</p>
+        <p>Đây là email tự động, vui lòng không trả lời.</p>
+    </div>
+</body>
+</html> 
