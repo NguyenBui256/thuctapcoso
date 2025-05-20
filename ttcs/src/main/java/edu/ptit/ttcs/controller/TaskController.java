@@ -145,9 +145,10 @@ public class TaskController {
      */
     @GetMapping("/{id}")
     public ResponseEntity<TaskDTO> getTaskById(
-            @PathVariable Integer id,
-            @RequestHeader(name = "User-Id", required = false) Long userId) {
+            @PathVariable Integer id) {
 
+        User user = securityUtils.getCurrentUser();
+        Long userId = user.getId();
         Optional<Task> taskOptional = taskRepository.findById(id);
         if (!taskOptional.isPresent()) {
             return ResponseEntity.notFound().build();
@@ -386,8 +387,10 @@ public class TaskController {
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteTask(
-            @PathVariable Integer id,
-            @RequestHeader(name = "User-Id", required = false) Long userId) {
+            @PathVariable Integer id) {
+
+        User user = securityUtils.getCurrentUser();
+        Long userId = user.getId();
 
         Optional<Task> taskOptional = taskRepository.findById(id);
         if (!taskOptional.isPresent()) {
@@ -1093,19 +1096,22 @@ public class TaskController {
             @PathVariable Integer taskId,
             @RequestBody AddCommentRequest request) {
         try {
+            User user = securityUtils.getCurrentUser();
+            Long userId = user.getId();
+
             Optional<Task> taskOptional = taskRepository.findById(taskId);
             if (!taskOptional.isPresent()) {
                 return ResponseEntity.notFound().build();
             }
 
             Task task = taskOptional.get();
-            Optional<User> userOptional = userRepository.findById(request.getUserId().longValue());
+            Optional<User> userOptional = userRepository.findById(userId);
             if (!userOptional.isPresent()) {
                 return ResponseEntity.badRequest().build();
             }
 
             // Check if user is a member of the project
-            if (!isUserInProject(taskId, request.getUserId().longValue())) {
+            if (!isUserInProject(taskId, userId)) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
                         .body(null);
             }
@@ -1113,7 +1119,7 @@ public class TaskController {
             Comment comment = new Comment();
             comment.setContent(request.getContent());
             comment.setTask(task);
-            comment.setUser(userOptional.get());
+            comment.setUser(user);
             comment.setCreatedAt(LocalDateTime.now());
             comment.setUpdatedAt(LocalDateTime.now());
 
@@ -1123,7 +1129,7 @@ public class TaskController {
             activityService.recordTaskActivity(
                     task.getProject().getId(),
                     task.getId(),
-                    userOptional.get().getId(),
+                    userId,
                     "comment_added",
                     "Added a comment: " + request.getContent());
 
@@ -1152,9 +1158,11 @@ public class TaskController {
      */
     @GetMapping("/{taskId}/comments")
     public ResponseEntity<List<CommentDTO>> getComments(
-            @PathVariable Integer taskId,
-            @RequestHeader(name = "User-Id", required = false) Long userId) {
+            @PathVariable Integer taskId) {
         try {
+            User user = securityUtils.getCurrentUser();
+            Long userId = user.getId();
+
             // Find task
             Optional<Task> taskOptional = taskRepository.findById(taskId);
             if (!taskOptional.isPresent()) {
@@ -1510,17 +1518,14 @@ public class TaskController {
     @PostMapping("/{taskId}/tags/{tagId}")
     public ResponseEntity<?> addTagToTask(
             @PathVariable Integer taskId,
-            @PathVariable Long tagId,
-            @RequestHeader(name = "User-Id", required = false) Long userId) {
+            @PathVariable Long tagId) {
         try {
+            User user = securityUtils.getCurrentUser();
+            Long userId = user.getId();
+
             // Find the task
             Task task = taskRepository.findById(taskId)
                     .orElseThrow(() -> new IllegalArgumentException("Task not found"));
-
-            // Get user ID from header if not provided
-            if (userId == null) {
-                userId = getUserIdFromHeader();
-            }
 
             // Check if user is a member of the project
             if (!isUserInProject(taskId, userId)) {
@@ -1592,9 +1597,11 @@ public class TaskController {
     @DeleteMapping("/{taskId}/tags/{tagId}")
     public ResponseEntity<?> removeTagFromTask(
             @PathVariable Integer taskId,
-            @PathVariable Long tagId,
-            @RequestHeader(name = "User-Id", required = false) Long userId) {
+            @PathVariable Long tagId) {
         try {
+            User user = securityUtils.getCurrentUser();
+            Long userId = user.getId();
+
             // Find the task
             Task task = taskRepository.findById(taskId)
                     .orElseThrow(() -> new IllegalArgumentException("Task not found"));
@@ -1669,9 +1676,11 @@ public class TaskController {
     @DeleteMapping("/{taskId}/comments/{commentId}")
     public ResponseEntity<?> deleteComment(
             @PathVariable Integer taskId,
-            @PathVariable Long commentId,
-            @RequestHeader(name = "User-Id", required = false) Long userId) {
+            @PathVariable Long commentId) {
         try {
+            User user = securityUtils.getCurrentUser();
+            Long userId = user.getId();
+
             // Find the comment directly without loading the entire task
             Optional<Comment> commentOptional = commentRepository.findById(commentId);
             if (!commentOptional.isPresent()) {
@@ -1746,8 +1755,9 @@ public class TaskController {
 
     @PutMapping("/{id}/soft-delete")
     public ResponseEntity<Void> softDeleteTask(
-            @PathVariable Integer id,
-            @RequestHeader(name = "User-Id", required = false) Long userId) {
+            @PathVariable Integer id) {
+        User user = securityUtils.getCurrentUser();
+        Long userId = user.getId();
 
         Optional<Task> taskOptional = taskRepository.findById(id);
         if (!taskOptional.isPresent()) {

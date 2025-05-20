@@ -1,8 +1,10 @@
 package edu.ptit.ttcs.controller;
 
+import edu.ptit.ttcs.entity.User;
 import edu.ptit.ttcs.entity.dto.ActivityDTO;
 import edu.ptit.ttcs.service.ActivityService;
 import edu.ptit.ttcs.service.ProjectService;
+import edu.ptit.ttcs.util.SecurityUtils;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -27,11 +29,16 @@ public class ActivityController {
     @Autowired
     private ProjectService projectService;
 
+    @Autowired
+    private SecurityUtils securityUtils;
+
     @GetMapping("/projects/{projectId}/activities")
     public ResponseEntity<List<ActivityDTO>> getProjectActivities(
-            @PathVariable Long projectId,
-            @RequestHeader("User-Id") Long userId) {
+            @PathVariable Long projectId) {
         try {
+            User user = securityUtils.getCurrentUser();
+            Long userId = user.getId();
+
             List<ActivityDTO> activities = activityService.getProjectActivities(projectId, userId);
             return ResponseEntity.ok(activities);
         } catch (Exception e) {
@@ -44,9 +51,11 @@ public class ActivityController {
             @PathVariable Long projectId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "8") int size,
-            @RequestParam(defaultValue = "timestamp,desc") String sort,
-            @RequestHeader(value = "User-Id", required = false) Long userId) {
+            @RequestParam(defaultValue = "timestamp,desc") String sort) {
         try {
+            User user = securityUtils.getCurrentUser();
+            Long userId = user.getId();
+
             String[] sortParams = sort.split(",");
             String sortField = sortParams[0];
             Sort.Direction direction = sortParams.length > 1 && sortParams[1].equalsIgnoreCase("asc")
@@ -64,9 +73,11 @@ public class ActivityController {
 
     @GetMapping("/issues/{issueId}/activities")
     public ResponseEntity<List<ActivityDTO>> getIssueActivities(
-            @PathVariable Long issueId,
-            @RequestHeader("User-Id") Long userId) {
+            @PathVariable Long issueId) {
         try {
+            User user = securityUtils.getCurrentUser();
+            Long userId = user.getId();
+
             List<ActivityDTO> activities = activityService.getIssueActivities(issueId, userId);
             return ResponseEntity.ok(activities);
         } catch (Exception e) {
@@ -76,9 +87,11 @@ public class ActivityController {
 
     @GetMapping("/userstories/{userStoryId}/activities")
     public ResponseEntity<List<ActivityDTO>> getUserStoryActivities(
-            @PathVariable Integer userStoryId,
-            @RequestHeader("User-Id") Long userId) {
+            @PathVariable Integer userStoryId) {
         try {
+            User user = securityUtils.getCurrentUser();
+            Long userId = user.getId();
+
             List<ActivityDTO> activities = activityService.getUserStoryActivities(userStoryId, userId);
             return ResponseEntity.ok(activities);
         } catch (Exception e) {
@@ -88,9 +101,11 @@ public class ActivityController {
 
     @GetMapping("/tasks/{taskId}/activities")
     public ResponseEntity<List<ActivityDTO>> getTaskActivities(
-            @PathVariable Integer taskId,
-            @RequestHeader("User-Id") Long userId) {
+            @PathVariable Integer taskId) {
         try {
+            User user = securityUtils.getCurrentUser();
+            Long userId = user.getId();
+
             List<ActivityDTO> activities = activityService.getTaskActivities(taskId, userId);
             return ResponseEntity.ok(activities);
         } catch (Exception e) {
@@ -101,9 +116,11 @@ public class ActivityController {
     @PostMapping("/userstories/{userStoryId}/activities")
     public ResponseEntity<ActivityDTO> recordUserStoryActivity(
             @PathVariable Integer userStoryId,
-            @RequestHeader("User-Id") Long userId,
             @RequestBody ActivityDTO activityDTO) {
         try {
+            User user = securityUtils.getCurrentUser();
+            Long userId = user.getId();
+
             ActivityDTO recordedActivity = activityService.recordUserStoryActivity(
                     activityDTO.getProjectId(),
                     userStoryId,
@@ -120,9 +137,11 @@ public class ActivityController {
     @PostMapping("/tasks/{taskId}/activities")
     public ResponseEntity<ActivityDTO> recordTaskActivity(
             @PathVariable Integer taskId,
-            @RequestHeader("User-Id") Long userId,
             @RequestBody ActivityDTO activityDTO) {
         try {
+            User user = securityUtils.getCurrentUser();
+            Long userId = user.getId();
+
             ActivityDTO recordedActivity = activityService.recordTaskActivity(
                     activityDTO.getProjectId(),
                     taskId,
