@@ -18,6 +18,7 @@ public class ProjectWikiPageDTO {
     @JsonIgnoreProperties({ "user", "project" })
     private ProjectMember createdBy;
     private String createdByUsername;
+    private String createdByAvatar;
     @JsonIgnoreProperties({ "user", "project" })
     private ProjectMember updatedBy;
     private LocalDateTime createdAt;
@@ -41,7 +42,7 @@ public class ProjectWikiPageDTO {
         dto.setUpdatedAt(entity.getUpdatedAt());
         dto.setEditCount(entity.getEditCount());
         dto.setCreatedByUsername(entity.getCreatedBy() != null ? entity.getCreatedBy().getUser().getUsername() : null);
-
+        dto.setCreatedByAvatar(entity.getCreatedBy() != null ? entity.getCreatedBy().getUser().getAvatar() : null);
         // Convert attachments to DTOs
         if (entity.getAttachments() != null && !entity.getAttachments().isEmpty()) {
             for (Attachment attachment : entity.getAttachments()) {
