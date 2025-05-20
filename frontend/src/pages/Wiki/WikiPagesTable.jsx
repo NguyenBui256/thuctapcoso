@@ -69,10 +69,10 @@ const WikiPagesTable = ({ pages, projectId, loading = false }) => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-8 w-8">
-                        {page.createdBy?.avatarUrl ? (
+                        {page.createdByAvatar ? (
                           <img
                             className="h-8 w-8 rounded-full"
-                            src={page.createdBy.avatarUrl}
+                            src={page.createdByAvatar}
                             alt={page.createdByUsername}
                           />
                         ) : (

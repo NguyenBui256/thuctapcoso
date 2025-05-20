@@ -1511,20 +1511,8 @@ public class UserStoryController {
             UserStory userStory = userStoryOpt.get();
 
             // Get user ID from request header or default to 1L
-            Long userId = 1L;
-            try {
-                ServletRequestAttributes requestAttributes = (ServletRequestAttributes) RequestContextHolder
-                        .getRequestAttributes();
-                if (requestAttributes != null) {
-                    HttpServletRequest httpRequest = requestAttributes.getRequest();
-                    String userIdHeader = httpRequest.getHeader("User-Id");
-                    if (userIdHeader != null) {
-                        userId = Long.parseLong(userIdHeader);
-                    }
-                }
-            } catch (Exception e) {
-                // Fallback to default if header not available or parsing fails
-            }
+            User user = securityUtils.getCurrentUser();
+            Long userId = user.getId();
 
             // Find user
             Optional<User> userOptional = userRepository.findById(userId);
@@ -1952,9 +1940,11 @@ public class UserStoryController {
     @PostMapping("/userstory/{userStoryId}/tags/{tagId}")
     public ResponseEntity<?> addTagToUserStory(
             @PathVariable Integer userStoryId,
-            @PathVariable Long tagId,
-            @RequestHeader(name = "User-Id", required = false) Long userId) {
+            @PathVariable Long tagId) {
         try {
+            User user = securityUtils.getCurrentUser();
+            Long userId = user.getId();
+
             UserStory userStory = userStoryRepository.findById(userStoryId)
                     .orElseThrow(() -> new RuntimeException("User story not found"));
 
@@ -2030,9 +2020,11 @@ public class UserStoryController {
     @DeleteMapping("/userstory/{userStoryId}/tags/{tagId}")
     public ResponseEntity<?> removeTagFromUserStory(
             @PathVariable Integer userStoryId,
-            @PathVariable Long tagId,
-            @RequestHeader(name = "User-Id", required = false) Long userId) {
+            @PathVariable Long tagId) {
         try {
+            User user = securityUtils.getCurrentUser();
+            Long userId = user.getId();
+
             UserStory userStory = userStoryRepository.findById(userStoryId)
                     .orElseThrow(() -> new RuntimeException("User story not found"));
 
@@ -2153,32 +2145,10 @@ public class UserStoryController {
     @DeleteMapping("/userstory/{userStoryId}/comments/{commentId}")
     public ResponseEntity<?> deleteComment(
             @PathVariable Integer userStoryId,
-            @PathVariable Long commentId,
-            @RequestHeader(name = "User-Id", required = false) Long userId) {
+            @PathVariable Long commentId) {
         try {
-            // Get user ID from header or security context
-            if (userId == null) {
-                try {
-                    User user = securityUtils.getCurrentUser();
-                    userId = user.getId();
-                } catch (Exception e) {
-                    // If we can't get the current user, fall back to User-Id header or default
-                    try {
-                        ServletRequestAttributes requestAttributes = (ServletRequestAttributes) RequestContextHolder
-                                .getRequestAttributes();
-                        if (requestAttributes != null) {
-                            HttpServletRequest request = requestAttributes.getRequest();
-                            String userIdHeader = request.getHeader("User-Id");
-                            if (userIdHeader != null) {
-                                userId = Long.parseLong(userIdHeader);
-                            }
-                        }
-                    } catch (Exception ex) {
-                        // Fallback to default
-                        userId = 1L;
-                    }
-                }
-            }
+            User user = securityUtils.getCurrentUser();
+            Long userId = user.getId();
 
             // Find comment directly without loading the entire user story
             Optional<Comment> commentOptional = commentRepository.findById(commentId);

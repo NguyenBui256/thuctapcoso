@@ -67,6 +67,7 @@ public class UserSettingsServiceImpl implements UserSettingsService {
         }
         if (updateUserDTO.getPhotoUrl() != null) {
             settings.setPhotoUrl(updateUserDTO.getPhotoUrl());
+            user.setAvatar(updateUserDTO.getPhotoUrl());
         }
 
         if (updateUserDTO.getEmail() != null) {
