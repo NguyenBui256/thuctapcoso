@@ -90,32 +90,85 @@ In the rapidly evolving world of software development, effective team collaborat
 
 <div align="center">
 
+### Login & Register
+<img width="1820" height="917" alt="image" src="https://github.com/user-attachments/assets/fa788eb6-133b-41cb-a23c-95e07214aee6" />
+<img width="1822" height="922" alt="image" src="https://github.com/user-attachments/assets/400f8cff-2dd5-40a0-9ce0-e7da34193ef8" />
+
 ### 📊 Project Dashboard
-![Dashboard](./screenshots/image3.png)
+<img width="1920" height="1030" alt="image" src="https://github.com/user-attachments/assets/871618d6-40e9-4d39-a0fb-f54355c70e2d" />
+<img width="1920" height="1030" alt="image" src="https://github.com/user-attachments/assets/2c5f6a5b-db9e-4d57-9b06-e707b27dafc2" />
+<img width="1920" height="1030" alt="image" src="https://github.com/user-attachments/assets/b3f52e34-fd36-4d17-9fb8-79890887117a" />
+<img width="1920" height="1030" alt="image" src="https://github.com/user-attachments/assets/133bd02d-be26-4867-a08f-eec63136a7a7" />
+
 
 ### 🎯 Kanban Board
-![Kanban Board](./screenshots/image4.png)
+<img width="1920" height="1030" alt="image" src="https://github.com/user-attachments/assets/727a5a7b-d648-4759-87aa-172e2aa5e918" />
+<img width="1920" height="1030" alt="image" src="https://github.com/user-attachments/assets/9e41bf74-aaf0-4b09-96d2-12ec56af6f88" />
+
 
 ### 📋 Sprint Management
-![Sprint Management](./screenshots/image.png)
+<img width="1820" height="918" alt="image" src="https://github.com/user-attachments/assets/ab0d7b5d-2627-40c1-854a-e4385e801531" />
+<img width="1819" height="914" alt="image" src="https://github.com/user-attachments/assets/c3f2404c-ba41-41e7-a9bd-5c65198f23a0" />
+<img width="1820" height="925" alt="image" src="https://github.com/user-attachments/assets/ce869bbc-4176-4f56-bc7a-1f526ae32570" />
+<img width="1825" height="921" alt="image" src="https://github.com/user-attachments/assets/a232478c-58c9-4f4f-bdc0-6fc85b6d6792" />
+<img width="1833" height="920" alt="image" src="https://github.com/user-attachments/assets/69de40f3-cca3-461c-a85c-5325c900ebc8" />
 
-### 📝 Task Details
-![Task Details](./screenshots/image2.png)
+### Issue Management
+<img width="1820" height="924" alt="image" src="https://github.com/user-attachments/assets/ee445056-641f-4641-9ca1-3697b7c8a76b" />
+<img width="1823" height="919" alt="image" src="https://github.com/user-attachments/assets/76c88af0-457f-43b5-bafa-d5bcc64b366b" />
+<img width="1821" height="917" alt="image" src="https://github.com/user-attachments/assets/7734c0ad-a490-47b5-9611-e751ffc96457" />
+<img width="1822" height="922" alt="image" src="https://github.com/user-attachments/assets/ece283ff-f141-4cac-9651-4c4ffb524456" />
+
+### 📝 Userstory Management
+<img width="1920" height="1030" alt="image" src="https://github.com/user-attachments/assets/70a339c2-c223-44ef-88ba-6a0c94eec1f7" />
+<img width="1920" height="1030" alt="image" src="https://github.com/user-attachments/assets/0849573f-77bf-4300-880c-ac782b8d1ce6" />
+<img width="1920" height="1030" alt="image" src="https://github.com/user-attachments/assets/921d5f8c-2883-4f56-9090-174bae2b8c06" />
+<img width="1920" height="1030" alt="image" src="https://github.com/user-attachments/assets/733d5579-9268-445a-927f-e18a47a6fefa" />
+
+
+### 📝 Task Management
+<img width="1920" height="1030" alt="image" src="https://github.com/user-attachments/assets/0fabce0c-5e6a-47e1-903e-e232869d226d" />
+<img width="1920" height="1030" alt="image" src="https://github.com/user-attachments/assets/428abdc0-895d-4458-804e-3371a862344f" />
+<img width="1920" height="1030" alt="image" src="https://github.com/user-attachments/assets/c1fc0596-7594-4f77-b067-ecf0c5009c1a" />
+
 
 ### 📚 Wiki System
-![Wiki System](./screenshots/image1.png)
+<img width="1919" height="914" alt="image" src="https://github.com/user-attachments/assets/bc888831-0951-4183-b121-7d138e85a79d" />
+
+### User Management
+<img width="1920" height="1030" alt="image" src="https://github.com/user-attachments/assets/d2da8f84-db47-4625-9e16-c6b886f3794e" />
+<img width="1920" height="1030" alt="image" src="https://github.com/user-attachments/assets/b41f2aea-84fe-4741-bbb9-d59632f1ca29" />
+<img width="1920" height="1030" alt="image" src="https://github.com/user-attachments/assets/dcebd56b-d136-4ed2-8bb6-ac288e2214e7" />
+<img width="1920" height="1030" alt="image" src="https://github.com/user-attachments/assets/8637cd43-0494-422c-b42b-e9e307e3cd99" />
+<img width="1920" height="1030" alt="image" src="https://github.com/user-attachments/assets/7b7eb744-01e4-4fb2-b4b7-23dbb931aef0" />
+<img width="1920" height="1030" alt="image" src="https://github.com/user-attachments/assets/764b112f-6a54-4842-9104-deb7b5f58dfc" />
+
 
 ### 👥 Team Management
-![Team Management](./screenshots/image5.png)
+<img width="1919" height="914" alt="image" src="https://github.com/user-attachments/assets/b292c48f-868c-4d5e-b6e8-06225b7b226d" />
+<img width="1919" height="913" alt="image" src="https://github.com/user-attachments/assets/74b2f0bc-c686-4be5-999b-7ab6a673f50b" />
+
 
 ### ⚙️ Project Settings
-![Project Settings](./screenshots/image6.png)
+<img width="1919" height="912" alt="image" src="https://github.com/user-attachments/assets/426f2c78-e082-4d3d-9fc6-2f66463b740d" />
+<img width="1918" height="910" alt="image" src="https://github.com/user-attachments/assets/2b2baade-1a41-45c4-86d1-d88a924d52a2" />
+<img width="1919" height="913" alt="image" src="https://github.com/user-attachments/assets/8caff5b0-a273-48cf-885b-acba99707235" />
+<img width="1919" height="913" alt="image" src="https://github.com/user-attachments/assets/b851c693-90e9-4644-a5fb-cb5a01a8c0c5" />
+<img width="1919" height="913" alt="image" src="https://github.com/user-attachments/assets/f814d2fd-7666-441d-8ee1-591d931d3f3b" />
+
 
 ### 🔍 Search Functionality
-![Search](./screenshots/image7.png)
+<img width="1920" height="1030" alt="image" src="https://github.com/user-attachments/assets/76d7810f-ac6a-45fd-a9a0-6b57a520dc57" />
+<img width="1920" height="1030" alt="image" src="https://github.com/user-attachments/assets/cf906fa9-3991-4cc0-940a-75af35fd6112" />
+
+### Notification Management
+<img width="1919" height="219" alt="image" src="https://github.com/user-attachments/assets/58da642b-a6ac-4a74-bb63-825fb6298c6a" />
+<img width="520" height="242" alt="image" src="https://github.com/user-attachments/assets/cd8da226-bf4c-4d58-b2e7-2866a7a0bc2c" />
+
 
 ### 🗄️ Database Architecture
-![Database Schema](./database-schema.png)
+<img width="1428" height="2048" alt="image" src="https://github.com/user-attachments/assets/8c922576-f4cb-49fe-89c2-bc24c63dd7d6" />
+
 
 </div>
 
@@ -137,7 +190,8 @@ Our database architecture is carefully designed to support complex project manag
 - **Documentation**: Wiki pages with file attachments
 - **Configuration**: Customizable project settings and permissions
 
-![Database Schema](./database-schema.png)
+<img width="1428" height="2048" alt="image" src="https://github.com/user-attachments/assets/d77ed316-2917-49a9-9e8f-5c5b30dffeb3" />
+
 
 ## 🛠️ Technology Stack
 
