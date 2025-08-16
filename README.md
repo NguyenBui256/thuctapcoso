@@ -63,7 +63,6 @@ In the rapidly evolving world of software development, effective team collaborat
 <sub><b>Bùi Thế Vĩnh Nguyên</b></sub>
 </a>
 <br />
-<sub>Full-Stack Developer</sub>
 </td>
 <td align="center">
 <a href="https://github.com/dungnguyen2112">
@@ -72,7 +71,6 @@ In the rapidly evolving world of software development, effective team collaborat
 <sub><b>Nguyễn Trí Dũng</b></sub>
 </a>
 <br />
-<sub>Backend Developer</sub>
 </td>
 <td align="center">
 <a href="https://github.com/NgNhatThanh">
@@ -81,7 +79,6 @@ In the rapidly evolving world of software development, effective team collaborat
 <sub><b>Nguyễn Nhật Thành</b></sub>
 </a>
 <br />
-<sub>Frontend Developer</sub>
 </td>
 </tr>
 </table>
