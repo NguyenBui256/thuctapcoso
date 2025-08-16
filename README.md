@@ -114,7 +114,30 @@ In the rapidly evolving world of software development, effective team collaborat
 ### 🔍 Search Functionality
 ![Search](./screenshots/image7.png)
 
+### 🗄️ Database Architecture
+![Database Schema](./database-schema.png)
+
 </div>
+
+## 🗄️ Database Design
+
+Our database architecture is carefully designed to support complex project management workflows with optimal performance and scalability.
+
+### Key Design Principles:
+- **Normalized Structure**: Eliminates data redundancy and ensures consistency
+- **Relationship Integrity**: Foreign key constraints maintain data relationships
+- **Scalable Schema**: Designed to handle growing data volumes
+- **Performance Optimized**: Strategic indexing for fast query execution
+
+### Core Entities:
+- **Users & Authentication**: Secure user management with role-based access
+- **Projects & Teams**: Multi-project support with team collaboration
+- **Agile Workflow**: Sprint, User Stories, Tasks with hierarchical structure
+- **Communication**: Comments, notifications, and activity tracking
+- **Documentation**: Wiki pages with file attachments
+- **Configuration**: Customizable project settings and permissions
+
+![Database Schema](./database-schema.png)
 
 ## 🛠️ Technology Stack
 
