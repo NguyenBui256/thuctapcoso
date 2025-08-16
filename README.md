@@ -228,7 +228,7 @@ Our database architecture is carefully designed to support complex project manag
 
 ```bash
 # Clone the repository
-git clone https://github.com/NguyenBui256/tagai.git
+git clone https://github.com/NguyenBui256/thuctapcoso.git
 cd tagai
 
 # Start all services with Docker Compose
