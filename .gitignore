@@ -1,3 +1,4 @@
 db/*_data
 /.idea
 /node_modules
+/ttcs/.env

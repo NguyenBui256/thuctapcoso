@@ -157,12 +157,15 @@ public class DatabaseInitializer implements CommandLineRunner {
 
                 if (countModules == 0) {
                         List<Module> modules = new ArrayList<>();
+                        LocalDateTime now = LocalDateTime.now();
 
                         Module scrumModule = new Module();
                         scrumModule.setId(1L);
                         scrumModule.setName("Scrum");
                         scrumModule.setDescription(
                                         "Quản lý dự án theo phương pháp Scrum với các tính năng như Sprint, User Stories, và Task Management.");
+                        scrumModule.setCreatedAt(now);
+                        scrumModule.setUpdatedAt(now);
                         modules.add(scrumModule);
 
                         Module kanbanModule = new Module();
@@ -170,18 +173,24 @@ public class DatabaseInitializer implements CommandLineRunner {
                         kanbanModule.setName("Kanban");
                         kanbanModule.setDescription(
                                         "Quản lý công việc theo phương pháp Kanban với bảng trực quan, theo dõi tiến độ và quản lý luồng công việc.");
+                        kanbanModule.setCreatedAt(now);
+                        kanbanModule.setUpdatedAt(now);
                         modules.add(kanbanModule);
 
                         Module issuesModule = new Module();
                         issuesModule.setId(3L);
                         issuesModule.setName("Issues");
                         issuesModule.setDescription("Theo dõi vấn đề, báo cáo lỗi và quản lý yêu cầu trong dự án.");
+                        issuesModule.setCreatedAt(now);
+                        issuesModule.setUpdatedAt(now);
                         modules.add(issuesModule);
 
                         Module wikiModule = new Module();
                         wikiModule.setId(4L);
                         wikiModule.setName("Wiki");
                         wikiModule.setDescription("Tài liệu dự án và cơ sở kiến thức cho đội nhóm.");
+                        wikiModule.setCreatedAt(now);
+                        wikiModule.setUpdatedAt(now);
                         modules.add(wikiModule);
 
                         moduleRepository.saveAll(modules);
